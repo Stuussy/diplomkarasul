@@ -1,0 +1,115 @@
+const express = require('express');
+const { body, validationResult } = require('express-validator');
+const User = require('../models/User');
+const { signToken } = require('../utils/token');
+const auth = require('../middleware/auth');
+
+const router = express.Router();
+
+const registerValidators = [
+  body('firstName').notEmpty().withMessage('Имя обязательно.'),
+  body('lastName').notEmpty().withMessage('Фамилия обязательна.'),
+  body('email').isEmail().withMessage('Укажите корректный email.'),
+  body('password').isLength({ min: 6 }).withMessage('Минимум 6 символов для пароля.'),
+];
+
+router.post('/register', registerValidators, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const { firstName, lastName, email, password, phone } = req.body;
+
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ message: 'Пользователь с таким email уже существует.' });
+    }
+
+    const passwordHash = await User.hashPassword(password);
+    const user = await User.create({
+      firstName,
+      lastName,
+      email,
+      phone,
+      passwordHash,
+      role: 'patient',
+    });
+
+    const token = signToken(user);
+    res.status(201).json({ token, user });
+  } catch (error) {
+    console.error('Регистрация не удалась:', error);
+    res.status(500).json({ message: 'Ошибка регистрации пользователя.' });
+  }
+});
+
+router.post(
+  '/login',
+  [body('email').isEmail(), body('password').notEmpty()],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { email, password } = req.body;
+      const user = await User.findOne({ email, isActive: true });
+
+      if (!user) {
+        return res.status(401).json({ message: 'Неверный email или пароль.' });
+      }
+
+      const isValid = await user.comparePassword(password);
+      if (!isValid) {
+        return res.status(401).json({ message: 'Неверный email или пароль.' });
+      }
+
+      const token = signToken(user);
+      res.json({ token, user });
+    } catch (error) {
+      console.error('Ошибка авторизации:', error);
+      res.status(500).json({ message: 'Не удалось выполнить вход.' });
+    }
+  },
+);
+
+router.get('/me', auth(), async (req, res) => {
+  const user = await User.findById(req.user.id).select('-passwordHash');
+  res.json(user);
+});
+
+router.post('/bootstrap-director', registerValidators, async (req, res) => {
+  const directorExists = await User.findOne({ role: 'director' });
+  if (directorExists) {
+    return res.status(403).json({ message: 'Директор уже создан.' });
+  }
+
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const { firstName, lastName, email, password, phone } = req.body;
+    const passwordHash = await User.hashPassword(password);
+    const director = await User.create({
+      firstName,
+      lastName,
+      email,
+      phone,
+      passwordHash,
+      role: 'director',
+    });
+
+    const token = signToken(director);
+    res.status(201).json({ token, user: director });
+  } catch (error) {
+    console.error('Ошибка создания директора:', error);
+    res.status(500).json({ message: 'Не удалось создать директора.' });
+  }
+});
+
+module.exports = router;

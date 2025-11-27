@@ -1,0 +1,49 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+build/
+
+# iOS
+ios/Pods/
+ios/Flutter/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+ios/DerivedData/
+**/*.dSYM
+
+# macOS
+macos/Pods/
+macos/Flutter/ephemeral/
+macos/DerivedData/
+
+# Android
+android/.gradle/
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/.idea/
+android/local.properties
+
+# IDE / Editor
+.idea/
+.vscode/
+*.iml
+
+# Logs
+*.log
+/flutter_*.png
+
+# Environment / secrets
+.env
+rasul-dent-backend/.env
+
+# Node backend artifacts
+rasul-dent-backend/node_modules/
+rasul-dent-backend/package-lock.json
+rasul-dent-backend/.npmcache/
+
+# Misc
+.DS_Store

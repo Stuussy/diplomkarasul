@@ -1,0 +1,56 @@
+import 'clinic.dart';
+import 'user.dart';
+
+class Appointment {
+  final String id;
+  final AppUser? doctor;
+  final AppUser? patient;
+  final Clinic? clinic;
+  final String service;
+  final DateTime startTime;
+  final int durationMinutes;
+  final String status;
+  final DateTime? confirmWindowStart;
+  final DateTime? confirmWindowEnd;
+  final DateTime? cancelBefore;
+  final bool fineIssued;
+
+  Appointment({
+    required this.id,
+    required this.doctor,
+    required this.patient,
+    required this.clinic,
+    required this.service,
+    required this.startTime,
+    required this.durationMinutes,
+    required this.status,
+    this.confirmWindowStart,
+    this.confirmWindowEnd,
+    this.cancelBefore,
+    this.fineIssued = false,
+  });
+
+  DateTime get endTime => startTime.add(Duration(minutes: durationMinutes));
+
+  factory Appointment.fromJson(Map<String, dynamic> json) {
+    return Appointment(
+      id: json['_id'] ?? '',
+      doctor: json['doctor'] != null ? AppUser.fromJson(json['doctor']) : null,
+      patient: json['patient'] != null ? AppUser.fromJson(json['patient']) : null,
+      clinic: json['clinic'] != null ? Clinic.fromJson(json['clinic']) : null,
+      service: json['service'] ?? '',
+      startTime: DateTime.parse(json['startTime']),
+      durationMinutes: json['durationMinutes'] ?? 30,
+      status: json['status'] ?? 'scheduled',
+      confirmWindowStart: json['confirmWindow']?['start'] != null
+          ? DateTime.parse(json['confirmWindow']['start'])
+          : null,
+      confirmWindowEnd: json['confirmWindow']?['end'] != null
+          ? DateTime.parse(json['confirmWindow']['end'])
+          : null,
+      cancelBefore:
+          json['cancelBefore'] != null ? DateTime.parse(json['cancelBefore']) : null,
+      fineIssued: json['fineIssued'] ?? false,
+    );
+  }
+}
