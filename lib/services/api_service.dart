@@ -198,6 +198,15 @@ class ApiService {
     return data.map((json) => AppUser.fromJson(json)).toList();
   }
 
+  Future<List<AppUser>> fetchDoctors() async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/users/doctors'),
+      headers: _headers(),
+    );
+    final data = _decode(response) as List<dynamic>;
+    return data.map((json) => AppUser.fromJson(json)).toList();
+  }
+
   Future<AppUser> createUser({
     required String firstName,
     required String lastName,

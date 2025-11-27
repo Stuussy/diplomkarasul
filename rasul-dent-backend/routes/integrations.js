@@ -9,7 +9,7 @@ import('node-fetch').then((mod) => {
 
 router.get('/places/dental-clinics', async (req, res) => {
   const { lat, lon, radius, type, max } = req.query;
-  const GOOGLE_PLACES_API_KEY = "";
+  const GOOGLE_PLACES_API_KEY = "AIzaSyCv1p2VAlzgWDb2nZKlMqzDKQfSkUBCJ0g";
 
   if (!lat || !lon) {
     return res.status(400).json({ error: 'Необходимо указать широту и долготу.' });
@@ -66,7 +66,7 @@ router.get('/places/dental-clinics', async (req, res) => {
 
 router.post('/gemini/ask', async (req, res) => {
   const { prompt } = req.body;
-  const GEMINI_API_KEY = "";
+  const GEMINI_API_KEY = "AIzaSyDsNu_gJF_M7FXRBJCFEoj8FcCaDVz6fSs";
   const fallback =
     'Не удалось обратиться к ИИ, но мы напоминаем: чистите зубы утром и вечером, и не забывайте про нить.';
 

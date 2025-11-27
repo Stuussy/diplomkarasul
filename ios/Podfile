@@ -38,11 +38,8 @@ end
 
 post_install do |installer|
   installer.pods_project.build_configurations.each do |config|
-    # Разрешаем все архитектуры, кроме arm64 для СИМУЛЯТОРА
     config.build_settings['ARCHS'] = '$(ARCHS_STANDARD)'
-
-    # ВАЖНО! Симулятор не должен собирать arm64, иначе MLKit ломает сборку
-    config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+    config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = ''
   end
 
   installer.pods_project.targets.each do |target|
@@ -50,8 +47,7 @@ post_install do |installer|
 
     target.build_configurations.each do |config|
       config.build_settings['ARCHS'] = '$(ARCHS_STANDARD)'
-      # Важно: исключить arm64 ДЛЯ СИМУЛЯТОРА
-      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = ''
     end
   end
 end

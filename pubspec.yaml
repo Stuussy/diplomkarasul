@@ -39,6 +39,7 @@ dependencies:
   shared_preferences: ^2.2.3
   mobile_scanner: ^5.0.1
   url_launcher: ^6.3.0
+  permission_handler: ^11.3.0
 
 dev_dependencies:
   flutter_test:

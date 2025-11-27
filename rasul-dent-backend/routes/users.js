@@ -57,6 +57,17 @@ router.get('/', auth(['admin', 'director']), async (req, res) => {
   res.json(users);
 });
 
+router.get('/doctors', auth(), async (req, res) => {
+  try {
+    const doctors = await User.find({ role: 'doctor', isActive: true })
+      .select('firstName lastName email phone specialties clinics');
+    res.json(doctors);
+  } catch (error) {
+    console.error('Ошибка получения списка врачей:', error);
+    res.status(500).json({ message: 'Не удалось загрузить врачей.' });
+  }
+});
+
 router.patch(
   '/:id/role',
   auth(['director']),

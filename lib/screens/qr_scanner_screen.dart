@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
@@ -12,6 +13,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   bool _hasDetected = false;
   final MobileScannerController _controller = MobileScannerController();
   String? _error;
+  late Future<bool> _permissionFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _permissionFuture = _requestPermission();
+  }
 
   void _onDetect(BarcodeCapture capture) {
     if (_hasDetected) return;
@@ -48,40 +56,72 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Сканер QR')),
-      body: Stack(
-        children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: _onDetect,
-            errorBuilder: (context, error, child) =>
-                _CameraErrorWidget(
+      body: FutureBuilder<bool>(
+        future: _permissionFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final granted = snapshot.data ?? false;
+          if (!granted) {
+            return _PermissionWarning(
+              onRetry: () async {
+                final result = await _requestPermission();
+                if (!mounted) return;
+                setState(() {
+                  _permissionFuture = Future.value(result);
+                });
+              },
+            );
+          }
+
+          return Stack(
+            children: [
+              MobileScanner(
+                controller: _controller,
+                onDetect: _onDetect,
+                errorBuilder: (context, error, child) => _CameraErrorWidget(
                   message: error.toString(),
                   onShowMessage: (msg) {
                     if (!mounted) return;
                     setState(() => _error = msg);
                   },
                 ),
-          ),
-          if (_error != null)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 32,
-              child: Card(
-                color: Colors.black.withValues(alpha: 0.7),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.white),
-                    textAlign: TextAlign.center,
+              ),
+              if (_error != null)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 32,
+                  child: Card(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(color: Colors.white),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-        ],
+            ],
+          );
+        },
       ),
     );
+  }
+
+  Future<bool> _requestPermission() async {
+    final status = await Permission.camera.request();
+    if (status.isGranted) {
+      return true;
+    }
+    if (status.isPermanentlyDenied) {
+      await openAppSettings();
+    }
+    return false;
   }
 }
 
@@ -103,6 +143,37 @@ class _CameraErrorWidget extends StatelessWidget {
         message,
         textAlign: TextAlign.center,
         style: const TextStyle(color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _PermissionWarning extends StatelessWidget {
+  const _PermissionWarning({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.camera_alt_outlined, size: 48, color: Colors.grey),
+            const SizedBox(height: 12),
+            const Text(
+              'Нужен доступ к камере для сканирования QR-кодов.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: const Text('Разрешить доступ'),
+            ),
+          ],
+        ),
       ),
     );
   }
