@@ -19,6 +19,8 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
   Slot? _selectedSlot;
   late String _selectedService;
   bool _isBooking = false;
+  bool _isCheckingBooking = true;
+  bool _hasActiveBooking = false;
 
   @override
   void initState() {
@@ -28,6 +30,25 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
     _selectedService = widget.doctor.specialties.isNotEmpty
         ? widget.doctor.specialties.first
         : 'Консультация';
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadBookingState());
+  }
+
+  Future<void> _loadBookingState() async {
+    final api = context.read<SessionProvider>().apiService;
+    try {
+      final appointments = await api.fetchAppointments();
+      final hasActive = appointments
+          .where((app) => app.status == 'scheduled' || app.status == 'confirmed')
+          .isNotEmpty;
+      if (!mounted) return;
+      setState(() {
+        _hasActiveBooking = hasActive;
+        _isCheckingBooking = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isCheckingBooking = false);
+    }
   }
 
   Future<void> _bookSlot() async {
@@ -39,14 +60,19 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
       await api.bookSlot(slot: slot, service: _selectedService);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Запрос отправлен администратору.')),
+        const SnackBar(content: Text('Запись подтверждена.')),
       );
-      Navigator.of(context).pop();
+      setState(() => _hasActiveBooking = true);
+      Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не удалось записаться: $e')),
-      );
+      final message = e.toString().contains('already')
+          ? 'Вы уже записаны. Сначала отмените текущую запись.'
+          : 'Не удалось записаться: $e';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      if (message.contains('уже записаны')) {
+        setState(() => _hasActiveBooking = true);
+      }
     } finally {
       if (mounted) setState(() => _isBooking = false);
     }
@@ -140,20 +166,42 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            if (_isCheckingBooking)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 16),
+                child: LinearProgressIndicator(minHeight: 2),
+              )
+            else if (_hasActiveBooking)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Row(
+                  children: const [
+                    Icon(Icons.info_outline, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Вы уже записаны. Чтобы выбрать другое время, отмените текущую запись.',
+                        style: TextStyle(color: Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size.fromHeight(48),
                 backgroundColor: Colors.blue,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              onPressed: _selectedSlot == null || _isBooking ? null : _bookSlot,
+              onPressed:
+                  _selectedSlot == null || _isBooking || _hasActiveBooking ? null : _bookSlot,
               child: _isBooking
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Записаться на выбранное время'),
+                  : Text(_hasActiveBooking ? 'Вы уже записаны' : 'Записаться на выбранное время'),
             ),
           ],
         ),

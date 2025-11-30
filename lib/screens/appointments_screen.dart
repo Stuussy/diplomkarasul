@@ -59,7 +59,16 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
 
                 final appointments = snapshot.data ?? [];
                 final now = DateTime.now();
-                final upcoming = appointments.where((a) => a.startTime.isAfter(now)).toList()
+                final upcoming = appointments
+                    .where(
+                      (a) =>
+                          a.status != 'cancelled' &&
+                          (a.status == 'scheduled' ||
+                              a.status == 'confirmed' ||
+                              a.status == 'completed') &&
+                          a.startTime.isAfter(now),
+                    )
+                    .toList()
                   ..sort((a, b) => a.startTime.compareTo(b.startTime));
                 final past = appointments.where((a) => !a.startTime.isAfter(now)).toList()
                   ..sort((b, a) => a.startTime.compareTo(b.startTime));
@@ -94,15 +103,26 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
               '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
           final timeLabel =
               '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+          final statusChip = _StatusChip(status: appointment.status);
           return Card(
             child: ListTile(
               leading: Icon(
-                upcoming ? Icons.watch_later_outlined : Icons.check_circle_outline,
-                color: upcoming ? Colors.blue : Colors.green,
+                upcoming ? Icons.watch_later_outlined : Icons.history_toggle_off,
+                color: upcoming ? Colors.blue : Colors.grey,
               ),
               title: Text('${appointment.service} — $dateLabel $timeLabel'),
-              subtitle: Text(appointment.doctor?.fullName ?? ''),
-              trailing: isPatient && upcoming ? _buildActions(appointment) : Text(appointment.status),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(appointment.doctor?.fullName ?? ''),
+                  const SizedBox(height: 4),
+                  statusChip,
+                ],
+              ),
+              trailing:
+                  isPatient && upcoming && appointment.status == 'scheduled'
+                      ? _buildActions(appointment)
+                      : null,
             ),
           );
         },
@@ -126,7 +146,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
             label: const Text('QR'),
           ),
         TextButton(
-          onPressed: () => _cancel(appointment),
+          onPressed: () => _confirmCancel(appointment),
           child: const Text('Отменить'),
         ),
       ],
@@ -168,6 +188,25 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
     }
   }
 
+  Future<void> _confirmCancel(Appointment appointment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Отменить запись?'),
+        content: const Text('Вы уверены, что хотите отменить запись?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Да, отменить'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _cancel(appointment);
+  }
+
   Future<void> _cancel(Appointment appointment) async {
     final api = context.read<SessionProvider>().apiService;
     final messenger = ScaffoldMessenger.of(context);
@@ -180,5 +219,56 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text('$error')));
     }
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.status});
+
+  final String status;
+
+  Color _colorForStatus() {
+    switch (status) {
+      case 'confirmed':
+        return Colors.green.shade100;
+      case 'scheduled':
+        return Colors.orange.shade100;
+      case 'completed':
+        return Colors.blue.shade100;
+      case 'cancelled':
+        return Colors.red.shade100;
+      default:
+        return Colors.grey.shade200;
+    }
+  }
+
+  String _labelForStatus() {
+    switch (status) {
+      case 'confirmed':
+        return 'Подтверждено';
+      case 'scheduled':
+        return 'Ожидает';
+      case 'completed':
+        return 'Завершено';
+      case 'cancelled':
+        return 'Отменено';
+      default:
+        return status;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: _colorForStatus(),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        _labelForStatus(),
+        style: const TextStyle(fontSize: 12),
+      ),
+    );
   }
 }

@@ -81,6 +81,43 @@ router.get('/me', auth(), async (req, res) => {
   res.json(user);
 });
 
+router.patch(
+  '/me',
+  auth(),
+  [
+    body('firstName').optional().isLength({ min: 1 }).withMessage('Имя не может быть пустым.'),
+    body('lastName').optional().isLength({ min: 1 }).withMessage('Фамилия не может быть пустой.'),
+    body('phone')
+      .optional()
+      .isLength({ min: 5 })
+      .withMessage('Телефон должен содержать не менее 5 символов.'),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const updates = {};
+      ['firstName', 'lastName', 'phone'].forEach((field) => {
+        if (req.body[field] !== undefined) updates[field] = req.body[field];
+      });
+
+      const user = await User.findByIdAndUpdate(req.user.id, updates, {
+        new: true,
+      }).select('-passwordHash');
+      if (!user) {
+        return res.status(404).json({ message: 'Пользователь не найден.' });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error('Ошибка обновления профиля:', error);
+      res.status(500).json({ message: 'Не удалось обновить профиль.' });
+    }
+  },
+);
+
 router.post(
   '/change-password',
   auth(),

@@ -75,6 +75,25 @@ class SessionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<String?> updateProfile({
+    String? firstName,
+    String? lastName,
+    String? phone,
+  }) async {
+    try {
+      final updated = await _apiService.updateProfile(
+        firstName: firstName,
+        lastName: lastName,
+        phone: phone,
+      );
+      _user = updated;
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _extractMessage(error);
+    }
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');

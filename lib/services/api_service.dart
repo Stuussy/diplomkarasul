@@ -98,12 +98,16 @@ class ApiService {
     final now = DateTime.now();
     final inThirtyDays = now.add(const Duration(days: 30));
     final appointments = await fetchAppointments(from: now, to: inThirtyDays);
-    if (appointments.isEmpty) return null;
-    appointments.sort((a, b) => a.startTime.compareTo(b.startTime));
-    return appointments.firstWhere(
-      (appointment) => appointment.startTime.isAfter(now),
-      orElse: () => appointments.first,
-    );
+    final filtered = appointments
+        .where(
+          (a) =>
+              (a.status == 'scheduled' || a.status == 'confirmed') &&
+              a.startTime.isAfter(now),
+        )
+        .toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    if (filtered.isEmpty) return null;
+    return filtered.first;
   }
 
   Future<Appointment> confirmAppointment(String appointmentId) async {
@@ -344,6 +348,25 @@ class ApiService {
       }),
     );
     _decode(response);
+  }
+
+  Future<AppUser> updateProfile({
+    String? firstName,
+    String? lastName,
+    String? phone,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (firstName != null) payload['firstName'] = firstName;
+    if (lastName != null) payload['lastName'] = lastName;
+    if (phone != null) payload['phone'] = phone;
+
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/auth/me'),
+      headers: _headers(),
+      body: jsonEncode(payload),
+    );
+    final data = _decode(response);
+    return AppUser.fromJson(data);
   }
 
   Future<void> updateClinic(String clinicId, Map<String, dynamic> payload) async {

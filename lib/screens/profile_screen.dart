@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/fine.dart';
+import '../models/user.dart';
 import '../providers/session_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -20,95 +21,217 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _finesFuture = context.read<SessionProvider>().apiService.fetchFines();
   }
 
+  Future<void> _refresh() async {
+    await context.read<SessionProvider>().refreshProfile();
+    setState(() {
+      _finesFuture = context.read<SessionProvider>().apiService.fetchFines();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = context.watch<SessionProvider>().user;
+    if (user == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _ProfileHeader(
+            userName: user.fullName,
+            email: user.email,
+            onEdit: () => _showEditProfileSheet(user),
+          ),
+          const SizedBox(height: 12),
+          Card(
             child: Column(
               children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: Colors.blueAccent,
-                  child: Text(
-                    user?.firstName.substring(0, 1).toUpperCase() ?? '?',
-                    style: const TextStyle(fontSize: 32, color: Colors.white),
-                  ),
+                _InfoTile(
+                  icon: Icons.alternate_email,
+                  title: 'Email',
+                  value: user.email,
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  user?.fullName ?? '',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                const Divider(height: 1),
+                _InfoTile(
+                  icon: Icons.phone_outlined,
+                  title: 'Телефон',
+                  value: user.phone?.isNotEmpty == true ? user.phone! : 'Не указан',
                 ),
-                Text(user?.email ?? ''),
-                const SizedBox(height: 12),
-                Text('Роль: ${user?.role ?? '-'}'),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _showChangePasswordDialog,
-                        child: const Text('Сменить пароль'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => context.read<SessionProvider>().logout(),
-                        child: const Text('Выйти'),
-                      ),
-                    ),
-                  ],
+                const Divider(height: 1),
+                _InfoTile(
+                  icon: Icons.badge_outlined,
+                  title: 'Роль',
+                  value: user.role,
                 ),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          'Штрафы за позднюю отмену',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        FutureBuilder<List<Fine>>(
-          future: _finesFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (snapshot.hasError) {
-              return Text('Ошибка: ${snapshot.error}');
+          const SizedBox(height: 12),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.lock_outline),
+                  title: const Text('Сменить пароль'),
+                  onTap: _showChangePasswordDialog,
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.logout),
+                  title: const Text('Выйти из аккаунта'),
+                  onTap: () => context.read<SessionProvider>().logout(),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Штрафы за позднюю отмену',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          FutureBuilder<List<Fine>>(
+            future: _finesFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Text('Ошибка: ${snapshot.error}');
+              }
+
+              final fines = snapshot.data ?? [];
+              if (fines.isEmpty) {
+                return const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('Штрафов нет — вы молодец!'),
+                  ),
+                );
+              }
+              return Card(
+                child: Column(
+                  children: fines
+                      .map(
+                        (fine) => ListTile(
+                          leading: const Icon(Icons.warning, color: Colors.redAccent),
+                          title: Text('${fine.amount.toStringAsFixed(0)} тг'),
+                          subtitle: Text(fine.reason),
+                          trailing: Text(
+                            fine.isPaid ? 'Оплачен' : 'Не оплачен',
+                            style: TextStyle(color: fine.isPaid ? Colors.green : Colors.red),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showEditProfileSheet(AppUser user) async {
+    final firstNameController = TextEditingController(text: user.firstName);
+    final lastNameController = TextEditingController(text: user.lastName);
+    final phoneController = TextEditingController(text: user.phone ?? '');
+    final formKey = GlobalKey<FormState>();
+    bool isSaving = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        final session = this.context.read<SessionProvider>();
+        final messenger = ScaffoldMessenger.of(this.context);
+        final navigator = Navigator.of(this.context);
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            top: 24,
+          ),
+          child: StatefulBuilder(builder: (context, setState) {
+            Future<void> submit() async {
+              if (!formKey.currentState!.validate()) return;
+              setState(() => isSaving = true);
+              final error = await session.updateProfile(
+                firstName: firstNameController.text.trim(),
+                lastName: lastNameController.text.trim(),
+                phone: phoneController.text.trim(),
+              );
+              setState(() => isSaving = false);
+              if (error != null) {
+                messenger.showSnackBar(SnackBar(content: Text(error)));
+                return;
+              }
+              navigator.pop();
+              messenger.showSnackBar(const SnackBar(content: Text('Профиль обновлен')));
             }
 
-            final fines = snapshot.data ?? [];
-            if (fines.isEmpty) {
-              return const Text('Штрафов нет — вы молодец!');
-            }
-            return Column(
-              children: fines
-                  .map(
-                    (fine) => ListTile(
-                      leading: const Icon(Icons.warning, color: Colors.redAccent),
-                      title: Text('${fine.amount.toStringAsFixed(0)} тг'),
-                      subtitle: Text(fine.reason),
-                      trailing: Text(
-                        fine.isPaid ? 'Оплачен' : 'Не оплачен',
-                        style: TextStyle(color: fine.isPaid ? Colors.green : Colors.red),
-                      ),
+            return Form(
+              key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                  TextFormField(
+                    controller: firstNameController,
+                    decoration: const InputDecoration(labelText: 'Имя'),
+                    validator: (value) => value == null || value.isEmpty ? 'Введите имя' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: lastNameController,
+                    decoration: const InputDecoration(labelText: 'Фамилия'),
+                    validator: (value) => value == null || value.isEmpty ? 'Введите фамилию' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: phoneController,
+                    decoration: const InputDecoration(labelText: 'Телефон'),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isSaving ? null : submit,
+                      child: isSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Сохранить изменения'),
                     ),
-                  )
-                  .toList(),
+                  ),
+                ],
+              ),
             );
-          },
-        ),
-        const SizedBox(height: 20),
-      ],
+          }),
+        );
+      },
     );
+
+    firstNameController.dispose();
+    lastNameController.dispose();
+    phoneController.dispose();
   }
 
   Future<void> _showChangePasswordDialog() async {
@@ -194,5 +317,85 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     currentController.dispose();
     newController.dispose();
+  }
+}
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
+    required this.userName,
+    required this.email,
+    required this.onEdit,
+  });
+
+  final String userName;
+  final String email;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.all(Radius.circular(24)),
+        gradient: LinearGradient(
+          colors: [Color(0xFF4F8EF7), Color(0xFF6FB2FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
+                  child: Text(
+                    userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+                    style: const TextStyle(fontSize: 32, color: Colors.white),
+                  ),
+                ),
+              const Spacer(),
+              IconButton(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, color: Colors.white),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            userName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            email,
+            style: const TextStyle(color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoTile extends StatelessWidget {
+  const _InfoTile({required this.icon, required this.title, required this.value});
+
+  final IconData icon;
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title, style: const TextStyle(color: Colors.black54)),
+      subtitle: Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+    );
   }
 }

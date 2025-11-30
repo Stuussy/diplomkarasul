@@ -34,16 +34,15 @@ router.post('/', auth(['patient']), createValidators, async (req, res) => {
         .json({ message: 'Для ручного бронирования нужны doctorId, clinicId и startTime.' });
     }
 
-    const dayStart = dayjs(startTime).startOf('day').toDate();
-    const dayEnd = dayjs(startTime).endOf('day').toDate();
-    const existingCount = await Appointment.countDocuments({
+    const existingActive = await Appointment.findOne({
       patient: patientId,
-      startTime: { $gte: dayStart, $lte: dayEnd },
-      status: { $ne: 'cancelled' },
+      status: { $in: ['scheduled', 'confirmed'] },
     });
-
-    if (existingCount >= 3) {
-      return res.status(400).json({ message: 'Нельзя иметь более 3 записей в один день.' });
+    if (existingActive) {
+      return res.status(409).json({
+        code: 'already_booked',
+        message: 'Вы уже записаны на приём. Отмените текущую запись перед новой.',
+      });
     }
 
     let slot;

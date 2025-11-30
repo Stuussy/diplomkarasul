@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/user.dart';
 import '../providers/session_provider.dart';
 import 'appointment_request_screen.dart';
 import 'doctor_detail_screen.dart';
+
+const _twoGisWebUrl =
+    'https://2gis.kz/astana/search/%D1%81%D1%82%D0%BE%D0%BC%D0%BE%D1%82%D0%BE%D0%BB%D0%BE%D0%B3%D0%B8%D1%8F/filters/sort%3Drating/firm/70000001041371459?m=71.421132%2C51.123988%2F18&immersive=on';
+const _twoGisDeepLink = 'dgis://2gis.ru/firm/70000001041371459';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -15,6 +20,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   late Future<List<AppUser>> _futureDoctors;
+  bool _isOpeningMap = false;
 
   @override
   void initState() {
@@ -28,6 +34,47 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
+  Future<void> _openClinicLocation() async {
+    if (_isOpeningMap) return;
+    setState(() => _isOpeningMap = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final deepLink = Uri.parse(_twoGisDeepLink);
+      final webLink = Uri.parse(_twoGisWebUrl);
+
+      bool opened = false;
+      try {
+        opened = await launchUrl(
+          deepLink,
+          mode: LaunchMode.externalApplication,
+        );
+        if (opened) {
+          debugPrint('2GIS deep link opened');
+        }
+      } catch (_) {
+        opened = false;
+      }
+
+      if (!opened) {
+        opened = await launchUrl(
+          webLink,
+          mode: LaunchMode.externalApplication,
+        );
+        if (opened) {
+          debugPrint('2GIS web link opened');
+        }
+      }
+
+      if (!opened && mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Не удалось открыть карту. Проверьте установку 2GIS.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isOpeningMap = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final role = context.watch<SessionProvider>().user?.role ?? 'patient';
@@ -38,10 +85,24 @@ class _MapScreenState extends State<MapScreen> {
         Container(
           height: 180,
           color: Colors.grey[300],
-          child: const Center(
-            child: Text(
-              'Наша клиника на карте появится после подключения ключей',
-              textAlign: TextAlign.center,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'Карта доступна в 2GIS. Откройте, чтобы построить маршрут до клиники.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: _isOpeningMap ? null : _openClinicLocation,
+                  icon: const Icon(Icons.map_outlined),
+                  label: Text(_isOpeningMap ? 'Открываем...' : 'Открыть в 2GIS'),
+                ),
+              ],
             ),
           ),
         ),
@@ -95,6 +156,7 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                         );
                       },
+                      onOpenMap: _isOpeningMap ? null : _openClinicLocation,
                     );
                   },
                 ),
@@ -112,11 +174,13 @@ class _DoctorCard extends StatelessWidget {
     required this.doctor,
     required this.canContactSupport,
     required this.onOpenDetail,
+    required this.onOpenMap,
   });
 
   final AppUser doctor;
   final bool canContactSupport;
   final VoidCallback onOpenDetail;
+  final Future<void> Function()? onOpenMap;
 
   @override
   Widget build(BuildContext context) {
@@ -196,23 +260,29 @@ class _DoctorCard extends StatelessWidget {
             if (canContactSupport)
               Row(
                 children: [
-                ElevatedButton.icon(
-                  onPressed: onOpenDetail,
-                  icon: const Icon(Icons.person_outline),
-                  label: const Text('Профиль'),
-                ),
-                const SizedBox(width: 12),
-                OutlinedButton(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => AppointmentRequestScreen(doctor: doctor),
-                    ),
+                  ElevatedButton.icon(
+                    onPressed: onOpenDetail,
+                    icon: const Icon(Icons.person_outline),
+                    label: const Text('Профиль'),
                   ),
-                  child: const Text('Записаться'),
-                ),
-              ],
-            )
-          else
+                  const SizedBox(width: 12),
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AppointmentRequestScreen(doctor: doctor),
+                      ),
+                    ),
+                    child: const Text('Записаться'),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: onOpenMap == null ? null : () => onOpenMap!(),
+                    icon: const Icon(Icons.map_outlined),
+                    label: const Text('2GIS'),
+                  ),
+                ],
+              )
+            else
               const Text(
                 'Запись пациентов выполняется через мобильное приложение.',
                 style: TextStyle(fontSize: 12, color: Colors.grey),

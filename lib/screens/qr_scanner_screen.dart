@@ -14,6 +14,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   final MobileScannerController _controller = MobileScannerController();
   String? _error;
   late Future<bool> _permissionFuture;
+  bool _permissionPermanentlyDenied = false;
 
   @override
   void initState() {
@@ -73,6 +74,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   _permissionFuture = Future.value(result);
                 });
               },
+              canOpenSettings: _permissionPermanentlyDenied,
             );
           }
 
@@ -114,12 +116,32 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   }
 
   Future<bool> _requestPermission() async {
-    final status = await Permission.camera.request();
+    final status = await Permission.camera.status;
     if (status.isGranted) {
       return true;
     }
+    if (status.isDenied) {
+      final result = await Permission.camera.request();
+      if (result.isGranted) {
+        return true;
+      }
+      if (result.isPermanentlyDenied) {
+        if (mounted) {
+          setState(() => _permissionPermanentlyDenied = true);
+        }
+        await openAppSettings();
+      }
+      return false;
+    }
     if (status.isPermanentlyDenied) {
+      if (mounted) {
+        setState(() => _permissionPermanentlyDenied = true);
+      }
       await openAppSettings();
+      return false;
+    }
+    if (status.isRestricted) {
+      return false;
     }
     return false;
   }
@@ -149,9 +171,10 @@ class _CameraErrorWidget extends StatelessWidget {
 }
 
 class _PermissionWarning extends StatelessWidget {
-  const _PermissionWarning({required this.onRetry});
+  const _PermissionWarning({required this.onRetry, this.canOpenSettings = false});
 
   final VoidCallback onRetry;
+  final bool canOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -172,6 +195,13 @@ class _PermissionWarning extends StatelessWidget {
               onPressed: onRetry,
               child: const Text('Разрешить доступ'),
             ),
+            if (canOpenSettings) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: openAppSettings,
+                child: const Text('Открыть настройки'),
+              ),
+            ],
           ],
         ),
       ),
