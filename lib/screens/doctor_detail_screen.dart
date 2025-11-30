@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/user.dart';
+import 'appointment_request_screen.dart';
 
 class DoctorDetailScreen extends StatelessWidget {
   const DoctorDetailScreen({super.key, required this.doctor});
@@ -79,7 +80,13 @@ class DoctorDetailScreen extends StatelessWidget {
                     backgroundColor: Colors.blue,
                     shape: const StadiumBorder(),
                   ),
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AppointmentRequestScreen(doctor: doctor),
+                      ),
+                    );
+                  },
                   child: const Text('Записаться'),
                 ),
               ],
@@ -153,7 +160,13 @@ class DoctorDetailScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => AppointmentRequestScreen(doctor: doctor),
+                  ),
+                );
+              },
               child: const Text(
                 'Записаться на приём',
                 style: TextStyle(fontSize: 16),

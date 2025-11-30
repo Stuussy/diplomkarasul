@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../models/user.dart';
 import '../providers/session_provider.dart';
+import 'appointment_request_screen.dart';
 import 'doctor_detail_screen.dart';
-import 'support_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -196,21 +196,23 @@ class _DoctorCard extends StatelessWidget {
             if (canContactSupport)
               Row(
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: onOpenDetail,
-                    icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('Профиль врача'),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SupportScreen()),
+                ElevatedButton.icon(
+                  onPressed: onOpenDetail,
+                  icon: const Icon(Icons.person_outline),
+                  label: const Text('Профиль'),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => AppointmentRequestScreen(doctor: doctor),
                     ),
-                    child: const Text('Запросить запись'),
                   ),
-                ],
-              )
-            else
+                  child: const Text('Записаться'),
+                ),
+              ],
+            )
+          else
               const Text(
                 'Запись пациентов выполняется через мобильное приложение.',
                 style: TextStyle(fontSize: 12, color: Colors.grey),

@@ -23,6 +23,14 @@ const messageSchema = new mongoose.Schema(
       enum: ['open', 'in_progress', 'resolved'],
       default: 'open',
     },
+    history: [
+      {
+        sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        content: String,
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    lastMessageAt: { type: Date, default: Date.now },
   },
   { timestamps: true },
 );

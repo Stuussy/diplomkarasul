@@ -4,8 +4,9 @@ import 'package:provider/provider.dart';
 import '../models/appointment.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
+import 'appointment_request_screen.dart';
+import 'filter_sheet.dart';
 import 'doctor_detail_screen.dart';
-import 'support_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -68,8 +69,13 @@ class _HomeScreenState extends State<HomeScreen> {
           _TopBar(userName: user?.firstName ?? 'Пациент'),
           const SizedBox(height: 16),
           _SearchBar(onFilter: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SupportScreen()),
+            showModalBottomSheet<Map<String, dynamic>>(
+              context: context,
+              isScrollControlled: true,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              builder: (_) => const FilterSheet(),
             );
           }),
           const SizedBox(height: 20),
@@ -98,11 +104,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     .map(
                       (doctor) => _DoctorTile(
                         doctor: doctor,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => DoctorDetailScreen(doctor: doctor),
-                            ),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => DoctorDetailScreen(doctor: doctor),
+                  ),
                           );
                         },
                       ),
@@ -428,13 +434,28 @@ class _DoctorTile extends StatelessWidget {
                 ],
               ),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: onTap,
-              child: const Text('Подробнее'),
+            Column(
+              children: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: onTap,
+                  child: const Text('Подробнее'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AppointmentRequestScreen(doctor: doctor),
+                      ),
+                    );
+                  },
+                  child: const Text('Записаться'),
+                ),
+              ],
             ),
           ],
         ),

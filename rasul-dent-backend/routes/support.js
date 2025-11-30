@@ -5,6 +5,8 @@ const upload = require('../middleware/upload');
 
 const router = express.Router();
 
+const supportScopes = ['patient', 'admin', 'director'];
+
 router.post('/', auth(['patient']), upload.array('files', 3), async (req, res) => {
   try {
     const attachments = (req.files || []).map((file) => ({
@@ -18,9 +20,20 @@ router.post('/', auth(['patient']), upload.array('files', 3), async (req, res) =
       sender: req.user.id,
       content: req.body.content,
       attachments,
+      history: [
+        {
+          sender: req.user.id,
+          content: req.body.content,
+        },
+      ],
+      lastMessageAt: new Date(),
     });
 
-    res.status(201).json(message);
+    const populated = await Message.findById(message._id)
+      .populate('patient', 'firstName lastName phone')
+      .populate('history.sender', 'firstName lastName role');
+
+    res.status(201).json(populated);
   } catch (error) {
     console.error('Ошибка отправки сообщения:', error);
     res.status(500).json({ message: 'Не удалось отправить сообщение.' });
@@ -31,8 +44,79 @@ router.get('/', auth(['admin', 'director']), async (req, res) => {
   const { status } = req.query;
   const filter = {};
   if (status) filter.status = status;
-  const messages = await Message.find(filter).populate('patient', 'firstName lastName phone');
+  const messages = await Message.find(filter)
+    .sort({ lastMessageAt: -1 })
+    .populate('patient', 'firstName lastName phone')
+    .populate('history.sender', 'firstName lastName role');
   res.json(messages);
+});
+
+router.get('/my', auth(['patient']), async (req, res) => {
+  const messages = await Message.find({ patient: req.user.id })
+    .sort({ lastMessageAt: -1 })
+    .populate('patient', 'firstName lastName phone')
+    .populate('history.sender', 'firstName lastName role');
+  res.json(messages);
+});
+
+router.get('/:id/history', auth(supportScopes), async (req, res) => {
+  const message = await Message.findById(req.params.id)
+    .populate('patient', 'firstName lastName phone')
+    .populate('history.sender', 'firstName lastName role');
+
+  if (!message) {
+    return res.status(404).json({ message: 'Обращение не найдено.' });
+  }
+
+  if (req.user.role === 'patient' && message.patient.toString() !== req.user.id) {
+    return res.status(403).json({ message: 'Нет доступа к истории обращения.' });
+  }
+
+  res.json(message.history);
+});
+
+router.post('/:id/reply', auth(supportScopes), async (req, res) => {
+  const { content } = req.body;
+  if (!content || !content.trim()) {
+    return res.status(400).json({ message: 'Сообщение не может быть пустым.' });
+  }
+
+  const message = await Message.findById(req.params.id)
+    .populate('patient', 'firstName lastName phone')
+    .populate('history.sender', 'firstName lastName role');
+
+  if (!message) {
+    return res.status(404).json({ message: 'Обращение не найдено.' });
+  }
+  if (req.user.role === 'patient' && message.patient.toString() !== req.user.id) {
+    return res.status(403).json({ message: 'Нет доступа.' });
+  }
+
+  message.history.push({
+    sender: req.user.id,
+    content: content.trim(),
+  });
+  message.content = content.trim();
+  message.sender = req.user.id;
+  message.lastMessageAt = new Date();
+
+  if (req.user.role === 'patient') {
+    if (message.status === 'resolved') {
+      message.status = 'open';
+    }
+  } else {
+    if (!message.assignedTo) {
+      message.assignedTo = req.user.id;
+    }
+    if (message.status === 'open') {
+      message.status = 'in_progress';
+    }
+  }
+
+  await message.save();
+  await message.populate('history.sender', 'firstName lastName role');
+
+  res.json(message);
 });
 
 router.patch('/:id', auth(['admin', 'director']), async (req, res) => {
@@ -44,7 +128,10 @@ router.patch('/:id', auth(['admin', 'director']), async (req, res) => {
       assignedTo: assignedTo || req.user.id,
     },
     { new: true },
-  );
+  )
+    .populate('patient', 'firstName lastName phone')
+    .populate('history.sender', 'firstName lastName role');
+
   if (!message) {
     return res.status(404).json({ message: 'Сообщение не найдено.' });
   }

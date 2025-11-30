@@ -39,17 +39,17 @@ class Appointment {
       patient: json['patient'] != null ? AppUser.fromJson(json['patient']) : null,
       clinic: json['clinic'] != null ? Clinic.fromJson(json['clinic']) : null,
       service: json['service'] ?? '',
-      startTime: DateTime.parse(json['startTime']),
+      startTime: DateTime.parse(json['startTime']).toLocal(),
       durationMinutes: json['durationMinutes'] ?? 30,
       status: json['status'] ?? 'scheduled',
       confirmWindowStart: json['confirmWindow']?['start'] != null
-          ? DateTime.parse(json['confirmWindow']['start'])
+          ? DateTime.parse(json['confirmWindow']['start']).toLocal()
           : null,
       confirmWindowEnd: json['confirmWindow']?['end'] != null
-          ? DateTime.parse(json['confirmWindow']['end'])
+          ? DateTime.parse(json['confirmWindow']['end']).toLocal()
           : null,
       cancelBefore:
-          json['cancelBefore'] != null ? DateTime.parse(json['cancelBefore']) : null,
+          json['cancelBefore'] != null ? DateTime.parse(json['cancelBefore']).toLocal() : null,
       fineIssued: json['fineIssued'] ?? false,
     );
   }

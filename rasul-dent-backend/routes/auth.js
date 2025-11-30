@@ -81,6 +81,44 @@ router.get('/me', auth(), async (req, res) => {
   res.json(user);
 });
 
+router.post(
+  '/change-password',
+  auth(),
+  [
+    body('currentPassword').notEmpty().withMessage('Укажите текущий пароль.'),
+    body('newPassword')
+      .isLength({ min: 6 })
+      .withMessage('Новый пароль должен содержать минимум 6 символов.'),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+
+    try {
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: 'Пользователь не найден.' });
+      }
+
+      const isValid = await user.comparePassword(currentPassword);
+      if (!isValid) {
+        return res.status(400).json({ message: 'Текущий пароль указан неверно.' });
+      }
+
+      user.passwordHash = await User.hashPassword(newPassword);
+      await user.save();
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Ошибка смены пароля:', error);
+      res.status(500).json({ message: 'Не удалось сменить пароль.' });
+    }
+  },
+);
+
 router.post('/bootstrap-director', registerValidators, async (req, res) => {
   const directorExists = await User.findOne({ role: 'director' });
   if (directorExists) {

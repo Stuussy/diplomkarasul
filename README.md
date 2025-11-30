@@ -1,16 +1,146 @@
-# rasul_dent_app
+# Rasul Dent App
 
-A new Flutter project.
+Полноценная экосистема для стоматологической клиники, состоящая из мобильного клиента на Flutter и Node.js/Express бэкенда. Приложение покрывает сценарии пациентов, а также рабочих мест врача, администратора и директора, включая расписания, обращения, штрафы, статистику и интеграции с внешними сервисами.
 
-## Getting Started
+## Содержание
 
-This project is a starting point for a Flutter application.
+1. [Технологии](#технологии)
+2. [Архитектура](#архитектура)
+3. [Основные возможности](#основные-возможности)
+4. [Backend API](#backend-api)
+5. [Подготовка окружения](#подготовка-окружения)
+6. [Запуск и проверка](#запуск-и-проверка)
+7. [Полезные сценарии](#полезные-сценарии)
+8. [Идеи для улучшений](#идеи-для-улучшений)
 
-A few resources to get you started if this is your first Flutter project:
+## Технологии
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- **Flutter 3 / Dart** – мобильный клиент, Provider для state-management, HTTP клиент, Shared Preferences.
+- **Node.js + Express** – REST API, валидации через `express-validator`, JWT авторизация.
+- **MongoDB + Mongoose** – хранилище пользователей, клиник, расписаний, записей, обращений и т.д.
+- **Дополнительно**: dayjs для работы со временем, Multer + Cloudinary adapters для файлов, Google Places / Gemini интеграции, bcrypt для паролей.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Архитектура
+
+```
+rasul_dent_app/
+├── lib/
+│   ├── models/        # DTO: AppUser, Appointment, Clinic, Slot, RoleProfileSummary и др.
+│   ├── providers/     # SessionProvider – восстановление сессии, токен, логин/выход.
+│   ├── services/      # ApiService – все HTTP вызовы (auth, appointments, users, stats, AI и т.д.)
+│   ├── screens/       # Screens: role dashboards, profile, support, appointments, map, auth.
+│   └── widgets/       # RoleProfileOverview – универсальная карточка профиля роли.
+└── rasul-dent-backend/
+    ├── routes/        # auth, users, clinics, appointments, support, profile-overview и пр.
+    ├── models/        # User, Clinic, Appointment, ScheduleSlot, Fine, Message, MedicalRecord.
+    ├── scripts/       # seed_admins.js – создание директора/админа/врачей и клиники.
+    ├── middleware/    # auth (JWT), upload (Multer/Cloudinary).
+    └── server.js      # Express bootstrap + подключение MongoDB.
+```
+
+## Основные возможности
+
+### Пациент
+- Регистрация/логин, восстановление сессии, выход.
+- Просмотр ближайших записей, история, карты клиник (в том числе Google Places).
+- Профиль с отображением штрафов, сменой пароля и быстрым выходом.
+- Поддержка: полноценный чат с историей сообщений и статусами.
+- QR-подтверждение визитов и локальные push-уведомления о подтверждённых слотах.
+
+### Врач
+- Таб «Обзор»: роль-ориентированная сводка (метрики, клиники, ближайший пациент).
+- Таб «Записи»: отдельный список ближайших приёмов с цветовым статусом.
+- Кнопки обновления данных, смены пароля и выхода прямо в AppBar.
+
+### Администратор
+- Таб «Обзор»: персональный профиль, метрики нагрузки, базовые карточки.
+- Таб «Расписание»: выбор врача/клиники, подбор даты/времени и создание/удаление слотов.
+- Таб «Поддержка»: фильтры обращений, чат с пациентом и быстрые ответы прямо в карточке.
+- Встроенный logout и смена пароля.
+
+### Директор
+- Таб «Обзор»: дашборд с ключевыми метриками (врачи, пациенты, записи, клиники) плюс summary клиники.
+- Таб «Сотрудники»: создание новых врачей/админов, списки по ролям.
+- Таб «Клиника»: редактирование данных центрального филиала и генерация QR-кода подтверждения визитов.
+- Унифицированное меню действий (refresh, сменить пароль, выйти).
+
+## Backend API
+
+| Группа            | Описание                                                                                           |
+|-------------------|----------------------------------------------------------------------------------------------------|
+| Auth (`/auth`)    | Регистрация пациентов, логин, `GET /me`, bootstrap директора, **`POST /change-password`**.         |
+| Users (`/users`)  | CRUD сотрудников (директор/админ), список врачей, смена ролей, активация, расширенные поля клиник. |
+| Clinics (`/clinics`) | CRUD клиник, поиск по координатам, генерация QR кода.                                              |
+| Appointments (`/appointments`) | Создание пациентом, подтверждение/отмена (включая QR), штрафы, CRUD слотов расписания. |
+| Support (`/support`) | Пациентские обращения, получение админом/директором, смена статуса.                              |
+| Fines, Records, Stats | Штрафы, мед. записи, статистика (`/stats/overview`).                                            |
+| Profile (`/profile/overview`) | Комбинированный API: отдаёт карточки, метрики и таймлайны под роль пользователя.        |
+| Integrations       | Google Places (поиск клиник) и Gemini (AI советы).                                                 |
+
+**Аутентификация** – через JWT в `Authorization: Bearer <token>`. Middleware `auth()` принимает список ролей или пропускает всех.
+
+## Подготовка окружения
+
+### 1. Системные требования
+- Node.js ≥ 18
+- npm ≥ 9
+- Flutter SDK ≥ 3.22 (с установленными Android/iOS toolchains)
+- MongoDB (Atlas или локальный инстанс)
+
+### 2. Переменные окружения (файл `rasul-dent-backend/.env`)
+
+```bash
+MONGO_URI="mongodb+srv://..."
+PORT=8050
+JWT_SECRET="your-secret"
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
+```
+
+### 3. Backend
+
+```bash
+cd rasul_dent_app/rasul-dent-backend
+npm install
+npm run seed           # создаёт директора, администратора и двух врачей
+npm run dev            # nodemon server.js
+```
+
+### 4. Frontend (Flutter)
+
+```bash
+cd rasul_dent_app
+flutter pub get
+flutter run            # при необходимости задайте --dart-define для API URL
+```
+
+> Клиент ожидает backend по адресу `http://192.168.0.14:8050/api`. При работе в другом сегменте сети отредактируйте `lib/services/api_service.dart` или прокиньте `--dart-define=API_BASE_URL=...` и используйте условную компиляцию.
+
+## Запуск и проверка
+
+- **Анализ кода**: `flutter analyze`
+- **Unit/UI тесты**: на данный момент не настроены – добавьте в `flutter_test` по мере роста функционала.
+- **Backend**: `npm start` для продакшен режима или `npm run dev` для разработки. Тесты не описаны в `package.json`, поэтому `npm test` завершится ошибкой до тех пор, пока не добавите свои скрипты.
+
+## Полезные сценарии
+
+- **Смена пароля** – доступна всем ролям: в профиле пациента есть кнопка, в кабинетах сотрудников – пункт AppBar меню. Использует API `POST /auth/change-password`.
+- **Выход из аккаунта** – кнопки logout присутствуют в профиле пациента и AppBar всех дашбордов. Реализовано через `SessionProvider.logout()`, который очищает SharedPreferences и токен ApiService.
+- **Посев данных** – `npm run seed` создаёт клинику “Dental AI Clinic”, директора (`director@dental.local`), администратора (`admin@dental.local`) и двух врачей с паролем `ChangeMe123!` для быстрого старта.
+- **Интеграции** – `GET /places/dental-clinics` вызывает Google Places (нужен рабочий API key). `POST /gemini/ask` делает fallback-сообщение, если ключ не задан.
+- **QR check-in** – директор генерирует код клиники (`POST /clinics/:id/qr`), пациент сканирует его и подтверждает визит через `/appointments/qr-confirm`.
+- **Локальные уведомления** – после подтверждения записи в приложении показывается push через `flutter_local_notifications`.
+
+## Идеи для улучшений
+
+1. Добавить автоматические тесты (`flutter test`, Jest для backend) и включить их в CI.
+2. Вынести base URL API в конфиг через `--dart-define`/`Flavor`.
+3. Добавить email/SMS уведомления поверх локальных пушей.
+4. Добавить роли и разрешения на уровне коллекций Mongo (например, через `Clinic` ownership).
+5. Расширить поддержку вложений и статусов (SLA) в чате поддержки, добавить поиск.
+6. Реализовать мониторинг cron-задач (отправка напоминаний, авто-закрытие слотов).
+
+---
+
+Проект приведён в рабочее состояние: роли разделены по вкладкам, реализован logout/смена пароля, профильные карточки формируются на backend и переиспользуются в UI. README отражает текущее состояние и может служить входной точкой для новых участников команды.

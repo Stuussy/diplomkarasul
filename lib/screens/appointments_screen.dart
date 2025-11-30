@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../models/appointment.dart';
 import '../providers/session_provider.dart';
+import '../services/notification_service.dart';
+import 'qr_scanner_screen.dart';
 
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({super.key});
@@ -117,6 +119,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
             onPressed: () => _confirm(appointment),
             child: const Text('Подтвердить'),
           ),
+        if (appointment.status == 'scheduled')
+          TextButton.icon(
+            onPressed: () => _confirmViaQr(),
+            icon: const Icon(Icons.qr_code_2),
+            label: const Text('QR'),
+          ),
         TextButton(
           onPressed: () => _cancel(appointment),
           child: const Text('Отменить'),
@@ -127,27 +135,50 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
 
   Future<void> _confirm(Appointment appointment) async {
     final api = context.read<SessionProvider>().apiService;
+    final messenger = ScaffoldMessenger.of(context);
     try {
-      await api.confirmAppointment(appointment.id);
+      final result = await api.confirmAppointment(appointment.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Запись подтверждена.')));
+      await NotificationService().showAppointmentConfirmed(result);
+      messenger.showSnackBar(const SnackBar(content: Text('Запись подтверждена.')));
       _refresh();
     } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('$error')));
+    }
+  }
+
+  Future<void> _confirmViaQr() async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final payload = await navigator.push<String>(
+      MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+    );
+    if (payload == null || !mounted) return;
+    final api = context.read<SessionProvider>().apiService;
+    try {
+      final result = await api.confirmAppointmentByQr(payload);
+      if (!mounted) return;
+      await NotificationService().showAppointmentConfirmed(result);
+      messenger.showSnackBar(const SnackBar(content: Text('Запись подтверждена по QR.')));
+      _refresh();
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('$error')));
     }
   }
 
   Future<void> _cancel(Appointment appointment) async {
     final api = context.read<SessionProvider>().apiService;
+    final messenger = ScaffoldMessenger.of(context);
     try {
       await api.cancelAppointment(appointment.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Запись отменена.')));
+      messenger.showSnackBar(const SnackBar(content: Text('Запись отменена.')));
       _refresh();
     } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('$error')));
     }
   }
 }

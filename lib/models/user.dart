@@ -26,10 +26,28 @@ class AppUser {
   String get fullName => '$firstName $lastName'.trim();
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
-    final clinics = switch (json['clinics']) {
-      List<dynamic> value => value.cast<String>(),
-      _ => const <String>[],
-    };
+    List<String> parseClinics(dynamic raw) {
+      if (raw is List) {
+        return raw
+            .map((item) {
+              if (item is String) return item;
+              if (item is Map<String, dynamic>) {
+                final name = item['name']?.toString();
+                if (name != null && name.isNotEmpty) return name;
+                final address = item['address']?.toString();
+                if (address != null && address.isNotEmpty) return address;
+                final id = item['_id']?.toString();
+                return id ?? '';
+              }
+              return item?.toString() ?? '';
+            })
+            .where((value) => value.isNotEmpty)
+            .toList();
+      }
+      return <String>[];
+    }
+
+    final clinics = parseClinics(json['clinics']);
     final specialties = switch (json['specialties']) {
       List<dynamic> value => value.cast<String>(),
       _ => const <String>[],

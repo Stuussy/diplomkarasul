@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import '../models/appointment.dart';
 import '../models/clinic.dart';
 import '../models/fine.dart';
+import '../models/slot.dart';
+import '../models/profile_summary.dart';
 import '../models/support_message.dart';
 import '../models/user.dart';
 
@@ -20,7 +22,7 @@ class ApiException implements Exception {
 
 class ApiService {
   final String _baseUrl =
-      Platform.isAndroid ? 'http://192.168.8.121:8050/api' : 'http://192.168.8.121:8050/api';
+      Platform.isAndroid ? 'http://192.168.0.14:8050/api' : 'http://192.168.0.14:8050/api';
   String? _token;
 
   void updateToken(String? token) {
@@ -104,12 +106,13 @@ class ApiService {
     );
   }
 
-  Future<void> confirmAppointment(String appointmentId) async {
+  Future<Appointment> confirmAppointment(String appointmentId) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/appointments/$appointmentId/confirm'),
       headers: _headers(),
     );
-    _decode(response);
+    final data = _decode(response);
+    return Appointment.fromJson(data);
   }
 
   Future<String> cancelAppointment(String appointmentId) async {
@@ -154,13 +157,14 @@ class ApiService {
     return data.map((json) => Fine.fromJson(json)).toList();
   }
 
-  Future<void> sendSupportMessage(String content) async {
+  Future<SupportMessage> sendSupportMessage(String content) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/support'),
       headers: _headers(),
       body: jsonEncode({'content': content}),
     );
-    _decode(response);
+    final data = _decode(response);
+    return SupportMessage.fromJson(data);
   }
 
   Future<List<SupportMessage>> fetchSupportMessages({String? status}) async {
@@ -174,6 +178,28 @@ class ApiService {
     final response = await http.get(uri, headers: _headers());
     final data = _decode(response) as List<dynamic>;
     return data.map((json) => SupportMessage.fromJson(json)).toList();
+  }
+
+  Future<List<SupportMessage>> fetchMySupportThreads() async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/support/my'),
+      headers: _headers(),
+    );
+    final data = _decode(response) as List<dynamic>;
+    return data.map((json) => SupportMessage.fromJson(json)).toList();
+  }
+
+  Future<SupportMessage> replySupportMessage({
+    required String messageId,
+    required String content,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/support/$messageId/reply'),
+      headers: _headers(),
+      body: jsonEncode({'content': content}),
+    );
+    final data = _decode(response);
+    return SupportMessage.fromJson(data);
   }
 
   Future<void> updateSupportMessageStatus(
@@ -231,6 +257,104 @@ class ApiService {
     return AppUser.fromJson(data);
   }
 
+  Future<List<Slot>> fetchSlots({String? doctorId, String? status}) async {
+    final query = <String, String>{};
+    if (doctorId != null) query['doctorId'] = doctorId;
+    if (status != null) query['status'] = status;
+    final uri = Uri.parse('$_baseUrl/appointments/slots')
+        .replace(queryParameters: query.isEmpty ? null : query);
+    final response = await http.get(uri, headers: _headers());
+    final data = _decode(response) as List<dynamic>;
+    return data.map((json) => Slot.fromJson(json)).toList();
+  }
+
+  Future<void> createSlot({
+    required String doctorId,
+    required String clinicId,
+    required DateTime startTime,
+    required DateTime endTime,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/appointments/slots'),
+      headers: _headers(),
+      body: jsonEncode({
+        'doctorId': doctorId,
+        'clinicId': clinicId,
+        'startTime': startTime.toIso8601String(),
+        'endTime': endTime.toIso8601String(),
+      }),
+    );
+    _decode(response);
+  }
+
+  Future<void> deleteSlot(String slotId) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/appointments/slots/$slotId'),
+      headers: _headers(),
+    );
+    _decode(response);
+  }
+
+  Future<Appointment> bookSlot({
+    required Slot slot,
+    required String service,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/appointments'),
+      headers: _headers(),
+      body: jsonEncode({
+        'slotId': slot.id,
+        'doctorId': slot.doctorId,
+        'clinicId': slot.clinicId,
+        'startTime': slot.startTime.toIso8601String(),
+        'service': service,
+      }),
+    );
+    final data = _decode(response);
+    return Appointment.fromJson(data);
+  }
+
+  Future<Map<String, dynamic>> fetchStatsOverview() async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/stats/overview'),
+      headers: _headers(),
+    );
+    return _decode(response) as Map<String, dynamic>;
+  }
+
+  Future<RoleProfileSummary> fetchRoleProfileSummary() async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/profile/overview'),
+      headers: _headers(),
+    );
+    final data = _decode(response) as Map<String, dynamic>;
+    return RoleProfileSummary.fromJson(data);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/auth/change-password'),
+      headers: _headers(),
+      body: jsonEncode({
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      }),
+    );
+    _decode(response);
+  }
+
+  Future<void> updateClinic(String clinicId, Map<String, dynamic> payload) async {
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/clinics/$clinicId'),
+      headers: _headers(),
+      body: jsonEncode(payload),
+    );
+    _decode(response);
+  }
+
   Future<String> fetchAiTip() async {
     final response = await http.post(
       Uri.parse('$_baseUrl/gemini/ask'),
@@ -248,6 +372,24 @@ class ApiService {
     }
 
     return 'Не удалось получить совет от ИИ.';
+  }
+
+  Future<Map<String, dynamic>> generateClinicQr(String clinicId) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/clinics/$clinicId/qr'),
+      headers: _headers(),
+    );
+    return _decode(response) as Map<String, dynamic>;
+  }
+
+  Future<Appointment> confirmAppointmentByQr(String payload) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/appointments/qr-confirm'),
+      headers: _headers(),
+      body: jsonEncode({'payload': payload}),
+    );
+    final data = _decode(response);
+    return Appointment.fromJson(data);
   }
 
   dynamic _decode(http.Response response) {

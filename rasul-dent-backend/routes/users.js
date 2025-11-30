@@ -60,7 +60,8 @@ router.get('/', auth(['admin', 'director']), async (req, res) => {
 router.get('/doctors', auth(), async (req, res) => {
   try {
     const doctors = await User.find({ role: 'doctor', isActive: true })
-      .select('firstName lastName email phone specialties clinics');
+      .select('firstName lastName email phone specialties clinics')
+      .populate('clinics', 'name address supportPhone supportEmail');
     res.json(doctors);
   } catch (error) {
     console.error('Ошибка получения списка врачей:', error);
