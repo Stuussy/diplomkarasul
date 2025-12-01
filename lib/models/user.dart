@@ -9,6 +9,9 @@ class AppUser {
   final List<String> clinics;
   final double rating;
   final int reviews;
+  final List<String> services;
+  final int experienceYears;
+  final String? bio;
 
   const AppUser({
     required this.id,
@@ -20,7 +23,10 @@ class AppUser {
     this.specialties = const [],
     this.clinics = const [],
     this.rating = 4.8,
-    this.reviews = 49,
+    this.reviews = 0,
+    this.services = const [],
+    this.experienceYears = 0,
+    this.bio,
   });
 
   String get fullName => '$firstName $lastName'.trim();
@@ -52,8 +58,12 @@ class AppUser {
       List<dynamic> value => value.cast<String>(),
       _ => const <String>[],
     };
+    final services = switch (json['services']) {
+      List<dynamic> value => value.cast<String>(),
+      _ => const <String>[],
+    };
     final rating = (json['rating'] is num) ? (json['rating'] as num).toDouble() : 4.8;
-    final reviews = (json['reviews'] is num) ? (json['reviews'] as num).toInt() : 49;
+    final reviews = (json['reviews'] is num) ? (json['reviews'] as num).toInt() : 0;
     return AppUser(
       id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
       firstName: json['firstName'] ?? '',
@@ -65,6 +75,9 @@ class AppUser {
       clinics: clinics,
       rating: rating,
       reviews: reviews,
+      services: services,
+      experienceYears: (json['experienceYears'] as num?)?.toInt() ?? 0,
+      bio: json['bio'] as String?,
     );
   }
 }

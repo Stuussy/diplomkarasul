@@ -10,6 +10,7 @@ import '../models/slot.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
 import '../widgets/role_profile_overview.dart';
+import 'medical_records_screen.dart';
 
 class DoctorDashboard extends StatefulWidget {
   const DoctorDashboard({super.key});
@@ -168,21 +169,45 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       const SizedBox(height: 4),
-                      ...appointments.map((appointment) => ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(
-                              appointment.status == 'confirmed'
-                                  ? Icons.check_circle_outline
-                                  : Icons.schedule,
-                              color:
-                                  appointment.status == 'confirmed' ? Colors.green : Colors.blue,
-                            ),
-                            title: Text(
-                                '${appointment.patient?.fullName ?? 'Пациент'} • ${appointment.service}'),
-                            subtitle: Text(
-                                '${_formatDate(appointment.startTime)} · ${appointment.status}'),
-                            trailing: const Icon(Icons.medical_services_outlined),
-                          )),
+                      ...appointments.map(
+                        (appointment) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            appointment.status == 'confirmed'
+                                ? Icons.check_circle_outline
+                                : Icons.schedule,
+                            color: appointment.status == 'confirmed' ? Colors.green : Colors.blue,
+                          ),
+                          title: Text(
+                              '${appointment.patient?.fullName ?? 'Пациент'} • ${appointment.service}'),
+                          subtitle:
+                              Text('${_formatDate(appointment.startTime)} · ${appointment.status}'),
+                          trailing: Wrap(
+                            spacing: 8,
+                            children: [
+                              IconButton(
+                                tooltip: 'Медкарта',
+                                onPressed: appointment.patient == null
+                                    ? null
+                                    : () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => MedicalRecordsScreen(
+                                              patientId: appointment.patient!.id,
+                                              title:
+                                                  'Карта: ${appointment.patient!.fullName}',
+                                              allowCreate: true,
+                                              allowEdit: true,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                icon: const Icon(Icons.folder_shared_outlined),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -813,6 +838,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                 ),
                               ],
                             ),
+                            if (message.patient != null) ...[
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton.icon(
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => MedicalRecordsScreen(
+                                          patientId: message.patient!.id,
+                                          title: 'Карта: ${message.patient!.fullName}',
+                                          allowCreate: true,
+                                          allowEdit: true,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.folder_shared_outlined),
+                                  label: const Text('Медкарта'),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

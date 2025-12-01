@@ -97,4 +97,44 @@ router.patch('/:id/status', auth(['admin', 'director']), async (req, res) => {
   res.json(user);
 });
 
+router.patch(
+  '/:id',
+  auth(['admin', 'director']),
+  [
+    body('firstName').optional().isLength({ min: 1 }),
+    body('lastName').optional().isLength({ min: 1 }),
+    body('phone').optional().isLength({ min: 5 }),
+    body('experienceYears').optional().isInt({ min: 0, max: 60 }),
+    body('services').optional().isArray(),
+    body('specialties').optional().isArray(),
+    body('bio').optional().isLength({ max: 2000 }),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    const updates = {};
+    ['firstName', 'lastName', 'phone', 'bio'].forEach((field) => {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    });
+    if (req.body.experienceYears !== undefined) {
+      updates.experienceYears = req.body.experienceYears;
+    }
+    if (Array.isArray(req.body.services)) {
+      updates.services = req.body.services;
+    }
+    if (Array.isArray(req.body.specialties)) {
+      updates.specialties = req.body.specialties;
+    }
+    const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true }).select(
+      '-passwordHash',
+    );
+    if (!user) {
+      return res.status(404).json({ message: 'Пользователь не найден.' });
+    }
+    res.json(user);
+  },
+);
+
 module.exports = router;

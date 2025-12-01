@@ -11,6 +11,7 @@ router.use('/support', require('./support'));
 router.use('/fines', require('./fines'));
 router.use('/stats', require('./stats'));
 router.use('/profile', require('./profile'));
+router.use('/reviews', require('./reviews'));
 router.use('/', require('./integrations'));
 
 module.exports = router;

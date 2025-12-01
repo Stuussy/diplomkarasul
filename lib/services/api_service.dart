@@ -7,7 +7,9 @@ import '../models/appointment.dart';
 import '../models/clinic.dart';
 import '../models/fine.dart';
 import '../models/slot.dart';
+import '../models/medical_record.dart';
 import '../models/profile_summary.dart';
+import '../models/review.dart';
 import '../models/support_message.dart';
 import '../models/user.dart';
 
@@ -354,14 +356,50 @@ class ApiService {
     String? firstName,
     String? lastName,
     String? phone,
+    int? experienceYears,
+    List<String>? services,
+    List<String>? specialties,
+    String? bio,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (firstName != null) payload['firstName'] = firstName;
+    if (lastName != null) payload['lastName'] = lastName;
+    if (phone != null && phone.isNotEmpty) payload['phone'] = phone;
+    if (experienceYears != null) payload['experienceYears'] = experienceYears;
+    if (services != null) payload['services'] = services;
+    if (specialties != null) payload['specialties'] = specialties;
+    if (bio != null) payload['bio'] = bio;
+
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/auth/me'),
+      headers: _headers(),
+      body: jsonEncode(payload),
+    );
+    final data = _decode(response);
+    return AppUser.fromJson(data);
+  }
+
+  Future<AppUser> updateDoctorByAdmin({
+    required String userId,
+    String? firstName,
+    String? lastName,
+    String? phone,
+    int? experienceYears,
+    List<String>? services,
+    List<String>? specialties,
+    String? bio,
   }) async {
     final payload = <String, dynamic>{};
     if (firstName != null) payload['firstName'] = firstName;
     if (lastName != null) payload['lastName'] = lastName;
     if (phone != null) payload['phone'] = phone;
+    if (experienceYears != null) payload['experienceYears'] = experienceYears;
+    if (services != null) payload['services'] = services;
+    if (specialties != null) payload['specialties'] = specialties;
+    if (bio != null) payload['bio'] = bio;
 
     final response = await http.patch(
-      Uri.parse('$_baseUrl/auth/me'),
+      Uri.parse('$_baseUrl/users/$userId'),
       headers: _headers(),
       body: jsonEncode(payload),
     );
@@ -425,5 +463,89 @@ class ApiService {
         ? body['message'] as String
         : 'Ошибка сервера (${response.statusCode})';
     throw ApiException(message, statusCode: response.statusCode);
+  }
+  Future<List<MedicalRecord>> fetchMyMedicalRecords() async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/records/mine'),
+      headers: _headers(),
+    );
+    final data = _decode(response) as List<dynamic>;
+    return data.map((json) => MedicalRecord.fromJson(json)).toList();
+  }
+
+  Future<List<MedicalRecord>> fetchMedicalRecords(String patientId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/records/$patientId'),
+      headers: _headers(),
+    );
+    final data = _decode(response) as List<dynamic>;
+    return data.map((json) => MedicalRecord.fromJson(json)).toList();
+  }
+
+  Future<MedicalRecord> createMedicalRecord({
+    required String patientId,
+    required String title,
+    String? description,
+    String? appointmentId,
+    List<String>? tags,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/records'),
+      headers: _headers(),
+      body: jsonEncode({
+        'patientId': patientId,
+        'appointmentId': appointmentId,
+        'title': title,
+        'description': description,
+        'tags': tags?.join(','),
+      }),
+    );
+    final data = _decode(response);
+    return MedicalRecord.fromJson(data);
+  }
+
+  Future<MedicalRecord> updateMedicalRecord({
+    required String recordId,
+    String? title,
+    String? description,
+    List<String>? tags,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/records/$recordId'),
+      headers: _headers(),
+      body: jsonEncode({
+        'title': title,
+        'description': description,
+        if (tags != null) 'tags': tags,
+      }),
+    );
+    final data = _decode(response);
+    return MedicalRecord.fromJson(data);
+  }
+
+  Future<List<Review>> fetchDoctorReviews(String doctorId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/reviews/doctor/$doctorId'),
+      headers: _headers(),
+    );
+    final data = _decode(response) as List<dynamic>;
+    return data.map((json) => Review.fromJson(json)).toList();
+  }
+
+  Future<void> submitReview({
+    required String appointmentId,
+    required int rating,
+    String? comment,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/reviews'),
+      headers: _headers(),
+      body: jsonEncode({
+        'appointmentId': appointmentId,
+        'rating': rating,
+        'comment': comment,
+      }),
+    );
+    _decode(response);
   }
 }

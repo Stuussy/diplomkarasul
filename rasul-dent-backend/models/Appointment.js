@@ -26,6 +26,7 @@ const appointmentSchema = new mongoose.Schema(
     cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     fineIssued: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    review: { type: mongoose.Schema.Types.ObjectId, ref: 'Review' },
   },
   { timestamps: true },
 );

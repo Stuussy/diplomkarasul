@@ -91,6 +91,10 @@ router.patch(
       .optional()
       .isLength({ min: 5 })
       .withMessage('Телефон должен содержать не менее 5 символов.'),
+    body('experienceYears').optional().isInt({ min: 0, max: 60 }),
+    body('services').optional().isArray(),
+    body('bio').optional().isLength({ max: 2000 }),
+    body('specialties').optional().isArray(),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -100,9 +104,18 @@ router.patch(
 
     try {
       const updates = {};
-      ['firstName', 'lastName', 'phone'].forEach((field) => {
+      ['firstName', 'lastName', 'phone', 'bio'].forEach((field) => {
         if (req.body[field] !== undefined) updates[field] = req.body[field];
       });
+      if (req.body.experienceYears !== undefined) {
+        updates.experienceYears = req.body.experienceYears;
+      }
+      if (Array.isArray(req.body.services)) {
+        updates.services = req.body.services;
+      }
+      if (Array.isArray(req.body.specialties)) {
+        updates.specialties = req.body.specialties;
+      }
 
       const user = await User.findByIdAndUpdate(req.user.id, updates, {
         new: true,

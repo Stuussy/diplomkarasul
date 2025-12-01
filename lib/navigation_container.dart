@@ -7,6 +7,7 @@ import 'screens/home_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/role_dashboards.dart';
+import 'widgets/patient_ui.dart';
 
 class MainNavigationScreen extends StatelessWidget {
   const MainNavigationScreen({super.key});
@@ -26,7 +27,9 @@ class MainNavigationScreen extends StatelessWidget {
       case 'director':
         return const DirectorDashboard();
       default:
-        return const Scaffold(body: Center(child: Text('Неизвестная роль пользователя.')));
+        return const Scaffold(
+          body: Center(child: Text('Неизвестная роль пользователя.')),
+        );
     }
   }
 }
@@ -35,7 +38,8 @@ class _PatientNavigationShell extends StatefulWidget {
   const _PatientNavigationShell();
 
   @override
-  State<_PatientNavigationShell> createState() => _PatientNavigationShellState();
+  State<_PatientNavigationShell> createState() =>
+      _PatientNavigationShellState();
 }
 
 class _PatientNavigationShellState extends State<_PatientNavigationShell> {
@@ -63,36 +67,102 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_selectedIndex])),
-      body: IndexedStack(index: _selectedIndex, children: _options),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: Colors.blue[800],
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Главная',
+      backgroundColor: Colors.transparent,
+      extendBody: true,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF7F9FC), Color(0xFFEFF3FA)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map_outlined),
-            activeIcon: Icon(Icons.map),
-            label: 'Карта',
+        ),
+        child: SafeArea(
+          top: true,
+          bottom: false,
+          child: Column(
+            children: [
+              AppBar(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.black87,
+                elevation: 0,
+                titleSpacing: 24,
+                toolbarHeight: 72,
+                title: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: Text(
+                    _titles[_selectedIndex],
+                    key: ValueKey(_titles[_selectedIndex]),
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                actions: [
+                  IconButton(
+                    tooltip: 'Чат-поддержка',
+                    onPressed: () {},
+                    icon: const Icon(Icons.chat_bubble_outline),
+                  ),
+                  IconButton(
+                    tooltip: 'Уведомления',
+                    onPressed: () {},
+                    icon: const Icon(Icons.notifications_none_rounded),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+              Expanded(
+                child: IndexedStack(index: _selectedIndex, children: _options),
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today_outlined),
-            activeIcon: Icon(Icons.calendar_today),
-            label: 'Записи',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Профиль',
-          ),
-        ],
+        ),
+      ),
+      bottomNavigationBar: Builder(
+        builder: (context) {
+          final safeBottom = MediaQuery.paddingOf(context).bottom;
+          final bottomPadding = safeBottom > 0 ? safeBottom : 12.0;
+          return Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: NavigationBar(
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: _onItemTapped,
+                height: 64,
+                elevation: 0,
+                surfaceTintColor: Colors.transparent,
+                backgroundColor: Colors.white.withValues(alpha: 0.95),
+                indicatorColor: PatientPalette.primary.withValues(alpha: 0.12),
+                animationDuration: const Duration(milliseconds: 400),
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home_rounded),
+                    label: 'Главная',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.map_outlined),
+                    selectedIcon: Icon(Icons.map_rounded),
+                    label: 'Карта',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.event_outlined),
+                    selectedIcon: Icon(Icons.event_available_rounded),
+                    label: 'Записи',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.person_outline),
+                    selectedIcon: Icon(Icons.person),
+                    label: 'Профиль',
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

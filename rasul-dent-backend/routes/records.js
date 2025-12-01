@@ -37,22 +37,47 @@ router.post(
   },
 );
 
-router.get('/:patientId', auth(), async (req, res) => {
+router.get('/mine', auth(['patient']), async (req, res) => {
+  const records = await MedicalRecord.find({ patient: req.user.id })
+    .populate('doctor', 'firstName lastName specialties')
+    .sort({ createdAt: -1 });
+  res.json(records);
+});
+
+router.get('/:patientId', auth(['doctor', 'admin', 'director']), async (req, res) => {
   const { patientId } = req.params;
-
-  if (req.user.role === 'patient' && req.user.id !== patientId) {
-    return res.status(403).json({ message: 'Нет доступа к чужой карте.' });
-  }
-
   const filter = { patient: patientId };
   if (req.user.role === 'doctor') {
     filter.doctor = req.user.id;
   }
 
   const records = await MedicalRecord.find(filter)
-    .populate('doctor', 'firstName lastName')
+    .populate('doctor', 'firstName lastName specialties')
     .sort({ createdAt: -1 });
   res.json(records);
+});
+
+router.patch('/:id', auth(['doctor', 'admin', 'director']), async (req, res) => {
+  const record = await MedicalRecord.findById(req.params.id);
+  if (!record) {
+    return res.status(404).json({ message: 'Запись не найдена.' });
+  }
+  if (req.user.role === 'doctor' && record.doctor.toString() !== req.user.id) {
+    return res.status(403).json({ message: 'Можно редактировать только свои записи.' });
+  }
+
+  const updatable = {};
+  ['title', 'description'].forEach((field) => {
+    if (req.body[field] !== undefined) updatable[field] = req.body[field];
+  });
+  if (req.body.tags) {
+    updatable.tags = Array.isArray(req.body.tags) ? req.body.tags : req.body.tags.split(',');
+  }
+
+  const updated = await MedicalRecord.findByIdAndUpdate(record._id, updatable, {
+    new: true,
+  });
+  res.json(updated);
 });
 
 module.exports = router;

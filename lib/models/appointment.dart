@@ -1,4 +1,5 @@
 import 'clinic.dart';
+import 'review.dart';
 import 'user.dart';
 
 class Appointment {
@@ -14,6 +15,7 @@ class Appointment {
   final DateTime? confirmWindowEnd;
   final DateTime? cancelBefore;
   final bool fineIssued;
+  final Review? review;
 
   Appointment({
     required this.id,
@@ -28,6 +30,7 @@ class Appointment {
     this.confirmWindowEnd,
     this.cancelBefore,
     this.fineIssued = false,
+    this.review,
   });
 
   DateTime get endTime => startTime.add(Duration(minutes: durationMinutes));
@@ -51,6 +54,7 @@ class Appointment {
       cancelBefore:
           json['cancelBefore'] != null ? DateTime.parse(json['cancelBefore']).toLocal() : null,
       fineIssued: json['fineIssued'] ?? false,
+      review: json['review'] != null ? Review.fromJson(json['review']) : null,
     );
   }
 }

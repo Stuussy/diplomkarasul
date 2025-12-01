@@ -79,12 +79,20 @@ class SessionProvider extends ChangeNotifier {
     String? firstName,
     String? lastName,
     String? phone,
+    int? experienceYears,
+    List<String>? services,
+    List<String>? specialties,
+    String? bio,
   }) async {
     try {
       final updated = await _apiService.updateProfile(
         firstName: firstName,
         lastName: lastName,
         phone: phone,
+        experienceYears: experienceYears,
+        services: services,
+        specialties: specialties,
+        bio: bio,
       );
       _user = updated;
       notifyListeners();
