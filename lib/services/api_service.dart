@@ -63,7 +63,9 @@ class ApiService {
     request.fields.addAll(fields);
     if (files != null) {
       for (final file in files) {
-        request.files.add(await http.MultipartFile.fromPath('files', file.path));
+        request.files.add(
+          await http.MultipartFile.fromPath('files', file.path),
+        );
       }
     }
     final streamed = await request.send();
@@ -117,7 +119,11 @@ class ApiService {
     final response = await http.post(
       Uri.parse('$_baseUrl/auth/reset-password'),
       headers: _headers(authorized: false),
-      body: jsonEncode({'email': email, 'code': code, 'newPassword': newPassword}),
+      body: jsonEncode({
+        'email': email,
+        'code': code,
+        'newPassword': newPassword,
+      }),
     );
     _decode(response);
   }
@@ -166,7 +172,9 @@ class ApiService {
     }
     if (doctorId != null) query['doctorId'] = doctorId;
 
-    final uri = Uri.parse('$_baseUrl/appointments').replace(queryParameters: query);
+    final uri = Uri.parse(
+      '$_baseUrl/appointments',
+    ).replace(queryParameters: query);
     final response = await http.get(uri, headers: _headers());
     final data = _decode(response) as List<dynamic>;
     return data.map((json) => Appointment.fromJson(json)).toList();
@@ -176,14 +184,15 @@ class ApiService {
     final now = DateTime.now();
     final inThirtyDays = now.add(const Duration(days: 30));
     final appointments = await fetchAppointments(from: now, to: inThirtyDays);
-    final filtered = appointments
-        .where(
-          (a) =>
-              (a.status == 'scheduled' || a.status == 'confirmed') &&
-              a.startTime.isAfter(now),
-        )
-        .toList()
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    final filtered =
+        appointments
+            .where(
+              (a) =>
+                  (a.status == 'scheduled' || a.status == 'confirmed') &&
+                  a.startTime.isAfter(now),
+            )
+            .toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
     if (filtered.isEmpty) return null;
     return filtered.first;
   }
@@ -205,7 +214,10 @@ class ApiService {
 
     if (response.statusCode == 403) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      throw ApiException(data['message'] ?? 'Отмена недоступна', statusCode: 403);
+      throw ApiException(
+        data['message'] ?? 'Отмена недоступна',
+        statusCode: 403,
+      );
     }
 
     final data = _decode(response);
@@ -226,9 +238,9 @@ class ApiService {
       query['status'] = status;
     }
 
-    final uri = Uri.parse('$_baseUrl/clinics').replace(
-      queryParameters: query.isEmpty ? null : query,
-    );
+    final uri = Uri.parse(
+      '$_baseUrl/clinics',
+    ).replace(queryParameters: query.isEmpty ? null : query);
     final response = await http.get(uri, headers: _headers());
     final data = _decode(response) as List<dynamic>;
     return data.map((json) => Clinic.fromJson(json)).toList();
@@ -262,9 +274,9 @@ class ApiService {
     if (status != null && status.isNotEmpty) {
       query['status'] = status;
     }
-    final uri = Uri.parse('$_baseUrl/support').replace(
-      queryParameters: query.isEmpty ? null : query,
-    );
+    final uri = Uri.parse(
+      '$_baseUrl/support',
+    ).replace(queryParameters: query.isEmpty ? null : query);
     final response = await http.get(uri, headers: _headers());
     final data = _decode(response) as List<dynamic>;
     return data.map((json) => SupportMessage.fromJson(json)).toList();
@@ -306,9 +318,9 @@ class ApiService {
   }
 
   Future<List<AppUser>> fetchUsers({String? role}) async {
-    final uri = Uri.parse('$_baseUrl/users').replace(
-      queryParameters: role != null ? {'role': role} : null,
-    );
+    final uri = Uri.parse(
+      '$_baseUrl/users',
+    ).replace(queryParameters: role != null ? {'role': role} : null);
     final response = await http.get(uri, headers: _headers());
     final data = _decode(response) as List<dynamic>;
     return data.map((json) => AppUser.fromJson(json)).toList();
@@ -351,8 +363,9 @@ class ApiService {
     final query = <String, String>{};
     if (doctorId != null) query['doctorId'] = doctorId;
     if (status != null) query['status'] = status;
-    final uri = Uri.parse('$_baseUrl/appointments/slots')
-        .replace(queryParameters: query.isEmpty ? null : query);
+    final uri = Uri.parse(
+      '$_baseUrl/appointments/slots',
+    ).replace(queryParameters: query.isEmpty ? null : query);
     final response = await http.get(uri, headers: _headers());
     final data = _decode(response) as List<dynamic>;
     return data.map((json) => Slot.fromJson(json)).toList();
@@ -410,6 +423,31 @@ class ApiService {
       headers: _headers(),
     );
     return _decode(response) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> fetchGoogleCalendarStatus() async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/google-calendar/status'),
+      headers: _headers(),
+    );
+    return _decode(response) as Map<String, dynamic>;
+  }
+
+  Future<String> getGoogleCalendarConnectUrl() async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/google-calendar/connect'),
+      headers: _headers(),
+    );
+    final data = _decode(response) as Map<String, dynamic>;
+    return data['url']?.toString() ?? '';
+  }
+
+  Future<void> disconnectGoogleCalendar() async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/google-calendar/disconnect'),
+      headers: _headers(),
+    );
+    _decode(response);
   }
 
   Future<RoleProfileSummary> fetchRoleProfileSummary() async {
@@ -500,7 +538,10 @@ class ApiService {
     _decode(response);
   }
 
-  Future<void> updateClinic(String clinicId, Map<String, dynamic> payload) async {
+  Future<void> updateClinic(
+    String clinicId,
+    Map<String, dynamic> payload,
+  ) async {
     final response = await http.patch(
       Uri.parse('$_baseUrl/clinics/$clinicId'),
       headers: _headers(),
@@ -519,7 +560,10 @@ class ApiService {
     return Clinic.fromJson(data);
   }
 
-  Future<Clinic> addClinicService(String clinicId, Map<String, dynamic> payload) async {
+  Future<Clinic> addClinicService(
+    String clinicId,
+    Map<String, dynamic> payload,
+  ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/clinics/$clinicId/services'),
       headers: _headers(),
@@ -619,6 +663,7 @@ class ApiService {
         : 'Ошибка сервера (${response.statusCode})';
     throw ApiException(message, statusCode: response.statusCode);
   }
+
   Future<List<MedicalRecord>> fetchMyMedicalRecords() async {
     final response = await http.get(
       Uri.parse('$_baseUrl/records/mine'),
@@ -643,6 +688,7 @@ class ApiService {
     String? description,
     String? appointmentId,
     List<String>? tags,
+    List<ToothMark>? toothMap,
     List<File>? files,
   }) async {
     final response = await _sendMultipart(
@@ -653,6 +699,8 @@ class ApiService {
         'title': title,
         if (description != null) 'description': description,
         if (tags != null) 'tags': tags.join(','),
+        if (toothMap != null)
+          'toothMap': jsonEncode(toothMap.map((t) => t.toJson()).toList()),
       },
       files: files,
     );
@@ -665,6 +713,7 @@ class ApiService {
     String? title,
     String? description,
     List<String>? tags,
+    List<ToothMark>? toothMap,
   }) async {
     final response = await http.patch(
       Uri.parse('$_baseUrl/records/$recordId'),
@@ -673,6 +722,8 @@ class ApiService {
         'title': title,
         'description': description,
         if (tags != null) 'tags': tags,
+        if (toothMap != null)
+          'toothMap': toothMap.map((t) => t.toJson()).toList(),
       }),
     );
     final data = _decode(response);

@@ -15,6 +15,18 @@ const medicalRecordSchema = new mongoose.Schema(
       },
     ],
     tags: [{ type: String }],
+    toothMap: [
+      {
+        arch: { type: String, enum: ['upper', 'lower'], required: true },
+        index: { type: Number, min: 1, max: 14, required: true },
+        status: {
+          type: String,
+          enum: ['healthy', 'treated', 'missing', 'issue'],
+          required: true,
+        },
+        note: String,
+      },
+    ],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },

@@ -12,6 +12,15 @@ router.post(
   async (req, res) => {
     try {
       const { patientId, appointmentId, title, description, tags } = req.body;
+      let toothMap = req.body.toothMap;
+      if (typeof toothMap === 'string') {
+        try {
+          toothMap = JSON.parse(toothMap);
+        } catch (_) {
+          toothMap = [];
+        }
+      }
+      if (!Array.isArray(toothMap)) toothMap = [];
       const attachments = (req.files || []).map((file) => ({
         url: file.path,
         cloudinaryId: file.filename,
@@ -26,6 +35,7 @@ router.post(
         description,
         attachments,
         tags: tags ? tags.split(',').map((tag) => tag.trim()) : [],
+        toothMap,
         createdBy: req.user.id,
       });
 
@@ -72,6 +82,17 @@ router.patch('/:id', auth(['doctor', 'admin', 'superadmin']), async (req, res) =
   });
   if (req.body.tags) {
     updatable.tags = Array.isArray(req.body.tags) ? req.body.tags : req.body.tags.split(',');
+  }
+  if (req.body.toothMap !== undefined) {
+    let toothMap = req.body.toothMap;
+    if (typeof toothMap === 'string') {
+      try {
+        toothMap = JSON.parse(toothMap);
+      } catch (_) {
+        toothMap = [];
+      }
+    }
+    updatable.toothMap = Array.isArray(toothMap) ? toothMap : [];
   }
 
   const updated = await MedicalRecord.findByIdAndUpdate(record._id, updatable, {

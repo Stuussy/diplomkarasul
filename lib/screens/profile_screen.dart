@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/fine.dart';
 import '../models/user.dart';
@@ -18,17 +19,30 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late Future<List<Fine>> _finesFuture;
+  Future<Map<String, dynamic>>? _calendarFuture;
 
   @override
   void initState() {
     super.initState();
-    _finesFuture = context.read<SessionProvider>().apiService.fetchFines();
+    final api = context.read<SessionProvider>().apiService;
+    _finesFuture = api.fetchFines();
+    final role = context.read<SessionProvider>().user?.role;
+    if (role == 'patient' || role == 'doctor') {
+      _calendarFuture = api.fetchGoogleCalendarStatus();
+    }
   }
 
   Future<void> _refresh() async {
     await context.read<SessionProvider>().refreshProfile();
     setState(() {
       _finesFuture = context.read<SessionProvider>().apiService.fetchFines();
+      final role = context.read<SessionProvider>().user?.role;
+      if (role == 'patient' || role == 'doctor') {
+        _calendarFuture = context
+            .read<SessionProvider>()
+            .apiService
+            .fetchGoogleCalendarStatus();
+      }
     });
   }
 
@@ -40,9 +54,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: PatientPalette.background,
-      ),
+      decoration: const BoxDecoration(color: PatientPalette.background),
       child: RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
@@ -116,6 +128,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+            if (user.role == 'patient' || user.role == 'doctor') ...[
+              const SizedBox(height: 20),
+              ClinicCard(
+                child: FutureBuilder<Map<String, dynamic>>(
+                  future: _calendarFuture,
+                  builder: (context, snapshot) {
+                    final connected = snapshot.data?['connected'] == true;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Google Calendar',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          connected
+                              ? 'Календарь подключён. Записи будут синхронизироваться.'
+                              : 'Календарь не подключён. События не будут создаваться.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: connected
+                                    ? null
+                                    : () async {
+                                        final api = context
+                                            .read<SessionProvider>()
+                                            .apiService;
+                                        final url = await api
+                                            .getGoogleCalendarConnectUrl();
+                                        if (url.isNotEmpty) {
+                                          await launchUrl(
+                                            Uri.parse(url),
+                                            mode:
+                                                LaunchMode.externalApplication,
+                                          );
+                                        }
+                                      },
+                                child: const Text('Подключить'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: connected
+                                    ? () async {
+                                        final api = context
+                                            .read<SessionProvider>()
+                                            .apiService;
+                                        await api.disconnectGoogleCalendar();
+                                        if (!mounted) return;
+                                        setState(() {
+                                          _calendarFuture = api
+                                              .fetchGoogleCalendarStatus();
+                                        });
+                                      }
+                                    : null,
+                                child: const Text('Отключить'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             const SectionHeader(
               title: 'Штрафы за позднюю отмену',
@@ -141,12 +225,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                 }
 
-                    return Column(
-                      children: fines
-                          .map(
-                            (fine) => ClinicCard(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: Row(
+                return Column(
+                  children: fines
+                      .map(
+                        (fine) => ClinicCard(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: Row(
                             children: [
                               CircleAvatar(
                                 radius: 24,

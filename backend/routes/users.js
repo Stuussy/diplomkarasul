@@ -33,13 +33,19 @@ router.post(
       }
 
       const passwordHash = await User.hashPassword(password);
+      let adminClinics = [];
+      if (req.user.role === 'admin') {
+        const admin = await User.findById(req.user.id).select('clinics');
+        adminClinics = admin?.clinics || [];
+      }
+
       const user = await User.create({
         firstName,
         lastName,
         email,
         phone,
         role,
-        clinics: req.user.role === 'admin' ? req.user.clinics || [] : clinics,
+        clinics: req.user.role === 'admin' ? adminClinics : clinics,
         specialties,
         passwordHash,
         createdBy: req.user.id,
@@ -58,8 +64,10 @@ router.get('/', auth(['superadmin', 'admin']), async (req, res) => {
   const filter = {};
   if (role) filter.role = role;
   if (req.user.role === 'admin') {
+    const admin = await User.findById(req.user.id).select('clinics');
+    const clinicIds = admin?.clinics || [];
     filter.role = 'doctor';
-    filter.clinics = { $in: req.user.clinics || [] };
+    filter.clinics = { $in: clinicIds };
   }
   const users = await User.find(filter).select('-passwordHash');
   res.json(users);
@@ -69,7 +77,8 @@ router.get('/doctors', auth(), async (req, res) => {
   try {
     const filter = { role: 'doctor', isActive: true };
     if (req.user.role === 'admin') {
-      filter.clinics = { $in: req.user.clinics || [] };
+      const admin = await User.findById(req.user.id).select('clinics');
+      filter.clinics = { $in: admin?.clinics || [] };
     }
     const doctors = await User.find(filter)
       .select('firstName lastName email phone specialties clinics')

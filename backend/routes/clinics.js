@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const crypto = require('crypto');
 const Clinic = require('../models/Clinic');
+const User = require('../models/User');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
@@ -23,6 +24,22 @@ function isClinicComplete(clinic) {
     clinic.workingHours.length > 0 &&
     clinic.workingHours.some((slot) => slot && slot.day !== undefined && !slot.isClosed);
   return hasName && hasDescription && hasCity && hasAddress && hasContacts && hasWorkingHours;
+}
+
+async function getAdminClinicIds(userId) {
+  const admin = await User.findById(userId).select('clinics');
+  const clinicIds = new Set();
+  (admin?.clinics || []).forEach((id) => clinicIds.add(id.toString()));
+  const ownedClinics = await Clinic.find({ admin: userId }).select('_id');
+  ownedClinics.forEach((clinic) => clinicIds.add(clinic._id.toString()));
+  return Array.from(clinicIds);
+}
+
+async function adminHasClinicAccess(userId, clinic) {
+  if (!clinic) return false;
+  if (clinic.admin?.toString() === userId) return true;
+  const clinicIds = await getAdminClinicIds(userId);
+  return clinicIds.includes(clinic._id.toString());
 }
 
 router.post('/', auth(['admin', 'superadmin']), clinicValidators, async (req, res) => {
@@ -65,7 +82,11 @@ router.get('/', auth(), async (req, res) => {
   if (req.user.role === 'patient' || req.user.role === 'doctor') {
     filter = { status: 'active' };
   } else if (req.user.role === 'admin') {
-    filter = { admin: req.user.id };
+    const clinicIds = await getAdminClinicIds(req.user.id);
+    if (clinicIds.length === 0) {
+      return res.json([]);
+    }
+    filter = { _id: { $in: clinicIds } };
   } else if (req.user.role === 'support_manager') {
     return res.status(403).json({ message: 'Доступ к клиникам запрещен.' });
   } else if (req.user.role === 'superadmin' && status) {
@@ -82,8 +103,11 @@ router.patch('/:id', auth(['admin', 'superadmin']), async (req, res) => {
     return res.status(404).json({ message: 'Клиника не найдена.' });
   }
 
-  if (req.user.role === 'admin' && clinic.admin.toString() !== req.user.id) {
-    return res.status(403).json({ message: 'Нет доступа к этой клинике.' });
+  if (req.user.role === 'admin') {
+    const hasAccess = await adminHasClinicAccess(req.user.id, clinic);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Нет доступа к этой клинике.' });
+    }
   }
   if (clinic.status === 'blocked' && req.user.role !== 'superadmin') {
     return res.status(403).json({ message: 'Клиника заблокирована.' });
@@ -114,8 +138,11 @@ router.post('/:id/qr', auth(['doctor', 'admin', 'superadmin']), async (req, res)
   if (!clinic) {
     return res.status(404).json({ message: 'Клиника не найдена.' });
   }
-  if (req.user.role === 'admin' && clinic.admin.toString() !== req.user.id) {
-    return res.status(403).json({ message: 'Нет доступа к клинике.' });
+  if (req.user.role === 'admin') {
+    const hasAccess = await adminHasClinicAccess(req.user.id, clinic);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Нет доступа к клинике.' });
+    }
   }
 
   const qrSecret = process.env.QR_SECRET;
@@ -144,8 +171,11 @@ router.post('/:id/services', auth(['admin', 'superadmin']), async (req, res) => 
   if (!clinic) {
     return res.status(404).json({ message: 'Клиника не найдена.' });
   }
-  if (req.user.role === 'admin' && clinic.admin.toString() !== req.user.id) {
-    return res.status(403).json({ message: 'Нет доступа к клинике.' });
+  if (req.user.role === 'admin') {
+    const hasAccess = await adminHasClinicAccess(req.user.id, clinic);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Нет доступа к клинике.' });
+    }
   }
   clinic.services.push({
     name,
@@ -163,8 +193,11 @@ router.patch('/:id/services/:serviceId', auth(['admin', 'superadmin']), async (r
   if (!clinic) {
     return res.status(404).json({ message: 'Клиника не найдена.' });
   }
-  if (req.user.role === 'admin' && clinic.admin.toString() !== req.user.id) {
-    return res.status(403).json({ message: 'Нет доступа к клинике.' });
+  if (req.user.role === 'admin') {
+    const hasAccess = await adminHasClinicAccess(req.user.id, clinic);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Нет доступа к клинике.' });
+    }
   }
   const service = clinic.services.id(req.params.serviceId);
   if (!service) {
@@ -180,8 +213,11 @@ router.delete('/:id/services/:serviceId', auth(['admin', 'superadmin']), async (
   if (!clinic) {
     return res.status(404).json({ message: 'Клиника не найдена.' });
   }
-  if (req.user.role === 'admin' && clinic.admin.toString() !== req.user.id) {
-    return res.status(403).json({ message: 'Нет доступа к клинике.' });
+  if (req.user.role === 'admin') {
+    const hasAccess = await adminHasClinicAccess(req.user.id, clinic);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Нет доступа к клинике.' });
+    }
   }
   const service = clinic.services.id(req.params.serviceId);
   if (!service) {
@@ -201,8 +237,11 @@ router.post('/:id/doctors', auth(['admin', 'superadmin']), async (req, res) => {
   if (!clinic) {
     return res.status(404).json({ message: 'Клиника не найдена.' });
   }
-  if (req.user.role === 'admin' && clinic.admin.toString() !== req.user.id) {
-    return res.status(403).json({ message: 'Нет доступа к клинике.' });
+  if (req.user.role === 'admin') {
+    const hasAccess = await adminHasClinicAccess(req.user.id, clinic);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Нет доступа к клинике.' });
+    }
   }
   if (!clinic.doctors.map((id) => id.toString()).includes(doctorId)) {
     clinic.doctors.push(doctorId);
@@ -217,8 +256,11 @@ router.delete('/:id/doctors/:doctorId', auth(['admin', 'superadmin']), async (re
   if (!clinic) {
     return res.status(404).json({ message: 'Клиника не найдена.' });
   }
-  if (req.user.role === 'admin' && clinic.admin.toString() !== req.user.id) {
-    return res.status(403).json({ message: 'Нет доступа к клинике.' });
+  if (req.user.role === 'admin') {
+    const hasAccess = await adminHasClinicAccess(req.user.id, clinic);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Нет доступа к клинике.' });
+    }
   }
   clinic.doctors = clinic.doctors.filter(
     (doctor) => doctor.toString() !== req.params.doctorId,

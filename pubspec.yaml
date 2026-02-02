@@ -43,6 +43,8 @@ dependencies:
   flutter_local_notifications: ^17.2.1+2
   qr_flutter: ^4.1.0
   google_fonts: ^6.2.1
+  printing: ^5.13.1
+  pdf: ^3.10.8
 
 dev_dependencies:
   flutter_test:

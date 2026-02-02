@@ -7,6 +7,7 @@ class MedicalRecord {
     required this.description,
     required this.createdAt,
     required this.doctor,
+    required this.toothMap,
     this.tags = const [],
   });
 
@@ -16,6 +17,7 @@ class MedicalRecord {
   final DateTime createdAt;
   final AppUser? doctor;
   final List<String> tags;
+  final List<ToothMark> toothMap;
 
   factory MedicalRecord.fromJson(Map<String, dynamic> json) {
     final doctorJson = json['doctor'] as Map<String, dynamic>?;
@@ -28,6 +30,37 @@ class MedicalRecord {
           : DateTime.fromMillisecondsSinceEpoch(0),
       doctor: doctorJson != null ? AppUser.fromJson(doctorJson) : null,
       tags: (json['tags'] as List<dynamic>? ?? []).cast<String>(),
+      toothMap: (json['toothMap'] as List<dynamic>? ?? [])
+          .map((item) => ToothMark.fromJson(item as Map<String, dynamic>))
+          .toList(),
     );
   }
+}
+
+class ToothMark {
+  ToothMark({
+    required this.arch,
+    required this.index,
+    required this.status,
+    this.note,
+  });
+
+  final String arch;
+  final int index;
+  final String status;
+  final String? note;
+
+  factory ToothMark.fromJson(Map<String, dynamic> json) => ToothMark(
+    arch: json['arch']?.toString() ?? 'upper',
+    index: (json['index'] as num?)?.toInt() ?? 1,
+    status: json['status']?.toString() ?? 'healthy',
+    note: json['note']?.toString(),
+  );
+
+  Map<String, dynamic> toJson() => {
+    'arch': arch,
+    'index': index,
+    'status': status,
+    if (note != null) 'note': note,
+  };
 }

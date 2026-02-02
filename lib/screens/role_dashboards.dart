@@ -233,9 +233,9 @@ class _WorkingHourEntry {
     required this.day,
     required String open,
     required String close,
-    this.isClosed = false,
   })  : openController = TextEditingController(text: open),
-        closeController = TextEditingController(text: close);
+        closeController = TextEditingController(text: close),
+        isClosed = false;
 
   final int day;
   final TextEditingController openController;
@@ -673,7 +673,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         children: [
           if (_clinics.isNotEmpty)
             DropdownButtonFormField<String>(
-              value: _selectedClinicId,
+              initialValue: _selectedClinicId,
               items: _clinics
                   .map((clinic) => DropdownMenuItem(
                         value: clinic.id,
@@ -885,35 +885,38 @@ class _AdminDashboardState extends State<AdminDashboard> {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
-          FutureBuilder<List<AppUser>>(
-            future: _doctorsFuture,
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final doctors = snapshot.data ?? [];
-              if (doctors.isEmpty) {
-                return const Text('Нет доступных врачей.');
-              }
-              return Column(
-                children: doctors
-                    .map((doctor) => ListTile(
-                          title: Text(doctor.fullName),
-                          subtitle: Text(doctor.specialties?.join(', ') ?? ''),
-                          trailing: selectedClinic?.doctors.contains(doctor.id) == true
-                              ? TextButton(
-                                  onPressed: () => _removeDoctor(doctor.id),
-                                  child: const Text('Убрать'),
-                                )
-                              : TextButton(
-                                  onPressed: () => _assignDoctor(doctor.id),
-                                  child: const Text('Назначить'),
-                                ),
-                        ))
-                    .toList(),
-              );
-            },
-          ),
+          if (selectedClinic == null)
+            const Text('Сначала создайте клинику, чтобы назначать врачей.')
+          else
+            FutureBuilder<List<AppUser>>(
+              future: _doctorsFuture,
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final doctors = snapshot.data ?? [];
+                if (doctors.isEmpty) {
+                  return const Text('Нет доступных врачей.');
+                }
+                return Column(
+                  children: doctors
+                      .map((doctor) => ListTile(
+                            title: Text(doctor.fullName),
+                            subtitle: Text(doctor.specialties?.join(', ') ?? ''),
+                            trailing: selectedClinic.doctors.contains(doctor.id)
+                                ? TextButton(
+                                    onPressed: () => _removeDoctor(doctor.id),
+                                    child: const Text('Убрать'),
+                                  )
+                                : TextButton(
+                                    onPressed: () => _assignDoctor(doctor.id),
+                                    child: const Text('Назначить'),
+                                  ),
+                          ))
+                      .toList(),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -937,7 +940,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 return _buildErrorCard('Врачи не найдены');
               }
               return DropdownButtonFormField<String>(
-                value: _selectedDoctorId,
+                initialValue: _selectedDoctorId,
                 items: doctors
                     .map((doctor) => DropdownMenuItem(
                           value: doctor.id,
@@ -1195,7 +1198,7 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: DropdownButtonFormField<String>(
-              value: _filter,
+              initialValue: _filter,
               items: const [
                 DropdownMenuItem(value: 'all', child: Text('Все')),
                 DropdownMenuItem(value: 'open', child: Text('Открытые')),
@@ -1641,8 +1644,7 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      // ignore: deprecated_member_use
-                      value: _role,
+                      initialValue: _role,
                       items: const [
                         DropdownMenuItem(value: 'doctor', child: Text('Врач')),
                         DropdownMenuItem(value: 'admin', child: Text('Администратор')),
@@ -1720,7 +1722,7 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
                   const SizedBox(height: 12),
                   if (_clinics.isNotEmpty)
                     DropdownButtonFormField<String>(
-                      value: _selectedClinicId,
+                      initialValue: _selectedClinicId,
                       items: _clinics
                           .map(
                             (clinic) => DropdownMenuItem(
@@ -1751,7 +1753,7 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
                     ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _clinicStatus,
+                    initialValue: _clinicStatus,
                     items: const [
                       DropdownMenuItem(value: 'draft', child: Text('Draft')),
                       DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
@@ -1873,6 +1875,7 @@ Widget _buildUserSection(BuildContext context, String title, List<AppUser> users
                     onPressed: () async {
                       final api = context.read<SessionProvider>().apiService;
                       await api.updateUserStatus(user.id, !user.isActive);
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(

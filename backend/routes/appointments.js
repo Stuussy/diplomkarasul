@@ -14,6 +14,15 @@ const {
   safeCalendarCall,
 } = require('../services/google_calendar');
 
+async function getAdminClinicIds(userId) {
+  const admin = await User.findById(userId).select('clinics');
+  const clinicIds = new Set();
+  (admin?.clinics || []).forEach((id) => clinicIds.add(id.toString()));
+  const ownedClinics = await Clinic.find({ admin: userId }).select('_id');
+  ownedClinics.forEach((clinic) => clinicIds.add(clinic._id.toString()));
+  return Array.from(clinicIds);
+}
+
 const router = express.Router();
 
 const createValidators = [
@@ -213,7 +222,11 @@ router.get('/', auth(), async (req, res) => {
   } else if (req.user.role === 'doctor') {
     query.doctor = req.user.id;
   } else if (req.user.role === 'admin') {
-    query.clinic = { $in: req.user.clinics || [] };
+    const clinicIds = await getAdminClinicIds(req.user.id);
+    if (clinicIds.length === 0) {
+      return res.json([]);
+    }
+    query.clinic = { $in: clinicIds };
   }
 
   const appointments = await Appointment.find(query)
@@ -422,7 +435,12 @@ router.patch(
     }
     if (req.user.role === 'admin') {
       const clinic = await Clinic.findById(appointment.clinic);
-      if (!clinic || clinic.admin.toString() !== req.user.id) {
+      const adminClinicIds = await getAdminClinicIds(req.user.id);
+      const hasAccess =
+        clinic &&
+        (clinic.admin?.toString() === req.user.id ||
+          adminClinicIds.includes(clinic._id.toString()));
+      if (!hasAccess) {
         return res.status(403).json({ message: 'Нет доступа к клинике.' });
       }
     }
@@ -573,7 +591,11 @@ router.post(
 
       if (req.user.role === 'admin') {
         const clinic = await Clinic.findById(clinicId);
-        if (!clinic || clinic.admin.toString() !== req.user.id) {
+        const adminClinicIds = await getAdminClinicIds(req.user.id);
+        const hasAccess =
+          clinic &&
+          (clinic.admin?.toString() === req.user.id || adminClinicIds.includes(clinicId));
+        if (!hasAccess) {
           return res.status(403).json({ message: 'Нет доступа к клинике.' });
         }
       }
@@ -604,7 +626,11 @@ router.get('/slots', auth(), async (req, res) => {
   }
   if (req.user.role === 'doctor') filter.doctor = req.user.id;
   if (req.user.role === 'admin') {
-    filter.clinic = { $in: req.user.clinics || [] };
+    const clinicIds = await getAdminClinicIds(req.user.id);
+    if (clinicIds.length === 0) {
+      return res.json([]);
+    }
+    filter.clinic = { $in: clinicIds };
   }
 
   const slots = await ScheduleSlot.find(filter).sort({ startTime: 1 });
@@ -618,7 +644,12 @@ router.delete('/slots/:id', auth(['admin', 'superadmin']), async (req, res) => {
   }
   if (req.user.role === 'admin') {
     const clinic = await Clinic.findById(slot.clinic);
-    if (!clinic || clinic.admin.toString() !== req.user.id) {
+    const adminClinicIds = await getAdminClinicIds(req.user.id);
+    const hasAccess =
+      clinic &&
+      (clinic.admin?.toString() === req.user.id ||
+        adminClinicIds.includes(clinic._id.toString()));
+    if (!hasAccess) {
       return res.status(403).json({ message: 'Нет доступа к клинике.' });
     }
   }

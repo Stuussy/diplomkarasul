@@ -193,7 +193,7 @@ class _SupportScreenState extends State<SupportScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _selectedCategory,
+            initialValue: _selectedCategory,
             items: _categories
                 .map((category) => DropdownMenuItem(
                       value: category,

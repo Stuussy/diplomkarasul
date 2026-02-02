@@ -1,11 +1,16 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 import '../models/medical_record.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
 import '../widgets/patient_ui.dart';
 import '../widgets/clinic_card.dart';
+import '../widgets/tooth_chart.dart';
 
 class MedicalRecordsScreen extends StatefulWidget {
   const MedicalRecordsScreen({
@@ -56,7 +61,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
   bool get _canEdit =>
       widget.allowEdit && (_currentUser?.role == 'doctor' || _isAdmin);
   bool get _isAdmin =>
-      _currentUser?.role == 'admin' || _currentUser?.role == 'director';
+      _currentUser?.role == 'admin' || _currentUser?.role == 'superadmin';
 
   @override
   Widget build(BuildContext context) {
@@ -69,9 +74,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
             )
           : null,
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: PatientPalette.background,
-        ),
+        decoration: const BoxDecoration(color: PatientPalette.background),
         child: FutureBuilder<List<MedicalRecord>>(
           future: _future,
           builder: (context, snapshot) {
@@ -99,10 +102,11 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                 separatorBuilder: (_, __) => const SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final record = records[index];
-                      return ClinicCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                  return ClinicCard(
+                    onTap: () => _openRecordDetail(record),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -134,6 +138,10 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                             record.description!,
                             style: const TextStyle(height: 1.4),
                           ),
+                        ],
+                        if (record.toothMap.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          ToothChart(toothMap: record.toothMap),
                         ],
                         if (record.tags.isNotEmpty) ...[
                           const SizedBox(height: 12),
@@ -173,6 +181,156 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
     );
   }
 
+  Future<void> _openRecordDetail(MedicalRecord record) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        record.title,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    PatientBadge(
+                      label: _formatDate(record.createdAt),
+                      variant: PatientBadgeVariant.info,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (record.doctor != null)
+                  Text(
+                    'Врач: ${record.doctor!.fullName}',
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                if (record.description != null &&
+                    record.description!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(record.description!),
+                ],
+                const SizedBox(height: 16),
+                ToothChart(toothMap: record.toothMap),
+                if (record.tags.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: record.tags
+                        .map(
+                          (tag) => Chip(
+                            label: Text(tag),
+                            backgroundColor: PatientPalette.primary.withValues(
+                              alpha: 0.08,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _exportRecord(record),
+                        icon: const Icon(Icons.download_outlined),
+                        label: const Text('Экспорт PDF'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _printRecord(record),
+                        icon: const Icon(Icons.print_outlined),
+                        label: const Text('Печать'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<Uint8List> _buildRecordPdf(MedicalRecord record) async {
+    final doc = pw.Document();
+    final toothRows = record.toothMap
+        .map(
+          (item) =>
+              '${item.arch == 'upper' ? 'Верхняя' : 'Нижняя'} '
+              '${item.index}: ${item.status}',
+        )
+        .toList();
+
+    doc.addPage(
+      pw.Page(
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text('Медицинская карта', style: pw.TextStyle(fontSize: 22)),
+            pw.SizedBox(height: 8),
+            pw.Text('Запись: ${record.title}'),
+            pw.Text('Дата: ${_formatDate(record.createdAt)}'),
+            if (record.doctor != null)
+              pw.Text('Врач: ${record.doctor!.fullName}'),
+            if (record.description != null &&
+                record.description!.isNotEmpty) ...[
+              pw.SizedBox(height: 12),
+              pw.Text('Описание:'),
+              pw.Text(record.description!),
+            ],
+            if (record.tags.isNotEmpty) ...[
+              pw.SizedBox(height: 12),
+              pw.Text('Теги: ${record.tags.join(', ')}'),
+            ],
+            if (toothRows.isNotEmpty) ...[
+              pw.SizedBox(height: 12),
+              pw.Text('Отметки по зубам:'),
+              pw.Bullet(text: toothRows.join(' · ')),
+            ],
+          ],
+        ),
+      ),
+    );
+    return doc.save();
+  }
+
+  Future<void> _exportRecord(MedicalRecord record) async {
+    final data = await _buildRecordPdf(record);
+    await Printing.sharePdf(
+      bytes: data,
+      filename: 'medical_record_${record.id}.pdf',
+    );
+  }
+
+  Future<void> _printRecord(MedicalRecord record) async {
+    final data = await _buildRecordPdf(record);
+    await Printing.layoutPdf(onLayout: (_) => data);
+  }
+
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}.'
         '${date.month.toString().padLeft(2, '0')}.'
@@ -183,6 +341,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
     final titleController = TextEditingController();
     final descController = TextEditingController();
     final tagsController = TextEditingController();
+    List<ToothMark> toothMap = [];
     final formKey = GlobalKey<FormState>();
     bool isSaving = false;
     await showDialog(
@@ -208,6 +367,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                           .map((e) => e.trim())
                           .where((e) => e.isNotEmpty)
                           .toList(),
+                      toothMap: toothMap,
                     );
                 if (!dialogContext.mounted) return;
                 Navigator.of(dialogContext).pop();
@@ -227,30 +387,44 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
               title: const Text('Новая запись'),
               content: Form(
                 key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: titleController,
-                      decoration: const InputDecoration(labelText: 'Заголовок'),
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Обязательное поле'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: descController,
-                      decoration: const InputDecoration(labelText: 'Описание'),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: tagsController,
-                      decoration: const InputDecoration(
-                        labelText: 'Теги (через запятую)',
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Заголовок',
+                        ),
+                        validator: (value) => value == null || value.isEmpty
+                            ? 'Обязательное поле'
+                            : null,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: descController,
+                        decoration: const InputDecoration(
+                          labelText: 'Описание',
+                        ),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: tagsController,
+                        decoration: const InputDecoration(
+                          labelText: 'Теги (через запятую)',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ToothChart(
+                        toothMap: toothMap,
+                        onChanged: (updated) {
+                          toothMap = updated;
+                          setState(() {});
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
               actions: [
@@ -284,6 +458,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
       text: record.description ?? '',
     );
     final tagsController = TextEditingController(text: record.tags.join(', '));
+    List<ToothMark> toothMap = List.from(record.toothMap);
     final formKey = GlobalKey<FormState>();
     bool isSaving = false;
     await showDialog(
@@ -307,6 +482,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                           .map((e) => e.trim())
                           .where((e) => e.isNotEmpty)
                           .toList(),
+                      toothMap: toothMap,
                     );
                 if (!dialogContext.mounted) return;
                 Navigator.of(dialogContext).pop();
@@ -326,30 +502,44 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
               title: const Text('Редактировать запись'),
               content: Form(
                 key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: titleController,
-                      decoration: const InputDecoration(labelText: 'Заголовок'),
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Обязательное поле'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: descController,
-                      decoration: const InputDecoration(labelText: 'Описание'),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: tagsController,
-                      decoration: const InputDecoration(
-                        labelText: 'Теги (через запятую)',
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Заголовок',
+                        ),
+                        validator: (value) => value == null || value.isEmpty
+                            ? 'Обязательное поле'
+                            : null,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: descController,
+                        decoration: const InputDecoration(
+                          labelText: 'Описание',
+                        ),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: tagsController,
+                        decoration: const InputDecoration(
+                          labelText: 'Теги (через запятую)',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ToothChart(
+                        toothMap: toothMap,
+                        onChanged: (updated) {
+                          toothMap = updated;
+                          setState(() {});
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
               actions: [

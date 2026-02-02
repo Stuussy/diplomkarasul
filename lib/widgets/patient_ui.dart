@@ -14,7 +14,7 @@ class PatientPalette {
   static const Color background = ClinicTheme.ivory;
 
   static const LinearGradient hero = LinearGradient(
-    colors: [ClinicTheme.sage, Color(0xFF6B8C7E)],
+    colors: [ClinicTheme.sage, Color(0xFF7AA7FF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -22,8 +22,8 @@ class PatientPalette {
   static LinearGradient muted([double opacity = 0.08]) {
     return LinearGradient(
       colors: [
-        ClinicTheme.sage.withValues(alpha: opacity + 0.04),
-        ClinicTheme.info.withValues(alpha: opacity),
+        ClinicTheme.sage.withValues(alpha: opacity + 0.02),
+        ClinicTheme.info.withValues(alpha: opacity + 0.02),
       ],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -167,9 +167,9 @@ class PatientBadge extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: resolved,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: resolved,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
