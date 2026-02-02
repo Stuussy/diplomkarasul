@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 import '../models/appointment.dart';
@@ -23,20 +24,50 @@ class ApiException implements Exception {
 }
 
 class ApiService {
-  final String _baseUrl =
-      Platform.isAndroid ? 'http://192.168.0.14:8050/api' : 'http://192.168.0.14:8050/api';
+  ApiService({String? baseUrl}) : _baseUrl = baseUrl ?? _defaultBaseUrl();
+
+  final String _baseUrl;
   String? _token;
+
+  static String _defaultBaseUrl() {
+    const env = String.fromEnvironment('API_BASE_URL');
+    if (env.isNotEmpty) return env;
+    if (kIsWeb) return 'http://localhost:8050/api';
+    if (Platform.isAndroid) return 'http://10.0.2.2:8050/api';
+    return 'http://localhost:8050/api';
+  }
 
   void updateToken(String? token) {
     _token = token;
   }
 
-  Map<String, String> _headers({bool authorized = true}) {
-    final headers = {'Content-Type': 'application/json'};
+  Map<String, String> _headers({bool authorized = true, bool json = true}) {
+    final headers = <String, String>{};
+    if (json) {
+      headers['Content-Type'] = 'application/json';
+    }
     if (authorized && _token != null) {
       headers['Authorization'] = 'Bearer $_token';
     }
     return headers;
+  }
+
+  Future<http.Response> _sendMultipart(
+    String path, {
+    Map<String, String> fields = const {},
+    List<File>? files,
+    bool authorized = true,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$_baseUrl$path'));
+    request.headers.addAll(_headers(authorized: authorized, json: false));
+    request.fields.addAll(fields);
+    if (files != null) {
+      for (final file in files) {
+        request.files.add(await http.MultipartFile.fromPath('files', file.path));
+      }
+    }
+    final streamed = await request.send();
+    return http.Response.fromStream(streamed);
   }
 
   Future<Map<String, dynamic>> login(String email, String password) async {
@@ -163,11 +194,11 @@ class ApiService {
     return data.map((json) => Fine.fromJson(json)).toList();
   }
 
-  Future<SupportMessage> sendSupportMessage(String content) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/support'),
-      headers: _headers(),
-      body: jsonEncode({'content': content}),
+  Future<SupportMessage> sendSupportMessage(String content, {List<File>? files}) async {
+    final response = await _sendMultipart(
+      '/support',
+      fields: {'content': content},
+      files: files,
     );
     final data = _decode(response);
     return SupportMessage.fromJson(data);
@@ -488,17 +519,18 @@ class ApiService {
     String? description,
     String? appointmentId,
     List<String>? tags,
+    List<File>? files,
   }) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/records'),
-      headers: _headers(),
-      body: jsonEncode({
+    final response = await _sendMultipart(
+      '/records',
+      fields: {
         'patientId': patientId,
-        'appointmentId': appointmentId,
+        if (appointmentId != null) 'appointmentId': appointmentId,
         'title': title,
-        'description': description,
-        'tags': tags?.join(','),
-      }),
+        if (description != null) 'description': description,
+        if (tags != null) 'tags': tags.join(','),
+      },
+      files: files,
     );
     final data = _decode(response);
     return MedicalRecord.fromJson(data);

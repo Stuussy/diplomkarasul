@@ -5,6 +5,8 @@ import '../models/slot.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
 import '../widgets/patient_ui.dart';
+import '../widgets/section_header.dart';
+import '../widgets/clinic_card.dart';
 
 class AppointmentRequestScreen extends StatefulWidget {
   const AppointmentRequestScreen({super.key, required this.doctor});
@@ -100,11 +102,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
       ),
       body: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFF7F9FC), Color(0xFFEFF3FA)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          color: PatientPalette.background,
         ),
         child: SafeArea(
           bottom: false,
@@ -113,7 +111,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PatientCard(
+                ClinicCard(
                   child: Row(
                     children: [
                       CircleAvatar(
@@ -157,7 +155,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                 ),
                 if (_services.length > 1) ...[
                   const SizedBox(height: 24),
-                  PatientSectionTitle(
+                  const SectionHeader(
                     title: 'Выберите услугу',
                     subtitle: 'Можно поменять перед подтверждением',
                   ),
@@ -185,7 +183,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                   ),
                 ],
                 const SizedBox(height: 24),
-                PatientSectionTitle(
+                const SectionHeader(
                   title: 'Свободные слоты',
                   subtitle: 'Выберите удобное время визита',
                 ),
@@ -196,7 +194,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                     child: LinearProgressIndicator(minHeight: 2),
                   )
                 else if (_hasActiveBooking)
-                  PatientCard(
+                  ClinicCard(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: Row(
                       children: const [
@@ -235,7 +233,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                         itemBuilder: (context, index) {
                           final entry = grouped.entries.elementAt(index);
                           final daySlots = entry.value;
-                          return PatientCard(
+                          return ClinicCard(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [

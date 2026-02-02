@@ -5,6 +5,8 @@ import '../models/appointment.dart';
 import '../providers/session_provider.dart';
 import '../services/notification_service.dart';
 import '../widgets/patient_ui.dart';
+import '../widgets/status_badge.dart';
+import '../widgets/clinic_card.dart';
 import 'qr_scanner_screen.dart';
 
 class AppointmentsScreen extends StatefulWidget {
@@ -43,11 +45,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
 
     return DecoratedBox(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFF7F9FC), Color(0xFFEFF3FA)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+        color: PatientPalette.background,
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -386,38 +384,9 @@ class _StatusChip extends StatelessWidget {
 
   final String status;
 
-  PatientBadgeVariant _variant() {
-    switch (status) {
-      case 'confirmed':
-        return PatientBadgeVariant.success;
-      case 'completed':
-        return PatientBadgeVariant.info;
-      case 'cancelled':
-        return PatientBadgeVariant.error;
-      case 'scheduled':
-      default:
-        return PatientBadgeVariant.warning;
-    }
-  }
-
-  String _label() {
-    switch (status) {
-      case 'confirmed':
-        return 'Подтверждено';
-      case 'scheduled':
-        return 'Ожидает';
-      case 'completed':
-        return 'Завершено';
-      case 'cancelled':
-        return 'Отменено';
-      default:
-        return status;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return PatientBadge(label: _label(), variant: _variant());
+    return StatusBadge(status: status);
   }
 }
 
@@ -441,7 +410,7 @@ class _AppointmentCard extends StatelessWidget {
         '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     final doctor = appointment.doctor?.fullName ?? 'Врач уточняется';
 
-    return PatientCard(
+    return ClinicCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

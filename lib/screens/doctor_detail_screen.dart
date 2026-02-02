@@ -5,6 +5,8 @@ import '../models/review.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../widgets/patient_ui.dart';
+import '../widgets/section_header.dart';
+import '../widgets/clinic_card.dart';
 import 'appointment_request_screen.dart';
 
 class DoctorDetailScreen extends StatefulWidget {
@@ -50,11 +52,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
       ),
       body: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFF7F9FC), Color(0xFFEFF3FA)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          color: PatientPalette.background,
         ),
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -65,7 +63,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
               const SizedBox(height: 20),
               _InfoChips(doctor: doctor),
               const SizedBox(height: 20),
-              PatientCard(
+              ClinicCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -99,7 +97,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              PatientCard(
+              ClinicCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -126,7 +124,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              PatientSectionTitle(
+              const SectionHeader(
                 title: 'Отзывы пациентов',
                 subtitle: 'Честные впечатления от посещений',
               ),
@@ -154,7 +152,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      PatientCard(
+                      ClinicCard(
                         child: Row(
                           children: [
                             Expanded(
@@ -181,7 +179,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                       ),
                       const SizedBox(height: 12),
                       ...reviews.map(
-                        (review) => PatientCard(
+                        (review) => ClinicCard(
                           margin: const EdgeInsets.only(bottom: 12),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,9 +240,8 @@ class _HeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PatientCard(
+    return ClinicCard(
       gradient: PatientPalette.hero,
-      color: PatientPalette.primary,
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,7 +344,7 @@ class _InfoChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PatientCard(
+    return ClinicCard(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

@@ -5,6 +5,7 @@ import '../models/medical_record.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
 import '../widgets/patient_ui.dart';
+import '../widgets/clinic_card.dart';
 
 class MedicalRecordsScreen extends StatefulWidget {
   const MedicalRecordsScreen({
@@ -69,11 +70,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
           : null,
       body: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFF7F9FC), Color(0xFFEFF3FA)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          color: PatientPalette.background,
         ),
         child: FutureBuilder<List<MedicalRecord>>(
           future: _future,
@@ -102,10 +99,10 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                 separatorBuilder: (_, __) => const SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final record = records[index];
-                  return PatientCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                      return ClinicCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [

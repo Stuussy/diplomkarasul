@@ -71,11 +71,7 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
       extendBody: true,
       body: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFF7F9FC), Color(0xFFEFF3FA)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          color: PatientPalette.background,
         ),
         child: SafeArea(
           top: true,
@@ -93,10 +89,7 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
                   child: Text(
                     _titles[_selectedIndex],
                     key: ValueKey(_titles[_selectedIndex]),
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
                   ),
                 ),
                 actions: [

@@ -5,6 +5,8 @@ import '../models/appointment.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
 import '../widgets/patient_ui.dart';
+import '../widgets/section_header.dart';
+import '../widgets/clinic_card.dart';
 import 'appointment_request_screen.dart';
 import 'doctor_detail_screen.dart';
 import 'filter_sheet.dart';
@@ -116,11 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = context.watch<SessionProvider>().user;
     return DecoratedBox(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFF7F9FC), Color(0xFFEFF3FA)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+        color: PatientPalette.background,
       ),
       child: RefreshIndicator(
         onRefresh: () async {
@@ -159,15 +157,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       _AiTipCard(tip: _aiTip!),
                     ],
                     const SizedBox(height: 24),
-                    PatientSectionTitle(
+                    SectionHeader(
                       title: 'Лучшие врачи',
-                      subtitle: 'Подобраны на основе вашего профиля',
-                      actionLabel: _filters.hasActiveFilters
-                          ? 'Сбросить фильтры'
-                          : null,
-                      onAction: _filters.hasActiveFilters
-                          ? _resetFilters
-                          : null,
+                      subtitle: 'Подобраны под ваш запрос',
+                      actionLabel: _filters.hasActiveFilters ? 'Сбросить' : null,
+                      onAction: _filters.hasActiveFilters ? _resetFilters : null,
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -183,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     } else if (snapshot.hasError) {
-                      return PatientCard(
+                      return ClinicCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -323,27 +317,23 @@ class _TopBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Привет, ${userName.isEmpty ? 'пациент' : userName} 👋',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                ),
+                'Добрый день, ${userName.isEmpty ? 'пациент' : userName}',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
-              PatientBadge(
-                label: 'Астана · Казахстан',
-                icon: Icons.location_on_outlined,
-                variant: PatientBadgeVariant.info,
+              Text(
+                'Частная стоматология · Алматы',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),
         ),
         CircleAvatar(
-          radius: 28,
-          backgroundColor: PatientPalette.primary.withValues(alpha: 0.1),
+          radius: 26,
+          backgroundColor: PatientPalette.primary.withValues(alpha: 0.12),
           child: Text(
             userName.isNotEmpty ? userName[0].toUpperCase() : 'P',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: PatientPalette.primary),
           ),
         ),
       ],
@@ -359,8 +349,8 @@ class _SearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PatientCard(
-      padding: const EdgeInsets.only(left: 20, right: 8, top: 12, bottom: 12),
+    return ClinicCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
           const Icon(Icons.search_rounded, color: Colors.black54),
@@ -370,20 +360,21 @@ class _SearchBar extends StatelessWidget {
               decoration: const InputDecoration(
                 hintText: 'Найти врача или услугу',
                 border: InputBorder.none,
+                isDense: true,
               ),
             ),
           ),
           Stack(
             clipBehavior: Clip.none,
             children: [
-              IconButton.filledTonal(
+              IconButton(
                 onPressed: onFilter,
                 icon: const Icon(Icons.tune_rounded),
               ),
               if (hasFilters)
                 Positioned(
-                  top: 8,
-                  right: 8,
+                  top: 6,
+                  right: 6,
                   child: Container(
                     width: 8,
                     height: 8,
@@ -409,53 +400,48 @@ class _UpcomingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PatientCard(
-      gradient: PatientPalette.hero,
-      color: PatientPalette.primary,
-      padding: const EdgeInsets.all(24),
+    return ClinicCard(
+      gradient: PatientPalette.muted(0.14),
+      background: PatientPalette.background,
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
-              Icon(Icons.calendar_today_rounded, color: Colors.white70),
-              SizedBox(width: 8),
-              Text('Ближайший визит', style: TextStyle(color: Colors.white70)),
+            children: [
+              Icon(Icons.calendar_today_rounded, color: PatientPalette.primary.withValues(alpha: 0.8)),
+              const SizedBox(width: 8),
+              Text('Ближайший визит', style: Theme.of(context).textTheme.labelLarge),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           if (loading)
             const SizedBox(
-              height: 32,
-              width: 32,
+              height: 28,
+              width: 28,
               child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 3,
+                strokeWidth: 2,
               ),
             )
           else if (appointment == null)
-            const Text(
-              'Запланируйте визит, чтобы не пропустить профилактику и вовремя получить рекомендации.',
-              style: TextStyle(color: Colors.white, fontSize: 16),
+            Text(
+              'Запланируйте визит, чтобы держать профилактику под контролем.',
+              style: Theme.of(context).textTheme.bodyMedium,
             )
           else ...[
             Text(
               appointment!.service,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               _formatDate(appointment!.startTime),
-              style: const TextStyle(color: Colors.white70, fontSize: 16),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 4),
             Text(
               appointment!.doctor?.fullName ?? 'Врач уточняется',
-              style: const TextStyle(color: Colors.white),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
         ],
@@ -504,7 +490,7 @@ class _SpecialtyScroller extends StatelessWidget {
             ),
             backgroundColor: Colors.white,
             side: BorderSide(
-              color: selected ? Colors.transparent : Colors.grey.shade300,
+              color: selected ? Colors.transparent : PatientPalette.background,
             ),
           );
         },
@@ -520,7 +506,7 @@ class _AiTipCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PatientCard(
+    return ClinicCard(
       child: Row(
         children: [
           Container(
@@ -573,7 +559,7 @@ class _DoctorTile extends StatelessWidget {
     final location = doctor.clinics.isNotEmpty
         ? doctor.clinics.join(', ')
         : 'Dental AI Clinic';
-    return PatientCard(
+    return ClinicCard(
       margin: const EdgeInsets.only(bottom: 16),
       onTap: onOpened,
       child: Column(
@@ -644,15 +630,27 @@ class _DoctorTile extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              PatientBadge(
-                label: doctor.rating.toStringAsFixed(1),
-                icon: Icons.star_rounded,
-                variant: PatientBadgeVariant.warning,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: PatientPalette.warning.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.star_rounded, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      doctor.rating.toStringAsFixed(1),
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Text(
                 '${doctor.reviews} отзывов',
-                style: const TextStyle(color: Colors.black54),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),
@@ -661,9 +659,18 @@ class _DoctorTile extends StatelessWidget {
             spacing: 12,
             runSpacing: 8,
             children: [
-              FilledButton(onPressed: onBook, child: const Text('Записаться')),
+              FilledButton(
+                onPressed: onBook,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                child: const Text('Записаться'),
+              ),
               OutlinedButton(
                 onPressed: onOpened,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
                 child: const Text('Подробнее'),
               ),
             ],

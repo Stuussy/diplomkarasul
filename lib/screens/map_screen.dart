@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
 import '../widgets/patient_ui.dart';
+import '../widgets/section_header.dart';
+import '../widgets/clinic_card.dart';
 import 'appointment_request_screen.dart';
 import 'doctor_detail_screen.dart';
 
@@ -87,19 +89,14 @@ class _MapScreenState extends State<MapScreen> {
 
     return DecoratedBox(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFF7F9FC), Color(0xFFEFF3FA)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+        color: PatientPalette.background,
       ),
       child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: PatientCard(
+            child: ClinicCard(
               gradient: PatientPalette.hero,
-              color: PatientPalette.primary,
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,9 +146,9 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: PatientSectionTitle(
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: SectionHeader(
               title: 'Команда клиники',
               subtitle: 'Выберите врача и запишитесь онлайн',
             ),
@@ -255,7 +252,7 @@ class _DoctorCard extends StatelessWidget {
         ? doctor.clinics.join(', ')
         : 'Наша клиника';
 
-    return PatientCard(
+    return ClinicCard(
       margin: const EdgeInsets.only(bottom: 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

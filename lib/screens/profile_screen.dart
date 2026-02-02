@@ -5,6 +5,8 @@ import '../models/fine.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
 import '../widgets/patient_ui.dart';
+import '../widgets/clinic_card.dart';
+import '../widgets/section_header.dart';
 import 'medical_records_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -39,11 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return DecoratedBox(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFF7F9FC), Color(0xFFEFF3FA)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+        color: PatientPalette.background,
       ),
       child: RefreshIndicator(
         onRefresh: _refresh,
@@ -59,7 +57,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onEdit: () => _showEditProfileSheet(user),
             ),
             const SizedBox(height: 20),
-            PatientCard(
+            ClinicCard(
               child: Column(
                 children: [
                   _InfoTile(
@@ -85,7 +83,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            PatientCard(
+            ClinicCard(
               child: Column(
                 children: [
                   ListTile(
@@ -119,7 +117,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            PatientSectionTitle(
+            const SectionHeader(
               title: 'Штрафы за позднюю отмену',
               subtitle: 'Старайтесь подтверждать визит вовремя',
             ),
@@ -143,12 +141,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                 }
 
-                return Column(
-                  children: fines
-                      .map(
-                        (fine) => PatientCard(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: Row(
+                    return Column(
+                      children: fines
+                          .map(
+                            (fine) => ClinicCard(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: Row(
                             children: [
                               CircleAvatar(
                                 radius: 24,
@@ -486,9 +484,8 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PatientCard(
+    return ClinicCard(
       gradient: PatientPalette.hero,
-      color: PatientPalette.primary,
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

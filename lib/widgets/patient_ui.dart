@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../theme/clinic_theme.dart';
+import 'clinic_card.dart';
+
 class PatientPalette {
-  static const Color primary = Color(0xFF2563EB);
-  static const Color secondary = Color(0xFF60A5FA);
-  static const Color accent = Color(0xFF0EA5E9);
-  static const Color success = Color(0xFF10B981);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color error = Color(0xFFEF4444);
-  static const Color surface = Colors.white;
-  static const Color background = Color(0xFFF4F6FB);
+  static const Color primary = ClinicTheme.sage;
+  static const Color secondary = Color(0xFF8EAB9F);
+  static const Color accent = ClinicTheme.info;
+  static const Color success = ClinicTheme.success;
+  static const Color warning = ClinicTheme.warning;
+  static const Color error = ClinicTheme.error;
+  static const Color surface = ClinicTheme.porcelain;
+  static const Color background = ClinicTheme.ivory;
 
   static const LinearGradient hero = LinearGradient(
-    colors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
+    colors: [ClinicTheme.sage, Color(0xFF6B8C7E)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -19,8 +22,8 @@ class PatientPalette {
   static LinearGradient muted([double opacity = 0.08]) {
     return LinearGradient(
       colors: [
-        const Color(0xFF2563EB).withValues(alpha: opacity + 0.04),
-        const Color(0xFF0EA5E9).withValues(alpha: opacity),
+        ClinicTheme.sage.withValues(alpha: opacity + 0.04),
+        ClinicTheme.info.withValues(alpha: opacity),
       ],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -32,13 +35,13 @@ class PatientCard extends StatelessWidget {
   const PatientCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(20),
+    this.padding = const EdgeInsets.all(18),
     this.margin,
     this.onTap,
     this.gradient,
     this.color = PatientPalette.surface,
-    this.borderRadius = 24,
-    this.elevation = 12,
+    this.borderRadius = ClinicTheme.radiusM,
+    this.elevation = 10,
   });
 
   final Widget child;
@@ -55,9 +58,9 @@ class PatientCard extends StatelessWidget {
     final radius = BorderRadius.circular(borderRadius);
     final boxShadow = [
       BoxShadow(
-        color: Colors.black.withValues(alpha: 0.04),
+        color: Colors.black.withValues(alpha: 0.06),
         blurRadius: elevation,
-        offset: const Offset(0, 10),
+        offset: const Offset(0, 4),
       ),
     ];
     return Container(
@@ -97,27 +100,16 @@ class PatientSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              Text(title, style: Theme.of(context).textTheme.titleLarge),
               if (subtitle != null) ...[
                 const SizedBox(height: 4),
-                Text(
-                  subtitle!,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
-                ),
+                Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
               ],
             ],
           ),
@@ -163,7 +155,7 @@ class PatientBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: resolved.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(ClinicTheme.radiusL),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -174,7 +166,10 @@ class PatientBadge extends StatelessWidget {
           ],
           Text(
             label,
-            style: TextStyle(color: resolved, fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: resolved,
+                  fontWeight: FontWeight.w600,
+                ),
           ),
         ],
       ),
@@ -200,7 +195,7 @@ class PatientEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PatientCard(
+    return ClinicCard(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -210,13 +205,13 @@ class PatientEmptyState extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.black54),
+            style: Theme.of(context).textTheme.bodySmall,
           ),
           if (action != null) ...[const SizedBox(height: 16), action!],
         ],

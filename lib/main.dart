@@ -7,6 +7,7 @@ import 'providers/session_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'services/api_service.dart';
 import 'services/notification_service.dart';
+import 'theme/clinic_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,27 +44,7 @@ class DentalApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'Dental AI',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          scaffoldBackgroundColor: const Color(0xFFF4F7FA),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.white,
-            elevation: 1,
-            iconTheme: IconThemeData(color: Colors.black),
-            titleTextStyle: TextStyle(
-              color: Colors.black,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          cardTheme: CardThemeData(
-            elevation: 0.5,
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
+        theme: ClinicTheme.light(),
         home: const _AuthGate(),
         debugShowCheckedModeBanner: false,
       ),
