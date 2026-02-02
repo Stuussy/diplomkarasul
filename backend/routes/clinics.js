@@ -1,5 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const crypto = require('crypto');
 const Clinic = require('../models/Clinic');
 const auth = require('../middleware/auth');
 
@@ -58,7 +59,14 @@ router.post('/:id/qr', auth(['doctor', 'admin', 'director']), async (req, res) =
     return res.status(404).json({ message: 'Клиника не найдена.' });
   }
 
-  const payload = `clinic:${clinic._id}:${Date.now()}`;
+  const qrSecret = process.env.QR_SECRET;
+  if (!qrSecret) {
+    return res.status(500).json({ message: 'QR-секрет не настроен.' });
+  }
+  const issuedAt = Date.now();
+  const basePayload = `clinic:${clinic._id}:${issuedAt}`;
+  const signature = crypto.createHmac('sha256', qrSecret).update(basePayload).digest('hex');
+  const payload = `${basePayload}:${signature}`;
   clinic.qr = {
     payload,
     updatedBy: req.user.id,

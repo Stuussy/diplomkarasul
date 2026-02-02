@@ -100,6 +100,29 @@ class ApiService {
     return _decode(response);
   }
 
+  Future<Map<String, dynamic>> bootstrapDirector({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+    required String bootstrapSecret,
+    String? phone,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/auth/bootstrap-director'),
+      headers: _headers(authorized: false),
+      body: jsonEncode({
+        'firstName': firstName,
+        'lastName': lastName,
+        'email': email,
+        'password': password,
+        'phone': phone,
+        'bootstrapSecret': bootstrapSecret,
+      }),
+    );
+    return _decode(response);
+  }
+
   Future<AppUser> fetchProfile() async {
     final response = await http.get(
       Uri.parse('$_baseUrl/auth/me'),

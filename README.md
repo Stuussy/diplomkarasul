@@ -110,11 +110,14 @@ Required variables (see `backend/.env.example`):
 - `PORT=8050`
 - `MONGO_URI`
 - `JWT_SECRET`
+- `BOOTSTRAP_SECRET` (для `/auth/bootstrap-director`)
 - `GOOGLE_PLACES_API_KEY`
 - `GEMINI_API_KEY`
 - `CLOUDINARY_CLOUD_NAME`
 - `CLOUDINARY_API_KEY`
 - `CLOUDINARY_API_SECRET`
+- `QR_SECRET` (подпись QR)
+- `CORS_ORIGINS` (comma-separated)
 
 ---
 

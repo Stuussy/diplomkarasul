@@ -170,6 +170,14 @@ router.post(
 );
 
 router.post('/bootstrap-director', registerValidators, async (req, res) => {
+  const secret = process.env.BOOTSTRAP_SECRET;
+  if (!secret) {
+    return res.status(403).json({ message: 'Создание директора отключено.' });
+  }
+  if (req.body.bootstrapSecret !== secret) {
+    return res.status(403).json({ message: 'Неверный секрет.' });
+  }
+
   const directorExists = await User.findOne({ role: 'director' });
   if (directorExists) {
     return res.status(403).json({ message: 'Директор уже создан.' });

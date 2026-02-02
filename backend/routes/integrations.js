@@ -84,7 +84,7 @@ router.post('/gemini/ask', async (req, res) => {
   }
 
   const url =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent';
   const payload = {
     contents: [
       {

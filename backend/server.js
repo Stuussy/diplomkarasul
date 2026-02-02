@@ -5,6 +5,8 @@ const cors = require('cors');
 require('dotenv').config(); // Загружает переменные окружения из .env
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 // Импортируем наши маршруты
 const apiRoutes = require('./routes/api');
@@ -14,8 +16,51 @@ const app = express();
 const PORT = process.env.PORT || 8050;
 
 // Middleware
-app.use(cors()); // Включаем CORS для всех запросов
+app.use(helmet());
+const corsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const isDev = process.env.NODE_ENV === 'development';
+app.use(
+  cors({
+    origin: isDev ? true : corsOrigins.length > 0 ? corsOrigins : false,
+    credentials: true,
+  }),
+);
 app.use(express.json()); // Позволяет парсить JSON в теле запроса
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', limiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/auth', authLimiter);
+
+const supportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/support', supportLimiter);
+
+const appointmentsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 80,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/appointments', appointmentsLimiter);
 
 // Swagger UI
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

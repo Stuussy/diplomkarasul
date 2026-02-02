@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const dayjs = require('dayjs');
+const crypto = require('crypto');
 const Appointment = require('../models/Appointment');
 const ScheduleSlot = require('../models/ScheduleSlot');
 const Fine = require('../models/Fine');
@@ -61,7 +62,35 @@ router.post('/', auth(['patient']), createValidators, async (req, res) => {
     }
 
     const start = slot ? slot.startTime : new Date(startTime);
-    const duration = slot ? dayjs(slot.endTime).diff(dayjs(slot.startTime), 'minute') : durationMinutes;
+    const duration = slot
+      ? dayjs(slot.endTime).diff(dayjs(slot.startTime), 'minute')
+      : durationMinutes;
+    const endTime = dayjs(start).add(duration, 'minute').toDate();
+
+    if (!slotId) {
+      const conflict = await Appointment.findOne({
+        doctor: doctorId,
+        status: { $in: ['scheduled', 'confirmed'] },
+        $expr: {
+          $and: [
+            { $lt: ['$startTime', endTime] },
+            {
+              $gt: [
+                { $add: ['$startTime', { $multiply: ['$durationMinutes', 60000] }] },
+                start,
+              ],
+            },
+          ],
+        },
+      });
+
+      if (conflict) {
+        return res.status(409).json({
+          code: 'doctor_time_conflict',
+          message: 'У врача уже есть запись на выбранное время.',
+        });
+      }
+    }
     const { confirmWindow, cancelBefore } = buildAppointmentWindows(start, duration);
 
     const appointment = await Appointment.create({
@@ -153,14 +182,25 @@ router.post('/qr-confirm', auth(['patient']), async (req, res) => {
   }
 
   const parts = payload.split(':');
-  if (parts.length < 3 || parts[0] !== 'clinic') {
+  if (parts.length < 4 || parts[0] !== 'clinic') {
     return res.status(400).json({ message: 'Некорректный QR-код.' });
   }
 
   const clinicId = parts[1];
   const issuedAt = Number(parts[2]);
+  const signature = parts[3];
   if (!clinicId || Number.isNaN(issuedAt)) {
     return res.status(400).json({ message: 'Некорректный QR-код.' });
+  }
+
+  const qrSecret = process.env.QR_SECRET;
+  if (!qrSecret) {
+    return res.status(500).json({ message: 'QR-секрет не настроен.' });
+  }
+  const basePayload = `clinic:${clinicId}:${issuedAt}`;
+  const expected = crypto.createHmac('sha256', qrSecret).update(basePayload).digest('hex');
+  if (signature !== expected) {
+    return res.status(400).json({ message: 'Подпись QR-кода недействительна.' });
   }
 
   const now = Date.now();
