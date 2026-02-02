@@ -9,11 +9,11 @@ const Clinic = require('../models/Clinic');
 
 const router = express.Router();
 
-router.get('/overview', auth(['doctor', 'admin', 'director']), async (req, res) => {
+router.get('/overview', auth(['doctor', 'admin', 'support_manager', 'superadmin']), async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
       .select('-passwordHash')
-      .populate('clinics', 'name address supportPhone supportEmail')
+      .populate('clinics', 'name address')
       .lean();
 
     if (!user) {
@@ -43,7 +43,15 @@ router.get('/overview', auth(['doctor', 'admin', 'director']), async (req, res) 
         extraCards = adminSummary.cards;
         break;
       }
-      case 'director': {
+      case 'support_manager': {
+        const supportSummary = await buildSupportSummary(user);
+        metrics = supportSummary.metrics;
+        highlight = supportSummary.highlight;
+        timeline = supportSummary.timeline;
+        extraCards = supportSummary.cards;
+        break;
+      }
+      case 'superadmin': {
         const directorSummary = await buildDirectorSummary(user);
         metrics = directorSummary.metrics;
         highlight = directorSummary.highlight;
@@ -88,13 +96,11 @@ function buildBaseCards(user) {
             return {
               label: clinic.name || clinic._id?.toString() || '',
               value: clinic.address || '—',
-              meta: clinic.supportPhone || clinic.supportEmail || '',
             };
           }
           return {
             label: clinic ? clinic.toString() : '',
             value: '',
-            meta: '',
           };
         })
         .filter((row) => Boolean(row.label)),
@@ -195,25 +201,87 @@ async function buildDoctorSummary(user) {
 }
 
 async function buildAdminSummary(user) {
-  const now = dayjs();
-  const todayStart = now.startOf('day').toDate();
-  const todayEnd = now.endOf('day').toDate();
-  const yesterday = now.subtract(1, 'day').toDate();
+  const clinicIds = user.clinics || [];
+  const now = new Date();
+  const monthAhead = dayjs().add(30, 'day').toDate();
 
-  const [openTickets, inProgressTickets, resolvedLastDay, todaysSlots, assignedTickets] =
-    await Promise.all([
-      Message.countDocuments({ status: 'open' }),
-      Message.countDocuments({ status: 'in_progress' }),
-      Message.countDocuments({ status: 'resolved', updatedAt: { $gte: yesterday } }),
-      ScheduleSlot.countDocuments({
-        createdBy: user._id,
-        startTime: { $gte: todayStart, $lte: todayEnd },
-      }),
-      Message.countDocuments({
-        assignedTo: user._id,
-        status: { $in: ['open', 'in_progress'] },
-      }),
-    ]);
+  const [clinicCount, doctors, upcomingAppointments, activeClinics] = await Promise.all([
+    Clinic.countDocuments({ _id: { $in: clinicIds } }),
+    User.countDocuments({ role: 'doctor', clinics: { $in: clinicIds } }),
+    Appointment.countDocuments({
+      clinic: { $in: clinicIds },
+      startTime: { $gte: now, $lte: monthAhead },
+      status: { $ne: 'cancelled' },
+    }),
+    Clinic.countDocuments({ _id: { $in: clinicIds }, status: 'active' }),
+  ]);
+
+  const latestAppointment = await Appointment.findOne({
+    clinic: { $in: clinicIds },
+    startTime: { $gte: now },
+  })
+    .sort('startTime')
+    .populate('patient', 'firstName lastName phone')
+    .populate('clinic', 'name address');
+
+  const recentAppointments = await Appointment.find({ clinic: { $in: clinicIds } })
+    .sort({ startTime: -1 })
+    .limit(5)
+    .populate('patient', 'firstName lastName')
+    .populate('clinic', 'name');
+
+  const metrics = [
+    { label: 'Клиник', value: clinicCount, caption: 'в управлении' },
+    { label: 'Активные', value: activeClinics, caption: 'видимы пациентам' },
+    { label: 'Врачей', value: doctors, caption: 'в команде' },
+    { label: 'Записей (30д)', value: upcomingAppointments, caption: 'ожидается' },
+  ];
+
+  const highlight = latestAppointment
+    ? {
+        title: latestAppointment.patient
+          ? `${latestAppointment.patient.firstName} ${latestAppointment.patient.lastName}`.trim()
+          : 'Пациент',
+        subtitle: `${formatDate(latestAppointment.startTime)} · ${formatTime(latestAppointment.startTime)}`,
+        meta: `${latestAppointment.service} • ${latestAppointment.clinic?.name || 'Клиника'}`,
+        badge: latestAppointment.status,
+      }
+    : null;
+
+  const timeline = recentAppointments.map((appointment) => ({
+    title: appointment.patient
+      ? `${appointment.patient.firstName} ${appointment.patient.lastName}`.trim()
+      : 'Пациент',
+    subtitle: `${appointment.service} · ${appointment.clinic?.name || 'Клиника'}`,
+    timestamp: `${formatDate(appointment.startTime)} · ${formatTime(appointment.startTime)}`,
+    status: appointment.status,
+  }));
+
+  const cards = [
+    {
+      title: 'Клиники',
+      rows: clinicIds.map((id, index) => ({
+        label: `#${index + 1}`,
+        value: id.toString(),
+      })),
+    },
+  ];
+
+  return { metrics, highlight, timeline, cards };
+}
+
+async function buildSupportSummary(user) {
+  const now = dayjs();
+  const yesterday = now.subtract(1, 'day').toDate();
+  const [openTickets, inProgressTickets, resolvedLastDay, assignedTickets] = await Promise.all([
+    Message.countDocuments({ status: 'open' }),
+    Message.countDocuments({ status: 'in_progress' }),
+    Message.countDocuments({ status: 'resolved', updatedAt: { $gte: yesterday } }),
+    Message.countDocuments({
+      assignedTo: user._id,
+      status: { $in: ['open', 'in_progress'] },
+    }),
+  ]);
 
   const focusTicket = await Message.findOne({
     status: { $in: ['open', 'in_progress'] },
@@ -230,7 +298,7 @@ async function buildAdminSummary(user) {
     { label: 'Открыто', value: openTickets, caption: 'ожидают обработки' },
     { label: 'В работе', value: inProgressTickets, caption: 'на контроле' },
     { label: 'Решено (24ч)', value: resolvedLastDay, caption: 'закрыто за сутки' },
-    { label: 'Слотов сегодня', value: todaysSlots, caption: 'создали для врачей' },
+    { label: 'Назначено вам', value: assignedTickets, caption: 'в работе' },
   ];
 
   const highlight = focusTicket
@@ -255,10 +323,10 @@ async function buildAdminSummary(user) {
 
   const cards = [
     {
-      title: 'Рабочая нагрузка',
+      title: 'Поддержка',
       rows: [
-        { label: 'Назначено вам', value: assignedTickets.toString() },
-        { label: 'Слотов создано сегодня', value: todaysSlots.toString() },
+        { label: 'Открытые', value: openTickets.toString() },
+        { label: 'В работе', value: inProgressTickets.toString() },
       ],
     },
   ];
@@ -266,7 +334,7 @@ async function buildAdminSummary(user) {
   return { metrics, highlight, timeline, cards };
 }
 
-async function buildDirectorSummary(user) {
+async function buildDirectorSummary() {
   const weekAgo = dayjs().subtract(7, 'day').toDate();
   const [doctorCount, adminCount, patientCount, clinicList, totalAppointments, recentHires] =
     await Promise.all([
@@ -275,7 +343,7 @@ async function buildDirectorSummary(user) {
       User.countDocuments({ role: 'patient' }),
       Clinic.find().sort({ createdAt: 1 }),
       Appointment.countDocuments({ startTime: { $gte: weekAgo } }),
-      User.find({ role: { $in: ['doctor', 'admin'] } })
+      User.find({ role: { $in: ['doctor', 'admin', 'support_manager'] } })
         .sort({ createdAt: -1 })
         .limit(5),
     ]);
@@ -292,8 +360,8 @@ async function buildDirectorSummary(user) {
     ? {
         title: primaryClinic.name,
         subtitle: primaryClinic.address || '—',
-        meta: `Поддержка: ${primaryClinic.supportPhone || primaryClinic.supportEmail || 'нет данных'}`,
-        badge: 'Головная клиника',
+        meta: `Статус: ${primaryClinic.status}`,
+        badge: 'Главная клиника',
       }
     : null;
 
@@ -310,8 +378,8 @@ async function buildDirectorSummary(user) {
       title: 'Детали клиники',
       rows: [
         { label: 'Адрес', value: primaryClinic.address || '—' },
-        { label: 'Email', value: primaryClinic.supportEmail || '—' },
-        { label: 'Телефон', value: primaryClinic.supportPhone || '—' },
+        { label: 'Email', value: primaryClinic.contacts?.email || '—' },
+        { label: 'Телефон', value: primaryClinic.contacts?.phone || '—' },
       ],
     });
   }

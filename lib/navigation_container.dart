@@ -24,8 +24,10 @@ class MainNavigationScreen extends StatelessWidget {
         return const DoctorDashboard();
       case 'admin':
         return const AdminDashboard();
-      case 'director':
-        return const DirectorDashboard();
+      case 'support_manager':
+        return const SupportManagerDashboard();
+      case 'superadmin':
+        return const SuperAdminDashboard();
       default:
         return const Scaffold(
           body: Center(child: Text('Неизвестная роль пользователя.')),

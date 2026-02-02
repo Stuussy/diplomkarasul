@@ -10,6 +10,7 @@ const messageSchema = new mongoose.Schema(
       enum: ['support', 'notification'],
       default: 'support',
     },
+    category: { type: String, required: true },
     content: { type: String, required: true },
     attachments: [
       {

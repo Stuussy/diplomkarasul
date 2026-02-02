@@ -5,10 +5,16 @@ const upload = require('../middleware/upload');
 
 const router = express.Router();
 
-const supportScopes = ['patient', 'admin', 'director'];
+const supportScopes = ['patient', 'support_manager', 'superadmin'];
 
 router.post('/', auth(['patient']), upload.array('files', 3), async (req, res) => {
   try {
+    if (!req.body.category || !req.body.category.trim()) {
+      return res.status(400).json({ message: 'Категория обязательна.' });
+    }
+    if (!req.body.content || !req.body.content.trim()) {
+      return res.status(400).json({ message: 'Описание обязательно.' });
+    }
     const attachments = (req.files || []).map((file) => ({
       url: file.path,
       cloudinaryId: file.filename,
@@ -18,6 +24,7 @@ router.post('/', auth(['patient']), upload.array('files', 3), async (req, res) =
     const message = await Message.create({
       patient: req.user.id,
       sender: req.user.id,
+      category: req.body.category.trim(),
       content: req.body.content,
       attachments,
       history: [
@@ -40,7 +47,7 @@ router.post('/', auth(['patient']), upload.array('files', 3), async (req, res) =
   }
 });
 
-router.get('/', auth(['admin', 'director']), async (req, res) => {
+router.get('/', auth(['support_manager', 'superadmin']), async (req, res) => {
   const { status } = req.query;
   const filter = {};
   if (status) filter.status = status;
@@ -119,7 +126,7 @@ router.post('/:id/reply', auth(supportScopes), async (req, res) => {
   res.json(message);
 });
 
-router.patch('/:id', auth(['admin', 'director']), async (req, res) => {
+router.patch('/:id', auth(['support_manager', 'superadmin']), async (req, res) => {
   const { status, assignedTo } = req.body;
   const message = await Message.findByIdAndUpdate(
     req.params.id,

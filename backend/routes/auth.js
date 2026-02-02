@@ -3,6 +3,8 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { signToken } = require('../utils/token');
 const auth = require('../middleware/auth');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 
 const router = express.Router();
 
@@ -172,15 +174,15 @@ router.post(
 router.post('/bootstrap-director', registerValidators, async (req, res) => {
   const secret = process.env.BOOTSTRAP_SECRET;
   if (!secret) {
-    return res.status(403).json({ message: 'Создание директора отключено.' });
+    return res.status(403).json({ message: 'Создание superadmin отключено.' });
   }
   if (req.body.bootstrapSecret !== secret) {
     return res.status(403).json({ message: 'Неверный секрет.' });
   }
 
-  const directorExists = await User.findOne({ role: 'director' });
-  if (directorExists) {
-    return res.status(403).json({ message: 'Директор уже создан.' });
+  const superAdminExists = await User.findOne({ role: 'superadmin' });
+  if (superAdminExists) {
+    return res.status(403).json({ message: 'SuperAdmin уже создан.' });
   }
 
   const errors = validationResult(req);
@@ -191,21 +193,98 @@ router.post('/bootstrap-director', registerValidators, async (req, res) => {
   try {
     const { firstName, lastName, email, password, phone } = req.body;
     const passwordHash = await User.hashPassword(password);
-    const director = await User.create({
+    const superAdmin = await User.create({
       firstName,
       lastName,
       email,
       phone,
       passwordHash,
-      role: 'director',
+      role: 'superadmin',
     });
 
-    const token = signToken(director);
-    res.status(201).json({ token, user: director });
+    const token = signToken(superAdmin);
+    res.status(201).json({ token, user: superAdmin });
   } catch (error) {
-    console.error('Ошибка создания директора:', error);
-    res.status(500).json({ message: 'Не удалось создать директора.' });
+    console.error('Ошибка создания superadmin:', error);
+    res.status(500).json({ message: 'Не удалось создать superadmin.' });
   }
 });
+
+router.post('/forgot-password', [body('email').isEmail()], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (user) {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+      user.resetPasswordCodeHash = codeHash;
+      user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000);
+      await user.save();
+
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: email,
+        subject: 'Код для сброса пароля',
+        text: `Ваш код для сброса пароля: ${code}. Он действует 10 минут.`,
+      });
+    }
+
+    res.json({ success: true, message: 'Если email найден, код отправлен.' });
+  } catch (error) {
+    console.error('Ошибка отправки кода:', error);
+    res.status(500).json({ message: 'Не удалось отправить код.' });
+  }
+});
+
+router.post(
+  '/reset-password',
+  [body('email').isEmail(), body('code').isLength({ min: 6, max: 6 }), body('newPassword').isLength({ min: 6 })],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email, code, newPassword } = req.body;
+    try {
+      const user = await User.findOne({ email });
+      if (!user || !user.resetPasswordCodeHash || !user.resetPasswordExpires) {
+        return res.status(400).json({ message: 'Код недействителен.' });
+      }
+
+      if (user.resetPasswordExpires < new Date()) {
+        return res.status(400).json({ message: 'Код истек.' });
+      }
+
+      const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+      if (codeHash !== user.resetPasswordCodeHash) {
+        return res.status(400).json({ message: 'Код недействителен.' });
+      }
+
+      user.passwordHash = await User.hashPassword(newPassword);
+      user.resetPasswordCodeHash = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Ошибка сброса пароля:', error);
+      res.status(500).json({ message: 'Не удалось сбросить пароль.' });
+    }
+  },
+);
 
 module.exports = router;

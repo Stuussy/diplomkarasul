@@ -32,6 +32,12 @@ npm run dev
 ```
 API: `http://localhost:8050/api`
 
+### Data Migration (v2)
+```bash
+cd backend
+node scripts/migrate_clinics_users_v2.js
+```
+
 ### Run Flutter
 ```bash
 flutter pub get
@@ -58,12 +64,15 @@ flutter run --dart-define=API_BASE_URL=http://localhost:8050/api
 - **DB**: MongoDB (Mongoose)
 - **Uploads**: Cloudinary (medical records + support attachments)
 - **Docs**: Swagger UI at `/api/docs`
+- **RBAC**: patient / doctor / admin / support_manager / superadmin
 
 ---
 
 ## 🧩 Features
 
-- Authentication & role-based access (patient/doctor/admin/director)
+- Authentication & role-based access (patient/doctor/admin/support_manager/superadmin)
+- Clinic lifecycle (draft → active; only active visible)
+- Support tickets (category + status flow, support_manager only)
 - Doctor list + profiles + reviews
 - Appointment booking, confirmation, cancellation
 - QR confirmation for visits
@@ -118,6 +127,9 @@ Required variables (see `backend/.env.example`):
 - `CLOUDINARY_API_SECRET`
 - `QR_SECRET` (подпись QR)
 - `CORS_ORIGINS` (comma-separated)
+- `SMTP_USER` (Gmail)
+- `SMTP_PASS` (App password)
+- `SMTP_FROM`
 
 ---
 

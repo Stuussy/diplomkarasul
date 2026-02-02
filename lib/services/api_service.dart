@@ -100,6 +100,28 @@ class ApiService {
     return _decode(response);
   }
 
+  Future<void> requestPasswordReset(String email) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/auth/forgot-password'),
+      headers: _headers(authorized: false),
+      body: jsonEncode({'email': email}),
+    );
+    _decode(response);
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/auth/reset-password'),
+      headers: _headers(authorized: false),
+      body: jsonEncode({'email': email, 'code': code, 'newPassword': newPassword}),
+    );
+    _decode(response);
+  }
+
   Future<Map<String, dynamic>> bootstrapDirector({
     required String firstName,
     required String lastName,
@@ -193,11 +215,15 @@ class ApiService {
   Future<List<Clinic>> fetchClinics({
     double? lat,
     double? lon,
+    String? status,
   }) async {
     final query = <String, String>{};
     if (lat != null && lon != null) {
       query['lat'] = lat.toString();
       query['lon'] = lon.toString();
+    }
+    if (status != null) {
+      query['status'] = status;
     }
 
     final uri = Uri.parse('$_baseUrl/clinics').replace(
@@ -217,10 +243,14 @@ class ApiService {
     return data.map((json) => Fine.fromJson(json)).toList();
   }
 
-  Future<SupportMessage> sendSupportMessage(String content, {List<File>? files}) async {
+  Future<SupportMessage> sendSupportMessage(
+    String content, {
+    required String category,
+    List<File>? files,
+  }) async {
     final response = await _sendMultipart(
       '/support',
-      fields: {'content': content},
+      fields: {'content': content, 'category': category},
       files: files,
     );
     final data = _decode(response);
@@ -461,6 +491,15 @@ class ApiService {
     return AppUser.fromJson(data);
   }
 
+  Future<void> updateUserStatus(String userId, bool isActive) async {
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/users/$userId/status'),
+      headers: _headers(),
+      body: jsonEncode({'isActive': isActive}),
+    );
+    _decode(response);
+  }
+
   Future<void> updateClinic(String clinicId, Map<String, dynamic> payload) async {
     final response = await http.patch(
       Uri.parse('$_baseUrl/clinics/$clinicId'),
@@ -468,6 +507,68 @@ class ApiService {
       body: jsonEncode(payload),
     );
     _decode(response);
+  }
+
+  Future<Clinic> createClinic(Map<String, dynamic> payload) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/clinics'),
+      headers: _headers(),
+      body: jsonEncode(payload),
+    );
+    final data = _decode(response);
+    return Clinic.fromJson(data);
+  }
+
+  Future<Clinic> addClinicService(String clinicId, Map<String, dynamic> payload) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/clinics/$clinicId/services'),
+      headers: _headers(),
+      body: jsonEncode(payload),
+    );
+    final data = _decode(response);
+    return Clinic.fromJson(data);
+  }
+
+  Future<Clinic> updateClinicService(
+    String clinicId,
+    String serviceId,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/clinics/$clinicId/services/$serviceId'),
+      headers: _headers(),
+      body: jsonEncode(payload),
+    );
+    final data = _decode(response);
+    return Clinic.fromJson(data);
+  }
+
+  Future<Clinic> deleteClinicService(String clinicId, String serviceId) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/clinics/$clinicId/services/$serviceId'),
+      headers: _headers(),
+    );
+    final data = _decode(response);
+    return Clinic.fromJson(data);
+  }
+
+  Future<Clinic> addClinicDoctor(String clinicId, String doctorId) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/clinics/$clinicId/doctors'),
+      headers: _headers(),
+      body: jsonEncode({'doctorId': doctorId}),
+    );
+    final data = _decode(response);
+    return Clinic.fromJson(data);
+  }
+
+  Future<Clinic> removeClinicDoctor(String clinicId, String doctorId) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/clinics/$clinicId/doctors/$doctorId'),
+      headers: _headers(),
+    );
+    final data = _decode(response);
+    return Clinic.fromJson(data);
   }
 
   Future<String> fetchAiTip() async {

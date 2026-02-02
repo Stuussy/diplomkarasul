@@ -55,6 +55,100 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _openResetDialog() async {
+    final emailController = TextEditingController(text: _emailController.text.trim());
+    final codeController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    bool sentCode = false;
+    bool isBusy = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(sentCode ? 'Введите код' : 'Сброс пароля'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: emailController,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                  ),
+                  const SizedBox(height: 12),
+                  if (sentCode) ...[
+                    TextField(
+                      controller: codeController,
+                      decoration: const InputDecoration(labelText: 'Код из письма'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: newPasswordController,
+                      decoration: const InputDecoration(labelText: 'Новый пароль'),
+                      obscureText: true,
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isBusy ? null : () => Navigator.of(context).pop(),
+                  child: const Text('Отмена'),
+                ),
+                ElevatedButton(
+                  onPressed: isBusy
+                      ? null
+                      : () async {
+                          final api = context.read<SessionProvider>().apiService;
+                          setState(() => isBusy = true);
+                          try {
+                            if (!sentCode) {
+                              await api.requestPasswordReset(emailController.text.trim());
+                              setState(() => sentCode = true);
+                            } else {
+                              await api.resetPassword(
+                                email: emailController.text.trim(),
+                                code: codeController.text.trim(),
+                                newPassword: newPasswordController.text.trim(),
+                              );
+                              if (context.mounted) {
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Пароль обновлён. Войдите снова.')),
+                                );
+                              }
+                            }
+                          } catch (error) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(error.toString())),
+                              );
+                            }
+                          } finally {
+                            if (context.mounted) setState(() => isBusy = false);
+                          }
+                        },
+                  child: isBusy
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(sentCode ? 'Сменить пароль' : 'Отправить код'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    emailController.dispose();
+    codeController.dispose();
+    newPasswordController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -143,6 +237,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                   )
                                 : Text(_isLogin ? 'Войти' : 'Создать аккаунт'),
                           ),
+                          if (_isLogin) ...[
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _isSubmitting ? null : _openResetDialog,
+                              child: const Text('Забыли пароль?'),
+                            ),
+                          ],
                         ],
                       ),
                     ),

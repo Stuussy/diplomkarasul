@@ -13,12 +13,12 @@ if (!MONGO_URI) {
   process.exit(1);
 }
 
-const directorData = {
+const superAdminData = {
   firstName: 'Главный',
-  lastName: 'Врач',
-  email: 'director@dental.local',
+  lastName: 'Администратор',
+  email: 'superadmin@dental.local',
   password: 'ChangeMe123!',
-  role: 'director',
+  role: 'superadmin',
 };
 
 const adminData = {
@@ -32,9 +32,17 @@ const adminData = {
 const clinicData = {
   name: 'Dental AI Clinic',
   description: 'Центральная клиника Dental AI',
+  city: 'Астана',
   address: 'г. Астана, ул. Абая 15',
-  supportEmail: 'support@dental.local',
-  supportPhone: '+7 700 000 11 22',
+  contacts: { email: 'support@dental.local', phone: '+7 700 000 11 22' },
+  workingHours: [
+    { day: 1, open: '09:00', close: '18:00' },
+    { day: 2, open: '09:00', close: '18:00' },
+    { day: 3, open: '09:00', close: '18:00' },
+    { day: 4, open: '09:00', close: '18:00' },
+    { day: 5, open: '09:00', close: '18:00' },
+  ],
+  status: 'active',
   taxiDeepLink: 'yandexnavi://build_route_on_map?lat=51.1694&lon=71.4491',
   location: {
     type: 'Point',
@@ -68,17 +76,6 @@ async function connect() {
   console.log('Соединение с MongoDB установлено');
 }
 
-async function createClinic() {
-  const existing = await Clinic.findOne({ name: clinicData.name });
-  if (existing) {
-    console.log('Клиника уже существует:', existing.name);
-    return existing;
-  }
-  const clinic = await Clinic.create(clinicData);
-  console.log('Создана клиника:', clinic.name);
-  return clinic;
-}
-
 async function createUserIfMissing(userData, clinicId) {
   const existing = await User.findOne({ email: userData.email });
   if (existing) {
@@ -101,12 +98,24 @@ async function createUserIfMissing(userData, clinicId) {
   return user;
 }
 
+async function createClinic(adminId) {
+  const existing = await Clinic.findOne({ name: clinicData.name });
+  if (existing) {
+    console.log('Клиника уже существует:', existing.name);
+    return existing;
+  }
+  const clinic = await Clinic.create({ ...clinicData, admin: adminId });
+  console.log('Создана клиника:', clinic.name);
+  return clinic;
+}
+
 async function seed() {
   try {
     await connect();
-    const clinic = await createClinic();
 
-    await createUserIfMissing(directorData, clinic._id);
+    const superAdmin = await createUserIfMissing(superAdminData, null);
+    const clinic = await createClinic(superAdmin._id);
+
     await createUserIfMissing(adminData, clinic._id);
     for (const doctor of doctorSeeds) {
       await createUserIfMissing(doctor, clinic._id);

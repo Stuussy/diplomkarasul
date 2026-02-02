@@ -61,6 +61,12 @@ router.post('/', auth(['patient']), createValidators, async (req, res) => {
       reservedSlotId = slot._id;
     }
 
+    const clinicIdToCheck = slot ? slot.clinic : clinicId;
+    const clinic = await Clinic.findById(clinicIdToCheck);
+    if (!clinic || clinic.status !== 'active') {
+      return res.status(400).json({ message: 'Клиника недоступна для записи.' });
+    }
+
     const start = slot ? slot.startTime : new Date(startTime);
     const duration = slot
       ? dayjs(slot.endTime).diff(dayjs(slot.startTime), 'minute')
@@ -140,6 +146,8 @@ router.get('/', auth(), async (req, res) => {
     query.patient = req.user.id;
   } else if (req.user.role === 'doctor') {
     query.doctor = req.user.id;
+  } else if (req.user.role === 'admin') {
+    query.clinic = { $in: req.user.clinics || [] };
   }
 
   const appointments = await Appointment.find(query)
@@ -238,7 +246,7 @@ router.post('/qr-confirm', auth(['patient']), async (req, res) => {
   res.json(appointment);
 });
 
-router.post('/:id/cancel', auth(['patient', 'admin', 'director']), async (req, res) => {
+router.post('/:id/cancel', auth(['patient', 'admin', 'superadmin']), async (req, res) => {
   const appointment = await Appointment.findById(req.params.id);
   if (!appointment) {
     return res.status(404).json({ message: 'Запись не найдена.' });
@@ -283,7 +291,7 @@ router.post('/:id/cancel', auth(['patient', 'admin', 'director']), async (req, r
 
 router.post(
   '/slots',
-  auth(['admin', 'director']),
+  auth(['admin', 'superadmin']),
   [
     body('doctorId').notEmpty(),
     body('clinicId').notEmpty(),
@@ -300,6 +308,13 @@ router.post(
       const { doctorId, clinicId, startTime, endTime } = req.body;
       if (new Date(endTime) <= new Date(startTime)) {
         return res.status(400).json({ message: 'Время окончания должно быть позже начала.' });
+      }
+
+      if (req.user.role === 'admin') {
+        const clinic = await Clinic.findById(clinicId);
+        if (!clinic || clinic.admin.toString() !== req.user.id) {
+          return res.status(403).json({ message: 'Нет доступа к клинике.' });
+        }
       }
 
       const slot = await ScheduleSlot.create({
@@ -327,15 +342,24 @@ router.get('/slots', auth(), async (req, res) => {
     filter.status = 'available';
   }
   if (req.user.role === 'doctor') filter.doctor = req.user.id;
+  if (req.user.role === 'admin') {
+    filter.clinic = { $in: req.user.clinics || [] };
+  }
 
   const slots = await ScheduleSlot.find(filter).sort({ startTime: 1 });
   res.json(slots);
 });
 
-router.delete('/slots/:id', auth(['admin', 'director']), async (req, res) => {
+router.delete('/slots/:id', auth(['admin', 'superadmin']), async (req, res) => {
   const slot = await ScheduleSlot.findById(req.params.id);
   if (!slot) {
     return res.status(404).json({ message: 'Слот не найден.' });
+  }
+  if (req.user.role === 'admin') {
+    const clinic = await Clinic.findById(slot.clinic);
+    if (!clinic || clinic.admin.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Нет доступа к клинике.' });
+    }
   }
   if (slot.status === 'booked') {
     return res.status(400).json({ message: 'Нельзя удалить занятой слот.' });

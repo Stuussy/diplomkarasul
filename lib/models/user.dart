@@ -12,6 +12,7 @@ class AppUser {
   final List<String> services;
   final int experienceYears;
   final String? bio;
+  final bool isActive;
 
   const AppUser({
     required this.id,
@@ -27,6 +28,7 @@ class AppUser {
     this.services = const [],
     this.experienceYears = 0,
     this.bio,
+    this.isActive = true,
   });
 
   String get fullName => '$firstName $lastName'.trim();
@@ -78,6 +80,7 @@ class AppUser {
       services: services,
       experienceYears: (json['experienceYears'] as num?)?.toInt() ?? 0,
       bio: json['bio'] as String?,
+      isActive: json['isActive'] ?? true,
     );
   }
 }

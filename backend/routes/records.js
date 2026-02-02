@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post(
   '/',
-  auth(['doctor', 'admin', 'director']),
+  auth(['doctor', 'admin', 'superadmin']),
   upload.array('files', 5),
   async (req, res) => {
     try {
@@ -44,7 +44,7 @@ router.get('/mine', auth(['patient']), async (req, res) => {
   res.json(records);
 });
 
-router.get('/:patientId', auth(['doctor', 'admin', 'director']), async (req, res) => {
+router.get('/:patientId', auth(['doctor', 'admin', 'superadmin']), async (req, res) => {
   const { patientId } = req.params;
   const filter = { patient: patientId };
   if (req.user.role === 'doctor') {
@@ -57,7 +57,7 @@ router.get('/:patientId', auth(['doctor', 'admin', 'director']), async (req, res
   res.json(records);
 });
 
-router.patch('/:id', auth(['doctor', 'admin', 'director']), async (req, res) => {
+router.patch('/:id', auth(['doctor', 'admin', 'superadmin']), async (req, res) => {
   const record = await MedicalRecord.findById(req.params.id);
   if (!record) {
     return res.status(404).json({ message: 'Запись не найдена.' });

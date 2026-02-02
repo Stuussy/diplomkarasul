@@ -7,12 +7,12 @@ const router = express.Router();
 
 router.post(
   '/',
-  auth(['admin', 'director']),
+  auth(['admin', 'superadmin']),
   [
     body('firstName').notEmpty(),
     body('lastName').notEmpty(),
     body('email').isEmail(),
-    body('role').isIn(['patient', 'doctor', 'admin']),
+    body('role').isIn(['patient', 'doctor', 'admin', 'support_manager']),
     body('password').isLength({ min: 6 }),
   ],
   async (req, res) => {
@@ -23,6 +23,10 @@ router.post(
 
     try {
       const { firstName, lastName, email, role, password, phone, clinics, specialties } = req.body;
+      if (req.user.role === 'admin' && role !== 'doctor') {
+        return res.status(403).json({ message: 'Админ может создавать только врачей.' });
+      }
+
       const existing = await User.findOne({ email });
       if (existing) {
         return res.status(400).json({ message: 'Email уже используется.' });
@@ -35,7 +39,7 @@ router.post(
         email,
         phone,
         role,
-        clinics,
+        clinics: req.user.role === 'admin' ? req.user.clinics || [] : clinics,
         specialties,
         passwordHash,
         createdBy: req.user.id,
@@ -49,19 +53,27 @@ router.post(
   },
 );
 
-router.get('/', auth(['admin', 'director']), async (req, res) => {
+router.get('/', auth(['superadmin', 'admin']), async (req, res) => {
   const { role } = req.query;
   const filter = {};
   if (role) filter.role = role;
+  if (req.user.role === 'admin') {
+    filter.role = 'doctor';
+    filter.clinics = { $in: req.user.clinics || [] };
+  }
   const users = await User.find(filter).select('-passwordHash');
   res.json(users);
 });
 
 router.get('/doctors', auth(), async (req, res) => {
   try {
-    const doctors = await User.find({ role: 'doctor', isActive: true })
+    const filter = { role: 'doctor', isActive: true };
+    if (req.user.role === 'admin') {
+      filter.clinics = { $in: req.user.clinics || [] };
+    }
+    const doctors = await User.find(filter)
       .select('firstName lastName email phone specialties clinics')
-      .populate('clinics', 'name address supportPhone supportEmail');
+      .populate('clinics', 'name address contacts');
     res.json(doctors);
   } catch (error) {
     console.error('Ошибка получения списка врачей:', error);
@@ -71,8 +83,8 @@ router.get('/doctors', auth(), async (req, res) => {
 
 router.patch(
   '/:id/role',
-  auth(['director']),
-  [body('role').isIn(['patient', 'doctor', 'admin', 'director'])],
+  auth(['superadmin']),
+  [body('role').isIn(['patient', 'doctor', 'admin', 'support_manager', 'superadmin'])],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -88,7 +100,7 @@ router.patch(
   },
 );
 
-router.patch('/:id/status', auth(['admin', 'director']), async (req, res) => {
+router.patch('/:id/status', auth(['superadmin']), async (req, res) => {
   const { isActive } = req.body;
   const user = await User.findByIdAndUpdate(req.params.id, { isActive }, { new: true });
   if (!user) {
@@ -97,9 +109,23 @@ router.patch('/:id/status', auth(['admin', 'director']), async (req, res) => {
   res.json(user);
 });
 
+router.patch('/:id/reset-password', auth(['superadmin']), async (req, res) => {
+  const { newPassword } = req.body;
+  if (!newPassword || newPassword.length < 6) {
+    return res.status(400).json({ message: 'Пароль должен быть минимум 6 символов.' });
+  }
+  const user = await User.findById(req.params.id);
+  if (!user) {
+    return res.status(404).json({ message: 'Пользователь не найден.' });
+  }
+  user.passwordHash = await User.hashPassword(newPassword);
+  await user.save();
+  res.json({ success: true });
+});
+
 router.patch(
   '/:id',
-  auth(['admin', 'director']),
+  auth(['admin', 'superadmin']),
   [
     body('firstName').optional().isLength({ min: 1 }),
     body('lastName').optional().isLength({ min: 1 }),

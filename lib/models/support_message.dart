@@ -4,6 +4,7 @@ class SupportMessage {
   final String id;
   final AppUser? patient;
   final String content;
+  final String category;
   final String status;
   final DateTime createdAt;
   final DateTime? lastMessageAt;
@@ -13,6 +14,7 @@ class SupportMessage {
     required this.id,
     required this.patient,
     required this.content,
+    required this.category,
     required this.status,
     required this.createdAt,
     required this.history,
@@ -27,6 +29,7 @@ class SupportMessage {
       id: json['_id'] ?? '',
       patient: json['patient'] != null ? AppUser.fromJson(json['patient']) : null,
       content: json['content'] ?? '',
+      category: json['category'] ?? 'general',
       status: json['status'] ?? 'open',
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt']).toLocal()

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const roles = ['patient', 'doctor', 'admin', 'director'];
+const roles = ['patient', 'doctor', 'admin', 'support_manager', 'superadmin'];
 
 const userSchema = new mongoose.Schema(
   {
@@ -20,6 +20,8 @@ const userSchema = new mongoose.Schema(
     reviews: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    resetPasswordCodeHash: { type: String },
+    resetPasswordExpires: { type: Date },
   },
   { timestamps: true },
 );

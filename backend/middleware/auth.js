@@ -4,7 +4,8 @@ const rolePriority = {
   patient: 0,
   doctor: 1,
   admin: 2,
-  director: 3,
+  support_manager: 2,
+  superadmin: 3,
 };
 
 /**

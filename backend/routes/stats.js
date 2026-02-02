@@ -6,8 +6,25 @@ const Clinic = require('../models/Clinic');
 
 const router = express.Router();
 
-router.get('/overview', auth(['admin', 'director']), async (req, res) => {
+router.get('/overview', auth(['admin', 'superadmin']), async (req, res) => {
   try {
+    if (req.user.role === 'admin') {
+      const clinicIds = req.user.clinics || [];
+      const [doctors, patients, appointments, clinics] = await Promise.all([
+        User.countDocuments({ role: 'doctor', clinics: { $in: clinicIds } }),
+        Appointment.distinct('patient', { clinic: { $in: clinicIds } }),
+        Appointment.countDocuments({ clinic: { $in: clinicIds } }),
+        Clinic.find({ _id: { $in: clinicIds } }),
+      ]);
+
+      return res.json({
+        doctors,
+        patients: patients.length,
+        appointments,
+        clinics,
+      });
+    }
+
     const [doctors, patients, appointments, clinics] = await Promise.all([
       User.countDocuments({ role: 'doctor' }),
       User.countDocuments({ role: 'patient' }),

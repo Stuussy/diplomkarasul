@@ -14,6 +14,14 @@ class SupportScreen extends StatefulWidget {
 class _SupportScreenState extends State<SupportScreen> {
   final _newThreadController = TextEditingController();
   final _replyController = TextEditingController();
+  final List<String> _categories = const [
+    'Запись',
+    'Оплата',
+    'Документы',
+    'Жалоба',
+    'Другое',
+  ];
+  String _selectedCategory = 'Запись';
   bool _isSending = false;
   bool _isReplying = false;
   bool _creatingNewThread = false;
@@ -42,7 +50,10 @@ class _SupportScreenState extends State<SupportScreen> {
     setState(() => _isSending = true);
     final api = context.read<SessionProvider>().apiService;
     try {
-      await api.sendSupportMessage(_newThreadController.text.trim());
+      await api.sendSupportMessage(
+        _newThreadController.text.trim(),
+        category: _selectedCategory,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Сообщение отправлено администратору.')));
@@ -179,6 +190,24 @@ class _SupportScreenState extends State<SupportScreen> {
           const Text(
             'Опишите вашу проблему — администратор свяжется с вами.',
             style: TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedCategory,
+            items: _categories
+                .map((category) => DropdownMenuItem(
+                      value: category,
+                      child: Text(category),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _selectedCategory = value);
+            },
+            decoration: const InputDecoration(
+              labelText: 'Категория',
+              border: OutlineInputBorder(),
+            ),
           ),
           const SizedBox(height: 16),
           TextField(
