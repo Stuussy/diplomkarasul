@@ -9,6 +9,7 @@ const appointmentSchema = new mongoose.Schema(
     service: { type: String, required: true },
     startTime: { type: Date, required: true },
     durationMinutes: { type: Number, default: 30 },
+    endTime: { type: Date },
     status: {
       type: String,
       enum: ['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show'],
@@ -27,6 +28,15 @@ const appointmentSchema = new mongoose.Schema(
     fineIssued: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     review: { type: mongoose.Schema.Types.ObjectId, ref: 'Review' },
+    googleEventIdPatient: { type: String },
+    googleEventIdDoctor: { type: String },
+    googleSyncStatus: {
+      type: String,
+      enum: ['synced', 'partial', 'failed', 'skipped'],
+      default: 'skipped',
+    },
+    googleSyncError: { type: String },
+    googleSyncLastAttempt: { type: Date },
   },
   { timestamps: true },
 );

@@ -69,27 +69,29 @@ class _LoginScreenState extends State<LoginScreen> {
           builder: (context, setState) {
             return AlertDialog(
               title: Text(sentCode ? 'Введите код' : 'Сброс пароля'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: emailController,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                  ),
-                  const SizedBox(height: 12),
-                  if (sentCode) ...[
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     TextField(
-                      controller: codeController,
-                      decoration: const InputDecoration(labelText: 'Код из письма'),
+                      controller: emailController,
+                      decoration: const InputDecoration(labelText: 'Email'),
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: newPasswordController,
-                      decoration: const InputDecoration(labelText: 'Новый пароль'),
-                      obscureText: true,
-                    ),
+                    if (sentCode) ...[
+                      TextField(
+                        controller: codeController,
+                        decoration: const InputDecoration(labelText: 'Код из письма'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: newPasswordController,
+                        decoration: const InputDecoration(labelText: 'Новый пароль'),
+                        obscureText: true,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -144,9 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
       },
     );
 
-    emailController.dispose();
-    codeController.dispose();
-    newPasswordController.dispose();
+    // controllers are short-lived; avoid disposing to prevent lifecycle issues during dialog teardown
   }
 
   @override

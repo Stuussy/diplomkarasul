@@ -1,4 +1,11 @@
 const express = require('express');
+const auth = require('../middleware/auth');
+const User = require('../models/User');
+const {
+  getAuthUrl,
+  handleOAuthCallback,
+  disconnect,
+} = require('../services/google_calendar');
 
 const router = express.Router();
 
@@ -118,6 +125,42 @@ router.post('/gemini/ask', async (req, res) => {
     console.error('Ошибка запроса к Gemini:', error);
     res.status(200).json({ response: fallback });
   }
+});
+
+router.get('/google-calendar/status', auth(['patient', 'doctor']), async (req, res) => {
+  const user = await User.findById(req.user.id).select('google');
+  if (!user) return res.status(404).json({ message: 'Пользователь не найден.' });
+  res.json({
+    connected: Boolean(user.google?.connected),
+    calendarId: user.google?.calendarId || 'primary',
+  });
+});
+
+router.get('/google-calendar/connect', auth(['patient', 'doctor']), async (req, res) => {
+  try {
+    const url = await getAuthUrl(req.user.id);
+    res.json({ url });
+  } catch (error) {
+    res.status(500).json({ message: 'Не удалось создать ссылку OAuth.' });
+  }
+});
+
+router.get('/google-calendar/callback', async (req, res) => {
+  const { code, state } = req.query;
+  if (!code || !state) {
+    return res.status(400).send('Некорректный запрос.');
+  }
+  try {
+    await handleOAuthCallback(code, state);
+    res.send('Google Calendar подключен. Можно закрыть окно.');
+  } catch (error) {
+    res.status(400).send('Не удалось подключить Google Calendar.');
+  }
+});
+
+router.post('/google-calendar/disconnect', auth(['patient', 'doctor']), async (req, res) => {
+  await disconnect(req.user.id);
+  res.json({ success: true });
 });
 
 module.exports = router;

@@ -130,6 +130,10 @@ Required variables (see `backend/.env.example`):
 - `SMTP_USER` (Gmail)
 - `SMTP_PASS` (App password)
 - `SMTP_FROM`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`
+- `CALENDAR_TIMEZONE` (optional)
 
 ---
 

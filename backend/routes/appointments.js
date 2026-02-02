@@ -6,8 +6,13 @@ const Appointment = require('../models/Appointment');
 const ScheduleSlot = require('../models/ScheduleSlot');
 const Fine = require('../models/Fine');
 const Clinic = require('../models/Clinic');
+const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { buildAppointmentWindows } = require('../utils/time');
+const {
+  buildEventPayload,
+  safeCalendarCall,
+} = require('../services/google_calendar');
 
 const router = express.Router();
 
@@ -106,6 +111,7 @@ router.post('/', auth(['patient']), createValidators, async (req, res) => {
       service,
       startTime: start,
       durationMinutes: duration,
+      endTime,
       confirmWindow,
       cancelBefore,
       slot: slot ? slot._id : undefined,
@@ -116,6 +122,66 @@ router.post('/', auth(['patient']), createValidators, async (req, res) => {
     if (slot) {
       slot.appointment = appointment._id;
       await slot.save();
+    }
+
+    try {
+      const [patient, doctor, clinic] = await Promise.all([
+        User.findById(appointment.patient),
+        User.findById(appointment.doctor),
+        Clinic.findById(appointment.clinic),
+      ]);
+      const patientEvent = buildEventPayload({
+        appointment,
+        clinic,
+        patient,
+        doctor,
+        roleLabel: 'Пациент',
+      });
+      const doctorEvent = buildEventPayload({
+        appointment,
+        clinic,
+        patient,
+        doctor,
+        roleLabel: 'Врач',
+      });
+
+      const patientResult = await safeCalendarCall(patient, (calendar, calendarId) =>
+        calendar.events.insert({ calendarId, requestBody: patientEvent }),
+      );
+      const doctorResult = await safeCalendarCall(doctor, (calendar, calendarId) =>
+        calendar.events.insert({ calendarId, requestBody: doctorEvent }),
+      );
+
+      const errorMessages = [];
+      if (patientResult.status === 'failed') errorMessages.push(`patient: ${patientResult.error}`);
+      if (doctorResult.status === 'failed') errorMessages.push(`doctor: ${doctorResult.error}`);
+
+      appointment.googleEventIdPatient =
+        patientResult.status === 'ok' ? patientResult.result.data.id : appointment.googleEventIdPatient;
+      appointment.googleEventIdDoctor =
+        doctorResult.status === 'ok' ? doctorResult.result.data.id : appointment.googleEventIdDoctor;
+      appointment.googleSyncLastAttempt = new Date();
+
+      if (patientResult.status === 'failed' || doctorResult.status === 'failed') {
+        appointment.googleSyncStatus = 'failed';
+        appointment.googleSyncError = errorMessages.join('; ');
+      } else if (patientResult.status === 'ok' && doctorResult.status === 'ok') {
+        appointment.googleSyncStatus = 'synced';
+        appointment.googleSyncError = null;
+      } else if (patientResult.status === 'skipped' && doctorResult.status === 'skipped') {
+        appointment.googleSyncStatus = 'skipped';
+        appointment.googleSyncError = 'calendar_not_connected';
+      } else {
+        appointment.googleSyncStatus = 'partial';
+        appointment.googleSyncError = 'partial_calendar_connection';
+      }
+
+      await appointment.save();
+    } catch (error) {
+      appointment.googleSyncStatus = 'failed';
+      appointment.googleSyncError = 'google_calendar_error';
+      appointment.googleSyncLastAttempt = new Date();
+      await appointment.save();
     }
 
     res.status(201).json(appointment);
@@ -286,8 +352,203 @@ router.post('/:id/cancel', auth(['patient', 'admin', 'superadmin']), async (req,
     });
   }
 
+  try {
+    const [patient, doctor] = await Promise.all([
+      User.findById(appointment.patient),
+      User.findById(appointment.doctor),
+    ]);
+    const deletePatient = appointment.googleEventIdPatient
+      ? safeCalendarCall(patient, (calendar, calendarId) =>
+          calendar.events.delete({
+            calendarId,
+            eventId: appointment.googleEventIdPatient,
+          }),
+        )
+      : { status: 'skipped' };
+    const deleteDoctor = appointment.googleEventIdDoctor
+      ? safeCalendarCall(doctor, (calendar, calendarId) =>
+          calendar.events.delete({
+            calendarId,
+            eventId: appointment.googleEventIdDoctor,
+          }),
+        )
+      : { status: 'skipped' };
+
+    const [patientResult, doctorResult] = await Promise.all([deletePatient, deleteDoctor]);
+    appointment.googleSyncLastAttempt = new Date();
+    if (patientResult.status === 'failed' || doctorResult.status === 'failed') {
+      appointment.googleSyncStatus = 'failed';
+      appointment.googleSyncError = [
+        patientResult.status === 'failed' ? `patient: ${patientResult.error}` : null,
+        doctorResult.status === 'failed' ? `doctor: ${doctorResult.error}` : null,
+      ]
+        .filter(Boolean)
+        .join('; ');
+    } else {
+      appointment.googleSyncStatus = 'synced';
+      appointment.googleSyncError = null;
+    }
+    await appointment.save();
+  } catch (error) {
+    appointment.googleSyncStatus = 'failed';
+    appointment.googleSyncError = 'google_calendar_error';
+    appointment.googleSyncLastAttempt = new Date();
+    await appointment.save();
+  }
+
   res.json(appointment);
 });
+
+router.patch(
+  '/:id/reschedule',
+  auth(['patient', 'doctor', 'admin', 'superadmin']),
+  [body('startTime').isISO8601(), body('durationMinutes').optional().isInt({ min: 10 })],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) {
+      return res.status(404).json({ message: 'Запись не найдена.' });
+    }
+
+    if (req.user.role === 'patient' && appointment.patient.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Можно переносить только свои записи.' });
+    }
+    if (req.user.role === 'doctor' && appointment.doctor.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Можно переносить только свои записи.' });
+    }
+    if (req.user.role === 'admin') {
+      const clinic = await Clinic.findById(appointment.clinic);
+      if (!clinic || clinic.admin.toString() !== req.user.id) {
+        return res.status(403).json({ message: 'Нет доступа к клинике.' });
+      }
+    }
+
+    const start = new Date(req.body.startTime);
+    const duration = req.body.durationMinutes ?? appointment.durationMinutes;
+    const endTime = dayjs(start).add(duration, 'minute').toDate();
+
+    const conflict = await Appointment.findOne({
+      _id: { $ne: appointment._id },
+      doctor: appointment.doctor,
+      status: { $in: ['scheduled', 'confirmed'] },
+      $expr: {
+        $and: [
+          { $lt: ['$startTime', endTime] },
+          {
+            $gt: [
+              { $add: ['$startTime', { $multiply: ['$durationMinutes', 60000] }] },
+              start,
+            ],
+          },
+        ],
+      },
+    });
+    if (conflict) {
+      return res.status(409).json({
+        code: 'doctor_time_conflict',
+        message: 'У врача уже есть запись на выбранное время.',
+      });
+    }
+
+    const { confirmWindow, cancelBefore } = buildAppointmentWindows(start, duration);
+    appointment.startTime = start;
+    appointment.endTime = endTime;
+    appointment.durationMinutes = duration;
+    appointment.confirmWindow = confirmWindow;
+    appointment.cancelBefore = cancelBefore;
+    appointment.status = 'scheduled';
+    appointment.confirmedAt = null;
+    appointment.slot = undefined;
+    await appointment.save();
+
+    try {
+      const [patient, doctor, clinic] = await Promise.all([
+        User.findById(appointment.patient),
+        User.findById(appointment.doctor),
+        Clinic.findById(appointment.clinic),
+      ]);
+      const patientEvent = buildEventPayload({
+        appointment,
+        clinic,
+        patient,
+        doctor,
+        roleLabel: 'Пациент',
+      });
+      const doctorEvent = buildEventPayload({
+        appointment,
+        clinic,
+        patient,
+        doctor,
+        roleLabel: 'Врач',
+      });
+
+      const patientResult = appointment.googleEventIdPatient
+        ? await safeCalendarCall(patient, (calendar, calendarId) =>
+            calendar.events.patch({
+              calendarId,
+              eventId: appointment.googleEventIdPatient,
+              requestBody: patientEvent,
+            }),
+          )
+        : await safeCalendarCall(patient, (calendar, calendarId) =>
+            calendar.events.insert({ calendarId, requestBody: patientEvent }),
+          );
+
+      const doctorResult = appointment.googleEventIdDoctor
+        ? await safeCalendarCall(doctor, (calendar, calendarId) =>
+            calendar.events.patch({
+              calendarId,
+              eventId: appointment.googleEventIdDoctor,
+              requestBody: doctorEvent,
+            }),
+          )
+        : await safeCalendarCall(doctor, (calendar, calendarId) =>
+            calendar.events.insert({ calendarId, requestBody: doctorEvent }),
+          );
+
+      appointment.googleEventIdPatient =
+        patientResult.status === 'ok'
+          ? patientResult.result.data.id || appointment.googleEventIdPatient
+          : appointment.googleEventIdPatient;
+      appointment.googleEventIdDoctor =
+        doctorResult.status === 'ok'
+          ? doctorResult.result.data.id || appointment.googleEventIdDoctor
+          : appointment.googleEventIdDoctor;
+
+      appointment.googleSyncLastAttempt = new Date();
+      if (patientResult.status === 'failed' || doctorResult.status === 'failed') {
+        appointment.googleSyncStatus = 'failed';
+        appointment.googleSyncError = [
+          patientResult.status === 'failed' ? `patient: ${patientResult.error}` : null,
+          doctorResult.status === 'failed' ? `doctor: ${doctorResult.error}` : null,
+        ]
+          .filter(Boolean)
+          .join('; ');
+      } else if (patientResult.status === 'ok' && doctorResult.status === 'ok') {
+        appointment.googleSyncStatus = 'synced';
+        appointment.googleSyncError = null;
+      } else if (patientResult.status === 'skipped' && doctorResult.status === 'skipped') {
+        appointment.googleSyncStatus = 'skipped';
+        appointment.googleSyncError = 'calendar_not_connected';
+      } else {
+        appointment.googleSyncStatus = 'partial';
+        appointment.googleSyncError = 'partial_calendar_connection';
+      }
+      await appointment.save();
+    } catch (error) {
+      appointment.googleSyncStatus = 'failed';
+      appointment.googleSyncError = 'google_calendar_error';
+      appointment.googleSyncLastAttempt = new Date();
+      await appointment.save();
+    }
+
+    res.json(appointment);
+  },
+);
 
 router.post(
   '/slots',
