@@ -7,6 +7,8 @@ import 'screens/home_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/role_dashboards.dart';
+import 'screens/support_screen.dart';
+import 'screens/notifications_screen.dart';
 import 'widgets/patient_ui.dart';
 
 class MainNavigationScreen extends StatelessWidget {
@@ -97,12 +99,20 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
                 actions: [
                   IconButton(
                     tooltip: 'Чат-поддержка',
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SupportScreen()),
+                      );
+                    },
                     icon: const Icon(Icons.chat_bubble_outline),
                   ),
                   IconButton(
                     tooltip: 'Уведомления',
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                      );
+                    },
                     icon: const Icon(Icons.notifications_none_rounded),
                   ),
                   const SizedBox(width: 8),

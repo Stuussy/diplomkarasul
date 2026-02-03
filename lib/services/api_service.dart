@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 import '../models/appointment.dart';
+import '../models/app_notification.dart';
 import '../models/clinic.dart';
 import '../models/fine.dart';
 import '../models/slot.dart';
@@ -280,6 +281,32 @@ class ApiService {
     final response = await http.get(uri, headers: _headers());
     final data = _decode(response) as List<dynamic>;
     return data.map((json) => SupportMessage.fromJson(json)).toList();
+  }
+
+  Future<List<AppNotification>> fetchNotifications({bool unreadOnly = false}) async {
+    final query = <String, String>{};
+    if (unreadOnly) query['unread'] = 'true';
+    final uri = Uri.parse('$_baseUrl/notifications')
+        .replace(queryParameters: query.isEmpty ? null : query);
+    final response = await http.get(uri, headers: _headers());
+    final data = _decode(response) as List<dynamic>;
+    return data.map((json) => AppNotification.fromJson(json)).toList();
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/notifications/$id/read'),
+      headers: _headers(),
+    );
+    _decode(response);
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/notifications/read-all'),
+      headers: _headers(),
+    );
+    _decode(response);
   }
 
   Future<List<SupportMessage>> fetchMySupportThreads() async {

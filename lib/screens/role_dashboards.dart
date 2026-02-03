@@ -1430,11 +1430,10 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
   }
 
   Future<void> _saveClinic() async {
-    if (_clinics.isEmpty || _selectedClinicId == null) return;
     setState(() => _clinicSaving = true);
     final api = context.read<SessionProvider>().apiService;
     try {
-      await api.updateClinic(_selectedClinicId!, {
+      final payload = {
         'name': _clinicNameController.text.trim(),
         'address': _clinicAddressController.text.trim(),
         'contacts': {
@@ -1442,7 +1441,20 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
           'phone': _clinicPhoneController.text.trim(),
         },
         'status': _clinicStatus,
-      });
+      };
+      if (_selectedClinicId == null) {
+        final created = await api.createClinic(payload);
+        if (!mounted) return;
+        setState(() {
+          _clinics = [..._clinics, created];
+          _selectedClinicId = created.id;
+          _clinicStatus = created.status;
+          _clinicQrPayload = created.qrPayload;
+          _clinicQrUpdatedAt = created.qrUpdatedAt;
+        });
+      } else {
+        await api.updateClinic(_selectedClinicId!, payload);
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Данные клиники обновлены')));

@@ -2,6 +2,8 @@ const express = require('express');
 const Message = require('../models/Message');
 const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const { notifyMany } = require('../utils/notify');
+const User = require('../models/User');
 
 const router = express.Router();
 
@@ -39,6 +41,20 @@ router.post('/', auth(['patient']), upload.array('files', 3), async (req, res) =
     const populated = await Message.findById(message._id)
       .populate('patient', 'firstName lastName phone')
       .populate('history.sender', 'firstName lastName role');
+
+    const supportManagers = await User.find({
+      role: { $in: ['support_manager', 'superadmin'] },
+      isActive: true,
+    }).select('_id');
+    await notifyMany(
+      supportManagers.map((user) => user._id),
+      {
+        title: 'Новое обращение',
+        body: 'Поступило новое сообщение поддержки от пациента',
+        type: 'support',
+        data: { supportId: message._id.toString() },
+      },
+    );
 
     res.status(201).json(populated);
   } catch (error) {
@@ -122,6 +138,25 @@ router.post('/:id/reply', auth(supportScopes), async (req, res) => {
 
   await message.save();
   await message.populate('history.sender', 'firstName lastName role');
+
+  if (req.user.role === 'patient') {
+    const target = message.assignedTo ? [message.assignedTo] : [];
+    if (target.length > 0) {
+      await notifyMany(target, {
+        title: 'Новое сообщение поддержки',
+        body: 'Пациент ответил в обращении',
+        type: 'support',
+        data: { supportId: message._id.toString() },
+      });
+    }
+  } else {
+    await notifyMany([message.patient], {
+      title: 'Ответ поддержки',
+      body: 'Менеджер поддержки ответил на ваше обращение',
+      type: 'support',
+      data: { supportId: message._id.toString() },
+    });
+  }
 
   res.json(message);
 });

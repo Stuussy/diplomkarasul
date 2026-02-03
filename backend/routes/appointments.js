@@ -9,6 +9,7 @@ const Clinic = require('../models/Clinic');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { buildAppointmentWindows } = require('../utils/time');
+const { notifyMany } = require('../utils/notify');
 const {
   buildEventPayload,
   safeCalendarCall,
@@ -259,6 +260,13 @@ router.post('/:id/confirm', auth(['patient']), async (req, res) => {
   appointment.confirmedAt = now;
   await appointment.save();
 
+  await notifyMany([appointment.doctor?._id, appointment.patient?._id], {
+    title: 'Запись подтверждена',
+    body: `Приём подтверждён на ${dayjs(appointment.startTime).format('DD.MM HH:mm')}`,
+    type: 'appointment',
+    data: { appointmentId: appointment._id.toString() },
+  });
+
   res.json(appointment);
 });
 
@@ -357,6 +365,13 @@ router.post('/:id/cancel', auth(['patient', 'admin', 'superadmin']), async (req,
   appointment.cancelledAt = now;
   appointment.cancelledBy = req.user.id;
   await appointment.save();
+
+  await notifyMany([appointment.doctor, appointment.patient], {
+    title: 'Запись отменена',
+    body: `Приём на ${dayjs(appointment.startTime).format('DD.MM HH:mm')} отменён`,
+    type: 'appointment',
+    data: { appointmentId: appointment._id.toString() },
+  });
 
   if (appointment.slot) {
     await ScheduleSlot.findByIdAndUpdate(appointment.slot, {
@@ -482,6 +497,13 @@ router.patch(
     appointment.confirmedAt = null;
     appointment.slot = undefined;
     await appointment.save();
+
+    await notifyMany([appointment.doctor, appointment.patient], {
+      title: 'Запись перенесена',
+      body: `Новая дата: ${dayjs(appointment.startTime).format('DD.MM HH:mm')}`,
+      type: 'appointment',
+      data: { appointmentId: appointment._id.toString() },
+    });
 
     try {
       const [patient, doctor, clinic] = await Promise.all([
