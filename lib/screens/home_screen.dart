@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../models/appointment.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
+import '../theme/clinic_theme.dart';
+import '../widgets/dent_card.dart';
+import '../widgets/dent_badge.dart';
+import '../widgets/dent_shimmer.dart';
 import '../widgets/patient_ui.dart';
 import '../widgets/section_header.dart';
-import '../widgets/clinic_card.dart';
 import 'appointment_request_screen.dart';
 import 'doctor_detail_screen.dart';
 import 'filter_sheet.dart';
@@ -19,659 +24,546 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  Appointment? _nextAppointment;
-  String? _aiTip;
-  bool _loading = true;
   late Future<List<AppUser>> _futureDoctors;
-  final List<String> _specialties = const [
-    'Все',
-    'Терапия',
-    'Эстетика',
-    'Хирургия',
-    'Ортодонтия',
-    'Детская',
-  ];
-  int _activeSpecialty = 0;
-  _DoctorFilters _filters = const _DoctorFilters();
+  late Future<Appointment?> _futureNextAppointment;
+  String _selectedSpecialty = 'Все';
+  String _searchQuery = '';
+  String? _selectedSortOrder;
+  double? _selectedMinRating;
+  bool _instantBookingOnly = false;
+  final _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _futureDoctors = context.read<SessionProvider>().apiService.fetchDoctors();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+    _futureDoctors = _loadDoctors();
+    _futureNextAppointment = _loadNextAppointment();
   }
 
-  Future<void> _loadData() async {
-    final api = context.read<SessionProvider>().apiService;
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<List<AppUser>> _loadDoctors() {
+    return context.read<SessionProvider>().apiService.fetchDoctors();
+  }
+
+  Future<Appointment?> _loadNextAppointment() async {
     try {
-      final appointment = await api.fetchNextAppointment();
-      final tip = await api.fetchAiTip();
-      if (mounted) {
-        setState(() {
-          _nextAppointment = appointment;
-          _aiTip = tip;
-          _loading = false;
-        });
-      }
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не удалось загрузить данные: $error')),
+      final api = context.read<SessionProvider>().apiService;
+      final now = DateTime.now();
+      final appointments = await api.fetchMyAppointments(
+        from: now,
+        to: now.add(const Duration(days: 30)),
       );
+      appointments.sort((a, b) => a.startTime.compareTo(b.startTime));
+      final upcoming = appointments.where((a) =>
+          a.status == 'scheduled' || a.status == 'confirmed');
+      return upcoming.isNotEmpty ? upcoming.first : null;
+    } catch (_) {
+      return null;
     }
   }
 
-  Future<void> _refreshDoctors() async {
+  Future<void> _refresh() async {
     setState(() {
-      _futureDoctors = context
-          .read<SessionProvider>()
-          .apiService
-          .fetchDoctors();
+      _futureDoctors = _loadDoctors();
+      _futureNextAppointment = _loadNextAppointment();
     });
   }
 
-  Future<void> _openFilterSheet() async {
+  void _openFilter() async {
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => FilterSheet(
-        specialties: _specialties,
-        selectedSpecialty: _filters.specialty,
-        minRating: _filters.minRating,
-        maxDistance: _filters.maxDistance,
-        instantBookOnly: _filters.instantBookOnly,
-      ),
+      backgroundColor: Colors.transparent,
+      builder: (_) => const FilterSheet(),
     );
-    if (result == null) return;
-    setState(() {
-      _filters = _filters.copyWith(
-        specialty: result['specialty'] as String?,
-        minRating: (result['rating'] as double?) ?? _filters.minRating,
-        maxDistance: (result['distance'] as double?) ?? _filters.maxDistance,
-        instantBookOnly: result['instantBook'] as bool?,
-      );
-      final index = _specialties.indexOf(_filters.specialty);
-      _activeSpecialty = index >= 0 ? index : 0;
-    });
+    if (result != null && mounted) {
+      setState(() {
+        _selectedSortOrder = result['sort'] as String?;
+        _selectedMinRating = result['rating'] as double?;
+        _instantBookingOnly = result['instantBooking'] as bool? ?? false;
+      });
+    }
   }
 
-  void _resetFilters() {
-    setState(() {
-      _filters = const _DoctorFilters();
-      _activeSpecialty = 0;
-    });
-  }
+  List<AppUser> _applyFilters(List<AppUser> doctors) {
+    var filtered = List<AppUser>.from(doctors);
 
-  void _onSpecialtySelected(int index) {
-    setState(() {
-      _activeSpecialty = index;
-      _filters = _filters.copyWith(specialty: _specialties[index]);
-    });
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      filtered = filtered.where((d) =>
+          d.fullName.toLowerCase().contains(q) ||
+          d.specialties.any((s) => s.toLowerCase().contains(q))).toList();
+    }
+
+    if (_selectedSpecialty != 'Все') {
+      filtered = filtered.where((d) =>
+          d.specialties.any((s) => s.toLowerCase().contains(
+              _selectedSpecialty.toLowerCase()))).toList();
+    }
+
+    if (_selectedMinRating != null) {
+      filtered = filtered.where((d) => d.rating >= _selectedMinRating!).toList();
+    }
+
+    if (_selectedSortOrder == 'rating') {
+      filtered.sort((a, b) => b.rating.compareTo(a.rating));
+    } else if (_selectedSortOrder == 'reviews') {
+      filtered.sort((a, b) => b.reviews.compareTo(a.reviews));
+    }
+
+    return filtered;
   }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<SessionProvider>().user;
+    final greeting = _greeting();
+
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: PatientPalette.background,
-      ),
+      decoration: const BoxDecoration(color: ClinicTheme.mist),
       child: RefreshIndicator(
-        onRefresh: () async {
-          await _loadData();
-          await _refreshDoctors();
-        },
+        onRefresh: _refresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 8),
-                    _TopBar(userName: user?.firstName ?? 'Пациент'),
+                    // Greeting row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                greeting,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                user?.firstName ?? 'Пользователь',
+                                style: Theme.of(context).textTheme.headlineSmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: ClinicTheme.heroGradient,
+                          ),
+                          child: Center(
+                            child: Text(
+                              _initials(user),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
                     const SizedBox(height: 20),
-                    _SearchBar(
-                      onFilter: _openFilterSheet,
-                      hasFilters: _filters.hasActiveFilters,
+
+                    // Search bar
+                    Container(
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: ClinicTheme.snow,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: ClinicTheme.shadowSm,
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (v) => setState(() => _searchQuery = v),
+                        decoration: InputDecoration(
+                          hintText: 'Найти врача или специализацию',
+                          prefixIcon: const Icon(LucideIcons.search, size: 20, color: ClinicTheme.slate),
+                          suffixIcon: GestureDetector(
+                            onTap: _openFilter,
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                color: ClinicTheme.azureSoft,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                LucideIcons.slidersHorizontal,
+                                size: 18,
+                                color: ClinicTheme.azure,
+                              ),
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.transparent,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
+                        ),
+                      ),
                     ),
+
                     const SizedBox(height: 24),
-                    _UpcomingCard(
-                      appointment: _nextAppointment,
-                      loading: _loading,
+
+                    // Upcoming appointment
+                    FutureBuilder<Appointment?>(
+                      future: _futureNextAppointment,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const DentShimmerCard(height: 120);
+                        }
+                        final appointment = snapshot.data;
+                        if (appointment == null) {
+                          return DentCard(
+                            gradient: ClinicTheme.heroGradient,
+                            borderRadius: ClinicTheme.radiusL,
+                            padding: const EdgeInsets.all(24),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(
+                                    LucideIcons.calendarPlus,
+                                    color: Colors.white,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Запишитесь на приём',
+                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Выберите врача и удобное время',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return DentCard(
+                          gradient: ClinicTheme.heroGradient,
+                          borderRadius: ClinicTheme.radiusL,
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(LucideIcons.calendarCheck, color: Colors.white70, size: 16),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Ближайший визит',
+                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                      color: Colors.white70,
+                                      letterSpacing: 0,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                appointment.service,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '${_formatDate(appointment.startTime)} • ${appointment.doctor?.fullName ?? ''}',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
+
                     const SizedBox(height: 24),
-                    _SpecialtyScroller(
-                      specialties: _specialties,
-                      selectedIndex: _activeSpecialty,
-                      onChanged: _onSpecialtySelected,
+
+                    // Specialty chips
+                    SizedBox(
+                      height: 40,
+                      child: FutureBuilder<List<AppUser>>(
+                        future: _futureDoctors,
+                        builder: (context, snapshot) {
+                          final specialties = _extractSpecialties(snapshot.data ?? []);
+                          return ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: specialties.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 8),
+                            itemBuilder: (context, index) {
+                              final spec = specialties[index];
+                              final selected = spec == _selectedSpecialty;
+                              return GestureDetector(
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  setState(() => _selectedSpecialty = spec);
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: selected ? ClinicTheme.azure : ClinicTheme.snow,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: selected ? null : Border.all(color: ClinicTheme.mist),
+                                  ),
+                                  child: Text(
+                                    spec,
+                                    style: TextStyle(
+                                      color: selected ? Colors.white : ClinicTheme.midnight,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
                     ),
-                    if (_aiTip != null) ...[
-                      const SizedBox(height: 24),
-                      _AiTipCard(tip: _aiTip!),
-                    ],
+
                     const SizedBox(height: 24),
-                    SectionHeader(
+                    const SectionHeader(
                       title: 'Лучшие врачи',
-                      subtitle: 'Подобраны под ваш запрос',
-                      actionLabel: _filters.hasActiveFilters ? 'Сбросить' : null,
-                      onAction: _filters.hasActiveFilters ? _resetFilters : null,
+                      subtitle: 'Выберите специалиста',
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
             ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-              sliver: SliverToBoxAdapter(
-                child: FutureBuilder<List<AppUser>>(
-                  future: _futureDoctors,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    } else if (snapshot.hasError) {
-                      return ClinicCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Не удалось загрузить врачей',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 8),
-                            Text('Ошибка: ${snapshot.error}'),
-                            const SizedBox(height: 12),
-                            FilledButton.tonal(
-                              onPressed: _refreshDoctors,
-                              child: const Text('Попробовать ещё раз'),
-                            ),
-                          ],
+
+            // Doctor list
+            FutureBuilder<List<AppUser>>(
+              future: _futureDoctors,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) => const Padding(
+                          padding: EdgeInsets.only(bottom: 16),
+                          child: DentShimmerCard(height: 140),
                         ),
-                      );
-                    }
-                    final doctors = snapshot.data ?? [];
-                    if (doctors.isEmpty) {
-                      return PatientEmptyState(
+                        childCount: 3,
+                      ),
+                    ),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return SliverToBoxAdapter(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Text('Ошибка: ${snapshot.error}'),
+                      ),
+                    ),
+                  );
+                }
+                final doctors = _applyFilters(snapshot.data ?? []);
+                if (doctors.isEmpty) {
+                  return SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: PatientEmptyState(
                         title: 'Нет доступных врачей',
-                        message:
-                            'Свяжитесь с администратором или обновите список чуть позже.',
-                        action: FilledButton(
-                          onPressed: _refreshDoctors,
-                          child: const Text('Обновить'),
-                        ),
-                      );
-                    }
-                    final filteredDoctors = doctors
-                        .where(_filters.matches)
-                        .toList();
-                    if (filteredDoctors.isEmpty) {
-                      return PatientEmptyState(
-                        title: 'Нет врачей по заданным критериям',
-                        message:
-                            'Попробуйте изменить фильтры или выберите другую специализацию.',
-                        action: FilledButton.tonal(
-                          onPressed: _resetFilters,
-                          child: const Text('Сбросить фильтры'),
-                        ),
-                      );
-                    }
-                    return Column(
-                      children: filteredDoctors
-                          .map(
-                            (doctor) => _DoctorTile(
-                              doctor: doctor,
-                              onOpened: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        DoctorDetailScreen(doctor: doctor),
-                                  ),
-                                );
-                              },
-                              onBook: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => AppointmentRequestScreen(
-                                      doctor: doctor,
-                                    ),
-                                  ),
-                                );
-                              },
+                        message: _searchQuery.isNotEmpty
+                            ? 'Попробуйте другой запрос'
+                            : 'Скоро добавим новых специалистов',
+                        icon: LucideIcons.stethoscope,
+                      ),
+                    ),
+                  );
+                }
+                return SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                  sliver: SliverList(
+                    delegate: SliverChildSeparatedBuilderDelegate(
+                      (context, index) {
+                        final doctor = doctors[index];
+                        return _DoctorTile(
+                          doctor: doctor,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => DoctorDetailScreen(doctor: doctor),
                             ),
-                          )
-                          .toList(),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DoctorFilters {
-  const _DoctorFilters({
-    this.specialty = 'Все',
-    this.minRating = 0,
-    this.maxDistance = 50,
-    this.instantBookOnly = false,
-  });
-
-  final String specialty;
-  final double minRating;
-  final double maxDistance;
-  final bool instantBookOnly;
-
-  _DoctorFilters copyWith({
-    String? specialty,
-    double? minRating,
-    double? maxDistance,
-    bool? instantBookOnly,
-  }) {
-    return _DoctorFilters(
-      specialty: specialty ?? this.specialty,
-      minRating: minRating ?? this.minRating,
-      maxDistance: maxDistance ?? this.maxDistance,
-      instantBookOnly: instantBookOnly ?? this.instantBookOnly,
-    );
-  }
-
-  bool matches(AppUser doctor) {
-    final normalized = specialty.trim().toLowerCase();
-    final matchesSpecialty =
-        normalized == 'все' ||
-        doctor.specialties.any(
-          (spec) => spec.toLowerCase().contains(normalized),
-        );
-    final ratingOk = doctor.rating >= minRating;
-    final instantOk = !instantBookOnly || doctor.services.isNotEmpty;
-    return matchesSpecialty && ratingOk && instantOk;
-  }
-
-  bool get hasActiveFilters =>
-      specialty != 'Все' || minRating > 0 || instantBookOnly;
-}
-
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.userName});
-
-  final String userName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Добрый день, ${userName.isEmpty ? 'пациент' : userName}',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Частная стоматология · Алматы',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ),
-        CircleAvatar(
-          radius: 26,
-          backgroundColor: PatientPalette.primary.withValues(alpha: 0.12),
-          child: Text(
-            userName.isNotEmpty ? userName[0].toUpperCase() : 'P',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: PatientPalette.primary),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.onFilter, required this.hasFilters});
-
-  final VoidCallback onFilter;
-  final bool hasFilters;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClinicCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          const Icon(Icons.search_rounded, color: Colors.black54),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'Найти врача или услугу',
-                border: InputBorder.none,
-                isDense: true,
-              ),
-            ),
-          ),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                onPressed: onFilter,
-                icon: const Icon(Icons.tune_rounded),
-              ),
-              if (hasFilters)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: PatientPalette.primary,
-                      shape: BoxShape.circle,
+                          ),
+                          onBook: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AppointmentRequestScreen(doctor: doctor),
+                            ),
+                          ),
+                        );
+                      },
+                      separatorBuilder: (_, __) => const SizedBox(height: 16),
+                      childCount: doctors.length,
                     ),
                   ),
-                ),
-            ],
-          ),
-        ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
-}
 
-class _UpcomingCard extends StatelessWidget {
-  const _UpcomingCard({required this.appointment, required this.loading});
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Доброе утро 👋';
+    if (hour < 17) return 'Добрый день 👋';
+    return 'Добрый вечер 👋';
+  }
 
-  final Appointment? appointment;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClinicCard(
-      gradient: PatientPalette.muted(0.14),
-      background: PatientPalette.background,
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.calendar_today_rounded, color: PatientPalette.primary.withValues(alpha: 0.8)),
-              const SizedBox(width: 8),
-              Text('Ближайший визит', style: Theme.of(context).textTheme.labelLarge),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (loading)
-            const SizedBox(
-              height: 28,
-              width: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-              ),
-            )
-          else if (appointment == null)
-            Text(
-              'Запланируйте визит, чтобы держать профилактику под контролем.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            )
-          else ...[
-            Text(
-              appointment!.service,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _formatDate(appointment!.startTime),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              appointment!.doctor?.fullName ?? 'Врач уточняется',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ],
-      ),
-    );
+  String _initials(AppUser? user) {
+    if (user == null) return '?';
+    final f = user.firstName.isNotEmpty ? user.firstName[0] : '';
+    final l = user.lastName.isNotEmpty ? user.lastName[0] : '';
+    return '$f$l'.toUpperCase();
   }
 
   String _formatDate(DateTime date) {
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
-    final time =
-        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    return '$day.$month.${date.year} · $time';
+    final time = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    return '$day.$month • $time';
   }
-}
 
-class _SpecialtyScroller extends StatelessWidget {
-  const _SpecialtyScroller({
-    required this.specialties,
-    required this.selectedIndex,
-    required this.onChanged,
-  });
-
-  final List<String> specialties;
-  final int selectedIndex;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: specialties.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final selected = index == selectedIndex;
-          return ChoiceChip(
-            label: Text(specialties[index]),
-            selected: selected,
-            onSelected: (_) => onChanged(index),
-            selectedColor: PatientPalette.primary,
-            labelStyle: TextStyle(
-              color: selected ? Colors.white : Colors.black87,
-              fontWeight: FontWeight.w600,
-            ),
-            backgroundColor: Colors.white,
-            side: BorderSide(
-              color: selected ? Colors.transparent : PatientPalette.background,
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _AiTipCard extends StatelessWidget {
-  const _AiTipCard({required this.tip});
-
-  final String tip;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClinicCard(
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: PatientPalette.warning.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.lightbulb_outline,
-              color: PatientPalette.warning,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Совет от Dental AI',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(tip, style: const TextStyle(color: Colors.black87)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  List<String> _extractSpecialties(List<AppUser> doctors) {
+    final set = <String>{'Все'};
+    for (final d in doctors) {
+      set.addAll(d.specialties);
+    }
+    return set.toList();
   }
 }
 
 class _DoctorTile extends StatelessWidget {
   const _DoctorTile({
     required this.doctor,
-    required this.onOpened,
+    required this.onTap,
     required this.onBook,
   });
 
   final AppUser doctor;
-  final VoidCallback onOpened;
+  final VoidCallback onTap;
   final VoidCallback onBook;
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = doctor.specialties.isNotEmpty
+    final specialty = doctor.specialties.isNotEmpty
         ? doctor.specialties.join(', ')
-        : 'Стоматолог';
-    final location = doctor.clinics.isNotEmpty
-        ? doctor.clinics.join(', ')
-        : 'Dental AI Clinic';
-    return ClinicCard(
-      margin: const EdgeInsets.only(bottom: 16),
-      onTap: onOpened,
+        : 'Специализация уточняется';
+
+    return DentCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 32,
-                backgroundColor: PatientPalette.primary.withValues(alpha: 0.12),
-                child: Text(
-                  doctor.firstName.isNotEmpty
-                      ? doctor.firstName[0].toUpperCase()
-                      : doctor.lastName.isNotEmpty
-                      ? doctor.lastName[0].toUpperCase()
-                      : '?',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: ClinicTheme.azure.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(ClinicTheme.radiusM),
+                ),
+                child: Center(
+                  child: Text(
+                    doctor.firstName.isNotEmpty
+                        ? doctor.firstName[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: ClinicTheme.azure,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       doctor.fullName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      subtitle,
-                      style: const TextStyle(color: Colors.black54),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.place_outlined,
-                          size: 16,
-                          color: Colors.black45,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            location,
-                            style: const TextStyle(color: Colors.black54),
-                          ),
-                        ),
-                      ],
+                      specialty,
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: onOpened,
-                icon: const Icon(Icons.chevron_right),
+              const Icon(
+                LucideIcons.chevronRight,
+                color: ClinicTheme.slate,
+                size: 20,
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: PatientPalette.warning.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.star_rounded, size: 16),
-                    const SizedBox(width: 4),
-                    Text(
-                      doctor.rating.toStringAsFixed(1),
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                  ],
-                ),
+              DentBadge(
+                label: doctor.rating.toStringAsFixed(1),
+                icon: LucideIcons.star,
+                variant: DentBadgeVariant.warning,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Text(
                 '${doctor.reviews} отзывов',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: [
+              const Spacer(),
               FilledButton(
                 onPressed: onBook,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 child: const Text('Записаться'),
-              ),
-              OutlinedButton(
-                onPressed: onOpened,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                ),
-                child: const Text('Подробнее'),
               ),
             ],
           ),

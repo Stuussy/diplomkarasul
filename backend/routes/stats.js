@@ -6,10 +6,28 @@ const Clinic = require('../models/Clinic');
 
 const router = express.Router();
 
+async function getAdminClinicIds(userId) {
+  const admin = await User.findById(userId).select('clinics');
+  const clinicIds = new Set();
+  (admin?.clinics || []).forEach((id) => clinicIds.add(id.toString()));
+  const ownedClinics = await Clinic.find({ admin: userId }).select('_id');
+  ownedClinics.forEach((clinic) => clinicIds.add(clinic._id.toString()));
+  return Array.from(clinicIds);
+}
+
 router.get('/overview', auth(['admin', 'superadmin']), async (req, res) => {
   try {
     if (req.user.role === 'admin') {
-      const clinicIds = req.user.clinics || [];
+      const clinicIds = await getAdminClinicIds(req.user.id);
+      if (clinicIds.length === 0) {
+        return res.json({
+          doctors: 0,
+          patients: 0,
+          appointments: 0,
+          clinics: [],
+        });
+      }
+
       const [doctors, patients, appointments, clinics] = await Promise.all([
         User.countDocuments({ role: 'doctor', clinics: { $in: clinicIds } }),
         Appointment.distinct('patient', { clinic: { $in: clinicIds } }),

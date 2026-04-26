@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../theme/clinic_theme.dart';
+
+/// Section header with title, optional subtitle, and optional action.
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
     super.key,
@@ -26,7 +29,12 @@ class SectionHeader extends StatelessWidget {
               Text(title, style: Theme.of(context).textTheme.titleLarge),
               if (subtitle != null) ...[
                 const SizedBox(height: 4),
-                Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  subtitle!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: ClinicTheme.slate,
+                      ),
+                ),
               ],
             ],
           ),

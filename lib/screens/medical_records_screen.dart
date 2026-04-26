@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -8,8 +9,10 @@ import 'package:pdf/widgets.dart' as pw;
 import '../models/medical_record.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
+import '../theme/clinic_theme.dart';
+import '../widgets/dent_card.dart';
+import '../widgets/dent_badge.dart';
 import '../widgets/patient_ui.dart';
-import '../widgets/clinic_card.dart';
 import '../widgets/tooth_chart.dart';
 
 class MedicalRecordsScreen extends StatefulWidget {
@@ -66,117 +69,127 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: ClinicTheme.mist,
       appBar: AppBar(title: Text(widget.title ?? 'Медицинская карта')),
       floatingActionButton: _canCreate
           ? FloatingActionButton(
               onPressed: _showCreateDialog,
-              child: const Icon(Icons.add),
+              child: const Icon(LucideIcons.plus),
             )
           : null,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(color: PatientPalette.background),
-        child: FutureBuilder<List<MedicalRecord>>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (snapshot.hasError) {
-              return Center(child: Text('Ошибка: ${snapshot.error}'));
-            }
-            final records = snapshot.data ?? [];
-            if (records.isEmpty) {
-              return const Center(
-                child: PatientEmptyState(
-                  title: 'Нет записей',
-                  message:
-                      'Ваш стоматолог добавит рекомендации и осмотры после посещения.',
-                  icon: Icons.library_books_outlined,
-                ),
-              );
-            }
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                itemCount: records.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  final record = records[index];
-                  return ClinicCard(
-                    onTap: () => _openRecordDetail(record),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                record.title,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+      body: FutureBuilder<List<MedicalRecord>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Ошибка: ${snapshot.error}'));
+          }
+          final records = snapshot.data ?? [];
+          if (records.isEmpty) {
+            return const Center(
+              child: PatientEmptyState(
+                title: 'Нет записей',
+                message: 'Ваш стоматолог добавит рекомендации после посещения.',
+                icon: LucideIcons.clipboardList,
+              ),
+            );
+          }
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              itemCount: records.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 14),
+              itemBuilder: (context, index) {
+                final record = records[index];
+                return DentCard(
+                  onTap: () => _openRecordDetail(record),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              record.title,
+                              style: Theme.of(context).textTheme.titleMedium,
                             ),
-                            PatientBadge(
-                              label: _formatDate(record.createdAt),
-                              variant: PatientBadgeVariant.info,
+                          ),
+                          DentBadge(
+                            label: _formatDate(record.createdAt),
+                            variant: DentBadgeVariant.info,
+                          ),
+                        ],
+                      ),
+                      if (record.doctor != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(LucideIcons.stethoscope, size: 14, color: ClinicTheme.slate),
+                            const SizedBox(width: 6),
+                            Text(
+                              record.doctor!.fullName,
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        if (record.doctor != null)
-                          Text(
-                            'Врач: ${record.doctor!.fullName}',
-                            style: const TextStyle(color: Colors.black54),
-                          ),
-                        if (record.description != null &&
-                            record.description!.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            record.description!,
-                            style: const TextStyle(height: 1.4),
-                          ),
-                        ],
-                        if (record.toothMap.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          ToothChart(toothMap: record.toothMap),
-                        ],
-                        if (record.tags.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: record.tags
-                                .map(
-                                  (tag) => Chip(
-                                    label: Text(tag),
-                                    backgroundColor: PatientPalette.primary
-                                        .withValues(alpha: 0.08),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ],
-                        if (_canEdit) ...[
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () => _showEditDialog(record),
-                              child: const Text('Редактировать'),
-                            ),
-                          ),
-                        ],
                       ],
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
+                      if (record.description != null && record.description!.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          record.description!,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                      if (record.toothMap.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        ToothChart(toothMap: record.toothMap),
+                      ],
+                      if (record.tags.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: record.tags.map((tag) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: ClinicTheme.azureSoft,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              tag,
+                              style: const TextStyle(
+                                color: ClinicTheme.azure,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          )).toList(),
+                        ),
+                      ],
+                      if (_canEdit) ...[
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () => _showEditDialog(record),
+                            icon: const Icon(LucideIcons.pencil, size: 14),
+                            label: const Text('Редактировать'),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
@@ -185,66 +198,74 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: ClinicTheme.snow,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return Padding(
           padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
+            left: 20,
+            right: 20,
             top: 16,
-            bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+            bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
           ),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: ClinicTheme.mist,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
                       child: Text(
                         record.title,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                    PatientBadge(
+                    DentBadge(
                       label: _formatDate(record.createdAt),
-                      variant: PatientBadgeVariant.info,
+                      variant: DentBadgeVariant.info,
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                if (record.doctor != null)
+                if (record.doctor != null) ...[
+                  const SizedBox(height: 8),
                   Text(
                     'Врач: ${record.doctor!.fullName}',
-                    style: const TextStyle(color: Colors.black54),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                if (record.description != null &&
-                    record.description!.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(record.description!),
+                ],
+                if (record.description != null && record.description!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(record.description!, style: Theme.of(context).textTheme.bodyMedium),
                 ],
                 const SizedBox(height: 16),
                 ToothChart(toothMap: record.toothMap),
                 if (record.tags.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Wrap(
-                    spacing: 8,
+                    spacing: 6,
                     runSpacing: 6,
-                    children: record.tags
-                        .map(
-                          (tag) => Chip(
-                            label: Text(tag),
-                            backgroundColor: PatientPalette.primary.withValues(
-                              alpha: 0.08,
-                            ),
-                          ),
-                        )
-                        .toList(),
+                    children: record.tags.map((tag) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: ClinicTheme.azureSoft,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(tag, style: const TextStyle(color: ClinicTheme.azure, fontSize: 12, fontWeight: FontWeight.w600)),
+                    )).toList(),
                   ),
                 ],
                 const SizedBox(height: 20),
@@ -253,15 +274,15 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () => _exportRecord(record),
-                        icon: const Icon(Icons.download_outlined),
+                        icon: const Icon(LucideIcons.download, size: 16),
                         label: const Text('Экспорт PDF'),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton.icon(
+                      child: FilledButton.icon(
                         onPressed: () => _printRecord(record),
-                        icon: const Icon(Icons.print_outlined),
+                        icon: const Icon(LucideIcons.printer, size: 16),
                         label: const Text('Печать'),
                       ),
                     ),
@@ -278,13 +299,10 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
   Future<Uint8List> _buildRecordPdf(MedicalRecord record) async {
     final doc = pw.Document();
     final toothRows = record.toothMap
-        .map(
-          (item) =>
-              '${item.arch == 'upper' ? 'Верхняя' : 'Нижняя'} '
-              '${item.index}: ${item.status}',
-        )
+        .map((item) =>
+            '${item.arch == 'upper' ? 'Верхняя' : 'Нижняя'} '
+            '${item.index}: ${item.status}')
         .toList();
-
     doc.addPage(
       pw.Page(
         build: (context) => pw.Column(
@@ -296,8 +314,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
             pw.Text('Дата: ${_formatDate(record.createdAt)}'),
             if (record.doctor != null)
               pw.Text('Врач: ${record.doctor!.fullName}'),
-            if (record.description != null &&
-                record.description!.isNotEmpty) ...[
+            if (record.description != null && record.description!.isNotEmpty) ...[
               pw.SizedBox(height: 12),
               pw.Text('Описание:'),
               pw.Text(record.description!),
@@ -320,10 +337,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
 
   Future<void> _exportRecord(MedicalRecord record) async {
     final data = await _buildRecordPdf(record);
-    await Printing.sharePdf(
-      bytes: data,
-      filename: 'medical_record_${record.id}.pdf',
-    );
+    await Printing.sharePdf(bytes: data, filename: 'medical_record_${record.id}.pdf');
   }
 
   Future<void> _printRecord(MedicalRecord record) async {
@@ -353,31 +367,20 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
               if (!formKey.currentState!.validate()) return;
               setState(() => isSaving = true);
               try {
-                await innerContext
-                    .read<SessionProvider>()
-                    .apiService
-                    .createMedicalRecord(
-                      patientId: _resolvedPatientId!,
-                      title: titleController.text.trim(),
-                      description: descController.text.trim().isEmpty
-                          ? null
-                          : descController.text.trim(),
-                      tags: tagsController.text
-                          .split(',')
-                          .map((e) => e.trim())
-                          .where((e) => e.isNotEmpty)
-                          .toList(),
-                      toothMap: toothMap,
-                    );
+                await innerContext.read<SessionProvider>().apiService.createMedicalRecord(
+                  patientId: _resolvedPatientId!,
+                  title: titleController.text.trim(),
+                  description: descController.text.trim().isEmpty ? null : descController.text.trim(),
+                  tags: tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+                  toothMap: toothMap,
+                );
                 if (!dialogContext.mounted) return;
                 Navigator.of(dialogContext).pop();
                 if (!mounted) return;
                 _refresh();
               } catch (error) {
                 if (!dialogContext.mounted) return;
-                ScaffoldMessenger.of(
-                  dialogContext,
-                ).showSnackBar(SnackBar(content: Text('Ошибка: $error')));
+                ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text('Ошибка: $error')));
               } finally {
                 if (innerContext.mounted) setState(() => isSaving = false);
               }
@@ -393,27 +396,19 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                     children: [
                       TextFormField(
                         controller: titleController,
-                        decoration: const InputDecoration(
-                          labelText: 'Заголовок',
-                        ),
-                        validator: (value) => value == null || value.isEmpty
-                            ? 'Обязательное поле'
-                            : null,
+                        decoration: const InputDecoration(labelText: 'Заголовок'),
+                        validator: (v) => v == null || v.isEmpty ? 'Обязательное поле' : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: descController,
-                        decoration: const InputDecoration(
-                          labelText: 'Описание',
-                        ),
+                        decoration: const InputDecoration(labelText: 'Описание'),
                         maxLines: 3,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: tagsController,
-                        decoration: const InputDecoration(
-                          labelText: 'Теги (через запятую)',
-                        ),
+                        decoration: const InputDecoration(labelText: 'Теги (через запятую)'),
                       ),
                       const SizedBox(height: 16),
                       ToothChart(
@@ -429,19 +424,13 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: isSaving
-                      ? null
-                      : () => Navigator.of(dialogContext).pop(),
+                  onPressed: isSaving ? null : () => Navigator.of(dialogContext).pop(),
                   child: const Text('Отмена'),
                 ),
-                ElevatedButton(
+                FilledButton(
                   onPressed: isSaving ? null : submit,
                   child: isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('Сохранить'),
                 ),
               ],
@@ -454,9 +443,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
 
   Future<void> _showEditDialog(MedicalRecord record) async {
     final titleController = TextEditingController(text: record.title);
-    final descController = TextEditingController(
-      text: record.description ?? '',
-    );
+    final descController = TextEditingController(text: record.description ?? '');
     final tagsController = TextEditingController(text: record.tags.join(', '));
     List<ToothMark> toothMap = List.from(record.toothMap);
     final formKey = GlobalKey<FormState>();
@@ -470,29 +457,20 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
               if (!formKey.currentState!.validate()) return;
               setState(() => isSaving = true);
               try {
-                await innerContext
-                    .read<SessionProvider>()
-                    .apiService
-                    .updateMedicalRecord(
-                      recordId: record.id,
-                      title: titleController.text.trim(),
-                      description: descController.text.trim(),
-                      tags: tagsController.text
-                          .split(',')
-                          .map((e) => e.trim())
-                          .where((e) => e.isNotEmpty)
-                          .toList(),
-                      toothMap: toothMap,
-                    );
+                await innerContext.read<SessionProvider>().apiService.updateMedicalRecord(
+                  recordId: record.id,
+                  title: titleController.text.trim(),
+                  description: descController.text.trim(),
+                  tags: tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+                  toothMap: toothMap,
+                );
                 if (!dialogContext.mounted) return;
                 Navigator.of(dialogContext).pop();
                 if (!mounted) return;
                 _refresh();
               } catch (error) {
                 if (!dialogContext.mounted) return;
-                ScaffoldMessenger.of(
-                  dialogContext,
-                ).showSnackBar(SnackBar(content: Text('Ошибка: $error')));
+                ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text('Ошибка: $error')));
               } finally {
                 if (innerContext.mounted) setState(() => isSaving = false);
               }
@@ -508,27 +486,19 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                     children: [
                       TextFormField(
                         controller: titleController,
-                        decoration: const InputDecoration(
-                          labelText: 'Заголовок',
-                        ),
-                        validator: (value) => value == null || value.isEmpty
-                            ? 'Обязательное поле'
-                            : null,
+                        decoration: const InputDecoration(labelText: 'Заголовок'),
+                        validator: (v) => v == null || v.isEmpty ? 'Обязательное поле' : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: descController,
-                        decoration: const InputDecoration(
-                          labelText: 'Описание',
-                        ),
+                        decoration: const InputDecoration(labelText: 'Описание'),
                         maxLines: 3,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: tagsController,
-                        decoration: const InputDecoration(
-                          labelText: 'Теги (через запятую)',
-                        ),
+                        decoration: const InputDecoration(labelText: 'Теги (через запятую)'),
                       ),
                       const SizedBox(height: 16),
                       ToothChart(
@@ -544,19 +514,13 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: isSaving
-                      ? null
-                      : () => Navigator.of(dialogContext).pop(),
+                  onPressed: isSaving ? null : () => Navigator.of(dialogContext).pop(),
                   child: const Text('Отмена'),
                 ),
-                ElevatedButton(
+                FilledButton(
                   onPressed: isSaving ? null : submit,
                   child: isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('Сохранить'),
                 ),
               ],

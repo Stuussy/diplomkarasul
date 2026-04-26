@@ -2,33 +2,113 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class ClinicTheme {
-  static const ivory = Color(0xFFF4F7FB);
-  static const porcelain = Color(0xFFFFFFFF);
-  static const graphite = Color(0xFF1C2430);
-  static const ash = Color(0xFF6B7280);
-  static const line = Color(0xFFE3EAF4);
-  static const sage = Color(0xFF5B8CF7);
-  static const sageSoft = Color(0xFFDDE9FF);
-  static const success = Color(0xFF22B07D);
-  static const warning = Color(0xFFF2A65A);
-  static const error = Color(0xFFE46C6C);
-  static const info = Color(0xFF8CA3FF);
+  // ── Core ──
+  static const midnight = Color(0xFF0D1117);
+  static const obsidian = Color(0xFF161B22);
+  static const slate = Color(0xFF6E7681);
+  static const mist = Color(0xFFF0F3F6);
+  static const snow = Color(0xFFFFFFFF);
 
+  // ── Brand ──
+  static const azure = Color(0xFF2E7CF6);
+  static const azureSoft = Color(0xFFE8F1FE);
+  static const azureGlow = Color(0xFF5B9BFF);
+
+  // ── Semantic ──
+  static const mint = Color(0xFF1AAB8A);
+  static const mintSoft = Color(0xFFE6F7F1);
+  static const amber = Color(0xFFF5A524);
+  static const amberSoft = Color(0xFFFFF4E0);
+  static const coral = Color(0xFFEF4444);
+  static const coralSoft = Color(0xFFFEE8E8);
+  static const violet = Color(0xFF8B5CF6);
+  static const violetSoft = Color(0xFFF0ECFE);
+
+  // ── Spacing ──
+  static const space4 = 4.0;
+  static const space8 = 8.0;
+  static const space12 = 12.0;
+  static const space16 = 16.0;
+  static const space20 = 20.0;
+  static const space24 = 24.0;
+  static const space32 = 32.0;
+
+  // ── Radius ──
   static const radiusS = 12.0;
   static const radiusM = 16.0;
-  static const radiusL = 20.0;
+  static const radiusL = 22.0;
+  static const radiusXL = 28.0;
 
+  // ── Shadows ──
+  static List<BoxShadow> get shadowSm => [
+        BoxShadow(
+          color: const Color(0x08000000),
+          blurRadius: 4,
+          offset: const Offset(0, 1),
+        ),
+        BoxShadow(
+          color: const Color(0x06000000),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ];
+
+  static List<BoxShadow> get shadowMd => [
+        BoxShadow(
+          color: const Color(0x0A000000),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+        BoxShadow(
+          color: const Color(0x08000000),
+          blurRadius: 24,
+          offset: const Offset(0, 8),
+        ),
+      ];
+
+  static List<BoxShadow> get shadowLg => [
+        BoxShadow(
+          color: const Color(0x0C000000),
+          blurRadius: 16,
+          offset: const Offset(0, 4),
+        ),
+        BoxShadow(
+          color: const Color(0x08000000),
+          blurRadius: 40,
+          offset: const Offset(0, 16),
+        ),
+      ];
+
+  // ── Gradients ──
+  static const heroGradient = LinearGradient(
+    colors: [azure, azureGlow],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static LinearGradient mutedGradient([double opacity = 0.08]) {
+    return LinearGradient(
+      colors: [
+        azure.withValues(alpha: opacity + 0.02),
+        violet.withValues(alpha: opacity + 0.02),
+      ],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  }
+
+  // ── Theme ──
   static ThemeData light() {
     final base = ThemeData(
       brightness: Brightness.light,
-      scaffoldBackgroundColor: ivory,
+      scaffoldBackgroundColor: mist,
       colorScheme: const ColorScheme.light(
-        primary: sage,
-        onPrimary: porcelain,
-        surface: porcelain,
-        onSurface: graphite,
-        error: error,
-        onError: porcelain,
+        primary: azure,
+        onPrimary: snow,
+        surface: snow,
+        onSurface: midnight,
+        error: coral,
+        onError: snow,
       ),
       useMaterial3: true,
     );
@@ -36,152 +116,192 @@ class ClinicTheme {
     return base.copyWith(
       textTheme: _textTheme(base.textTheme),
       appBarTheme: AppBarTheme(
-        backgroundColor: porcelain,
-        foregroundColor: graphite,
+        backgroundColor: snow,
+        foregroundColor: midnight,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: _textTheme(base.textTheme).titleLarge,
       ),
       cardTheme: CardThemeData(
-        color: porcelain,
+        color: snow,
         elevation: 0,
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusM),
-          side: const BorderSide(color: line, width: 0.6),
         ),
       ),
       dividerTheme: const DividerThemeData(
-        color: line,
+        color: mist,
         thickness: 0.6,
         space: 24,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: porcelain,
+        fillColor: mist,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusS),
-          borderSide: const BorderSide(color: line),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusS),
-          borderSide: const BorderSide(color: line),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusS),
-          borderSide: const BorderSide(color: sage, width: 1.2),
+          borderSide: const BorderSide(color: azure, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radiusS),
+          borderSide: const BorderSide(color: coral, width: 1),
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: porcelain,
-        selectedColor: sage,
-        labelStyle: _textTheme(
-          base.textTheme,
-        ).labelLarge?.copyWith(color: graphite),
-        secondaryLabelStyle: _textTheme(
-          base.textTheme,
-        ).labelLarge?.copyWith(color: porcelain),
-        shape: StadiumBorder(side: const BorderSide(color: line)),
+        backgroundColor: snow,
+        selectedColor: azure,
+        labelStyle: _textTheme(base.textTheme)
+            .labelLarge
+            ?.copyWith(color: midnight),
+        secondaryLabelStyle: _textTheme(base.textTheme)
+            .labelLarge
+            ?.copyWith(color: snow),
+        shape: const StadiumBorder(),
+        side: const BorderSide(color: mist),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: sage,
-          foregroundColor: porcelain,
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          backgroundColor: azure,
+          foregroundColor: snow,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusS),
+            borderRadius: BorderRadius.circular(14),
           ),
-          textStyle: _textTheme(
-            base.textTheme,
-          ).labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          elevation: 0,
+          textStyle: _textTheme(base.textTheme)
+              .labelLarge
+              ?.copyWith(fontWeight: FontWeight.w600),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: graphite,
-          side: const BorderSide(color: line),
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+          foregroundColor: midnight,
+          side: const BorderSide(color: mist, width: 1.2),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusS),
+            borderRadius: BorderRadius.circular(14),
           ),
           textStyle: _textTheme(base.textTheme).labelLarge,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: graphite,
+          foregroundColor: azure,
           textStyle: _textTheme(base.textTheme).labelLarge,
         ),
       ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: azure,
+          foregroundColor: snow,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: _textTheme(base.textTheme)
+              .labelLarge
+              ?.copyWith(fontWeight: FontWeight.w600),
+        ),
+      ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: porcelain,
-        indicatorColor: sageSoft,
+        backgroundColor: snow,
+        indicatorColor: azureSoft,
         surfaceTintColor: Colors.transparent,
         labelTextStyle: WidgetStateProperty.all(
-          _textTheme(base.textTheme).labelMedium?.copyWith(color: graphite),
+          _textTheme(base.textTheme).labelMedium?.copyWith(color: midnight),
         ),
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
-            color: states.contains(WidgetState.selected) ? sage : ash,
+            color: states.contains(WidgetState.selected) ? azure : slate,
           ),
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: azure,
+        foregroundColor: snow,
+        elevation: 2,
+        shape: CircleBorder(),
+      ),
+      dialogTheme: DialogThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusL),
+        ),
+        backgroundColor: snow,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: snow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
       ),
     );
   }
 
   static TextTheme _textTheme(TextTheme base) {
-    final manrope = GoogleFonts.manropeTextTheme(base);
-    final source = GoogleFonts.sourceSans3TextTheme(base);
-    return source.copyWith(
-      displayLarge: manrope.displayLarge?.copyWith(
+    final jakarta = GoogleFonts.plusJakartaSansTextTheme(base);
+    final dm = GoogleFonts.dmSansTextTheme(base);
+    return dm.copyWith(
+      displayLarge: jakarta.displayLarge?.copyWith(
+        fontWeight: FontWeight.w800,
+        color: midnight,
+        letterSpacing: -0.5,
+      ),
+      displayMedium: jakarta.displayMedium?.copyWith(
         fontWeight: FontWeight.w700,
-        color: graphite,
+        color: midnight,
       ),
-      displayMedium: manrope.displayMedium?.copyWith(
+      displaySmall: jakarta.displaySmall?.copyWith(
         fontWeight: FontWeight.w700,
-        color: graphite,
+        color: midnight,
       ),
-      displaySmall: manrope.displaySmall?.copyWith(
+      headlineLarge: jakarta.headlineLarge?.copyWith(
         fontWeight: FontWeight.w700,
-        color: graphite,
+        color: midnight,
       ),
-      headlineLarge: manrope.headlineLarge?.copyWith(
+      headlineMedium: jakarta.headlineMedium?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: midnight,
+      ),
+      headlineSmall: jakarta.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: midnight,
+      ),
+      titleLarge: jakarta.titleLarge?.copyWith(
         fontWeight: FontWeight.w700,
-        color: graphite,
+        color: midnight,
       ),
-      headlineMedium: manrope.headlineMedium?.copyWith(
+      titleMedium: jakarta.titleMedium?.copyWith(
         fontWeight: FontWeight.w600,
-        color: graphite,
+        color: midnight,
       ),
-      headlineSmall: manrope.headlineSmall?.copyWith(
+      titleSmall: jakarta.titleSmall?.copyWith(
         fontWeight: FontWeight.w600,
-        color: graphite,
+        color: midnight,
       ),
-      titleLarge: manrope.titleLarge?.copyWith(
-        fontWeight: FontWeight.w700,
-        color: graphite,
-      ),
-      titleMedium: manrope.titleMedium?.copyWith(
+      bodyLarge: dm.bodyLarge?.copyWith(color: midnight, height: 1.5),
+      bodyMedium: dm.bodyMedium?.copyWith(color: midnight, height: 1.5),
+      bodySmall: dm.bodySmall?.copyWith(color: slate, height: 1.4),
+      labelLarge: dm.labelLarge?.copyWith(
         fontWeight: FontWeight.w600,
-        color: graphite,
+        color: midnight,
       ),
-      titleSmall: manrope.titleSmall?.copyWith(
-        fontWeight: FontWeight.w600,
-        color: graphite,
+      labelMedium: dm.labelMedium?.copyWith(
+        color: slate,
+        letterSpacing: 0.5,
       ),
-      bodyLarge: source.bodyLarge?.copyWith(color: graphite),
-      bodyMedium: source.bodyMedium?.copyWith(color: graphite),
-      bodySmall: source.bodySmall?.copyWith(color: ash),
-      labelLarge: source.labelLarge?.copyWith(
-        fontWeight: FontWeight.w600,
-        color: graphite,
-      ),
-      labelMedium: source.labelMedium?.copyWith(color: ash),
     );
   }
 }

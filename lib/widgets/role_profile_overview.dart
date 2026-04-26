@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../models/profile_summary.dart';
 import '../models/user.dart';
+import '../theme/clinic_theme.dart';
+import 'dent_badge.dart';
+import 'dent_card.dart';
 
 class RoleProfileOverview extends StatelessWidget {
   const RoleProfileOverview({super.key, required this.summary});
@@ -16,14 +20,14 @@ class RoleProfileOverview extends StatelessWidget {
 
     if (summary.metrics.isNotEmpty) {
       sections.addAll([
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         _MetricsGrid(metrics: summary.metrics),
       ]);
     }
 
     if (summary.highlight != null) {
       sections.addAll([
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         _HighlightCard(highlight: summary.highlight!),
       ]);
     }
@@ -31,7 +35,7 @@ class RoleProfileOverview extends StatelessWidget {
     if (summary.infoCards.isNotEmpty) {
       for (final card in summary.infoCards) {
         sections.addAll([
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           _InfoCard(card: card),
         ]);
       }
@@ -39,7 +43,7 @@ class RoleProfileOverview extends StatelessWidget {
 
     if (summary.timeline.isNotEmpty) {
       sections.addAll([
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         _TimelineCard(entries: summary.timeline),
       ]);
     }
@@ -68,53 +72,91 @@ class _ProfileHero extends StatelessWidget {
       chips.addAll(user.clinics.take(2));
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+    return DentCard(
+      gradient: ClinicTheme.heroGradient,
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.5),
+              color: Colors.white.withValues(alpha: 0.2),
+            ),
+            child: Center(
               child: Text(
                 initials,
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary,
+                  color: Colors.white,
                 ),
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    user.fullName,
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.fullName,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
                     roleLabel,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: Colors.white,
+                      letterSpacing: 0,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                ),
+                if (chips.isNotEmpty) ...[
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 4,
                     children: chips
-                        .map((chip) => Chip(
-                              label: Text(chip),
-                              visualDensity: VisualDensity.compact,
-                            ))
+                        .map(
+                          (chip) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              chip,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        )
                         .toList(),
                   ),
                 ],
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -155,7 +197,7 @@ class _MetricsGrid extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 3,
+        childAspectRatio: 2.2,
       ),
       itemBuilder: (context, index) => _MetricCard(metric: metrics[index]),
     );
@@ -170,39 +212,40 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final surface = theme.colorScheme.surfaceContainerHighest;
-    return Card(
-      color: surface.withValues(alpha: 0.5),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              metric.value,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+    return DentCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            metric.value,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 4),
+          ),
+          const SizedBox(height: 4),
+          Text(metric.label, style: theme.textTheme.bodySmall),
+          if (metric.caption != null) ...[
+            const SizedBox(height: 2),
             Text(
-              metric.label,
-              style: theme.textTheme.labelLarge,
+              metric.caption!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: ClinicTheme.slate,
+                fontSize: 11,
+              ),
             ),
-            if (metric.caption != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                metric.caption!,
-                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-              ),
-            ],
-            if (metric.trend != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                metric.trend!,
-                style: theme.textTheme.bodySmall?.copyWith(color: Colors.green[700]),
-              ),
-            ],
           ],
-        ),
+          if (metric.trend != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              metric.trend!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: ClinicTheme.mint,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -216,37 +259,32 @@ class _HighlightCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      color: theme.colorScheme.primary.withValues(alpha: 0.08),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (highlight.badge != null)
-              Chip(
-                label: Text(highlight.badge!),
-                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
-                visualDensity: VisualDensity.compact,
-              ),
-            const SizedBox(height: 8),
-            Text(
-              highlight.title,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            if (highlight.subtitle != null) ...[
-              const SizedBox(height: 4),
-              Text(highlight.subtitle!, style: theme.textTheme.bodyMedium),
-            ],
-            if (highlight.meta != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                highlight.meta!,
-                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
-              ),
-            ],
+    return DentCard(
+      color: ClinicTheme.azureSoft,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (highlight.badge != null)
+            DentBadge(label: highlight.badge!, variant: DentBadgeVariant.info),
+          const SizedBox(height: 8),
+          Text(
+            highlight.title,
+            style:
+                theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          if (highlight.subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(highlight.subtitle!, style: theme.textTheme.bodyMedium),
           ],
-        ),
+          if (highlight.meta != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              highlight.meta!,
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -260,36 +298,41 @@ class _InfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              card.title,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            ...card.rows.map(
-              (row) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(row.label, style: theme.textTheme.labelLarge),
-                    Text(row.value, style: theme.textTheme.bodyMedium),
-                    if (row.meta != null)
-                      Text(
-                        row.meta!,
-                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                      ),
-                  ],
-                ),
+    return DentCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            card.title,
+            style:
+                theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          ...card.rows.map(
+            (row) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    row.label,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: ClinicTheme.slate,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(row.value, style: theme.textTheme.bodyMedium),
+                  if (row.meta != null)
+                    Text(
+                      row.meta!,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -303,40 +346,51 @@ class _TimelineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Недавние события',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            ...entries.map(
-              (entry) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.timeline),
-                title: Text(entry.title),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (entry.subtitle != null) Text(entry.subtitle!),
-                    if (entry.timestamp != null)
-                      Text(
-                        entry.timestamp!,
-                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                      ),
-                  ],
+    return DentCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Недавние события',
+            style:
+                theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          ...entries.map(
+            (entry) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: ClinicTheme.azureSoft,
+                  borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
                 ),
-                trailing: entry.status != null
-                    ? Chip(label: Text(_statusLabel(entry.status!)))
-                    : null,
+                child: const Icon(
+                  LucideIcons.activity,
+                  color: ClinicTheme.azure,
+                  size: 20,
+                ),
               ),
+              title: Text(entry.title),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (entry.subtitle != null) Text(entry.subtitle!),
+                  if (entry.timestamp != null)
+                    Text(
+                      entry.timestamp!,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                ],
+              ),
+              trailing: entry.status != null
+                  ? DentBadge(label: _statusLabel(entry.status!))
+                  : null,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -1,54 +1,36 @@
 import 'package:flutter/material.dart';
 
 import '../theme/clinic_theme.dart';
+import 'dent_card.dart';
 
+/// Backward compatible ClinicCard → delegates to DentCard.
 class ClinicCard extends StatelessWidget {
   const ClinicCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(20),
     this.margin,
     this.onTap,
-    this.background,
     this.gradient,
+    this.background,
   });
 
   final Widget child;
-  final EdgeInsets padding;
-  final EdgeInsets? margin;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? margin;
   final VoidCallback? onTap;
-  final Color? background;
   final Gradient? gradient;
+  final Color? background;
 
   @override
   Widget build(BuildContext context) {
-    final card = Container(
+    return DentCard(
       padding: padding,
-      decoration: BoxDecoration(
-        color: gradient == null ? (background ?? ClinicTheme.porcelain) : null,
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(ClinicTheme.radiusM),
-        border: Border.all(color: ClinicTheme.line, width: 0.6),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: child,
-    );
-
-    return Container(
       margin: margin,
-      child: onTap == null
-          ? card
-          : InkWell(
-              borderRadius: BorderRadius.circular(ClinicTheme.radiusM),
-              onTap: onTap,
-              child: card,
-            ),
+      onTap: onTap,
+      gradient: gradient,
+      color: background ?? ClinicTheme.snow,
+      child: child,
     );
   }
 }

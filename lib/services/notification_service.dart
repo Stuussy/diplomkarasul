@@ -13,13 +13,42 @@ class NotificationService {
   Future<void> init() async {
     if (_initialized) return;
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const ios = DarwinInitializationSettings();
+    const ios = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
     const settings = InitializationSettings(android: android, iOS: ios);
     await _plugin.initialize(settings);
     _initialized = true;
   }
 
+  Future<void> _ensurePermissionRequested() async {
+    await init();
+
+    final androidImplementation =
+        _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await androidImplementation?.requestNotificationsPermission();
+
+    final iosImplementation =
+        _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+    await iosImplementation?.requestPermissions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    final macOsImplementation =
+        _plugin.resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>();
+    await macOsImplementation?.requestPermissions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+  }
+
   Future<void> showAppointmentConfirmed(Appointment appointment) async {
+    await _ensurePermissionRequested();
     if (!_initialized) return;
     final doctorName = appointment.doctor?.fullName ?? 'Ваш врач';
     final clinicName = appointment.clinic?.name ?? 'клинике';

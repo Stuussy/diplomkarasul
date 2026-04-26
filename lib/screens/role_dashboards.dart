@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -65,7 +66,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           actions: [
             IconButton(
               onPressed: _refresh,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(LucideIcons.refreshCcw, size: 20),
             ),
             PopupMenuButton<String>(
               onSelected: (value) {
@@ -83,8 +84,8 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           ],
           bottom: const TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.dashboard_outlined), text: 'Обзор'),
-              Tab(icon: Icon(Icons.event_available_outlined), text: 'Записи'),
+              Tab(icon: Icon(LucideIcons.layoutDashboard, size: 20), text: 'Обзор'),
+              Tab(icon: Icon(LucideIcons.calendarCheck, size: 20), text: 'Записи'),
             ],
           ),
         ),
@@ -174,9 +175,9 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                           contentPadding: EdgeInsets.zero,
                           leading: Icon(
                             appointment.status == 'confirmed'
-                                ? Icons.check_circle_outline
-                                : Icons.schedule,
-                            color: appointment.status == 'confirmed' ? Colors.green : Colors.blue,
+                                ? LucideIcons.checkCircle
+                                : LucideIcons.clock,
+                            color: appointment.status == 'confirmed' ? const Color(0xFF1AAB8A) : const Color(0xFF2E7CF6),
                           ),
                           title: Text(
                               '${appointment.patient?.fullName ?? 'Пациент'} • ${appointment.service}'),
@@ -202,7 +203,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                                           ),
                                         );
                                       },
-                                icon: const Icon(Icons.folder_shared_outlined),
+                                icon: const Icon(LucideIcons.folderHeart, size: 20),
                               ),
                             ],
                           ),
@@ -603,7 +604,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           actions: [
             IconButton(
               onPressed: _refresh,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(LucideIcons.refreshCcw, size: 20),
             ),
             PopupMenuButton<String>(
               onSelected: (value) {
@@ -621,9 +622,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ],
           bottom: const TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.person_outline), text: 'Обзор'),
-              Tab(icon: Icon(Icons.local_hospital_outlined), text: 'Клиника'),
-              Tab(icon: Icon(Icons.schedule_outlined), text: 'Расписание'),
+              Tab(icon: Icon(LucideIcons.userCircle, size: 20), text: 'Обзор'),
+              Tab(icon: Icon(LucideIcons.hospital, size: 20), text: 'Клиника'),
+              Tab(icon: Icon(LucideIcons.calendarClock, size: 20), text: 'Расписание'),
             ],
           ),
         ),
@@ -902,7 +903,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   children: doctors
                       .map((doctor) => ListTile(
                             title: Text(doctor.fullName),
-                            subtitle: Text(doctor.specialties?.join(', ') ?? ''),
+                            subtitle: Text(doctor.specialties.join(', ')),
                             trailing: selectedClinic.doctors.contains(doctor.id)
                                 ? TextButton(
                                     onPressed: () => _removeDoctor(doctor.id),
@@ -1015,7 +1016,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         subtitle: Text(slot.status),
                         trailing: slot.status == 'available'
                             ? IconButton(
-                                icon: const Icon(Icons.delete_outline),
+                                icon: const Icon(LucideIcons.trash2, size: 20),
                                 onPressed: () => _deleteSlot(slot.id),
                               )
                             : null,
@@ -1051,7 +1052,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildErrorCard(String text) {
     return Card(
-      color: Colors.red.shade50,
+      color: const Color(0xFFFEE8E8),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Text(text),
@@ -1176,7 +1177,7 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
         actions: [
           IconButton(
             onPressed: _refresh,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(LucideIcons.refreshCcw, size: 20),
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -1273,7 +1274,7 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
                                 border: const OutlineInputBorder(),
                                 suffixIcon: IconButton(
                                   onPressed: () => _sendSupportReply(message),
-                                  icon: const Icon(Icons.send),
+                                  icon: const Icon(LucideIcons.sendHorizontal, size: 20),
                                 ),
                               ),
                             ),
@@ -1515,7 +1516,7 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
         actions: [
           IconButton(
             onPressed: _refresh,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(LucideIcons.refreshCcw, size: 20),
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -1533,9 +1534,9 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
         ],
           bottom: const TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.dashboard_customize_outlined), text: 'Обзор'),
-              Tab(icon: Icon(Icons.group_outlined), text: 'Сотрудники'),
-              Tab(icon: Icon(Icons.apartment_outlined), text: 'Клиника'),
+              Tab(icon: Icon(LucideIcons.layoutDashboard, size: 20), text: 'Обзор'),
+              Tab(icon: Icon(LucideIcons.users, size: 20), text: 'Сотрудники'),
+              Tab(icon: Icon(LucideIcons.building2, size: 20), text: 'Клиника'),
             ],
           ),
         ),
@@ -1838,7 +1839,7 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
                           '${_clinicQrUpdatedAt!.month.toString().padLeft(2, '0')} '
                           '${_clinicQrUpdatedAt!.hour.toString().padLeft(2, '0')}:'
                           '${_clinicQrUpdatedAt!.minute.toString().padLeft(2, '0')}',
-                          style: const TextStyle(color: Colors.grey),
+                          style: const TextStyle(color: Color(0xFF6E7681)),
                         ),
                     ],
                   ),
@@ -1853,7 +1854,7 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.qr_code),
+                        : const Icon(LucideIcons.qrCode, size: 20),
                     label: const Text('Обновить QR-код подтверждения'),
                   ),
                 ),
@@ -1954,7 +1955,7 @@ class _StatCard extends StatelessWidget {
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
-              Text(label, style: const TextStyle(color: Colors.grey)),
+              Text(label, style: const TextStyle(color: Color(0xFF6E7681))),
             ],
           ),
         ),

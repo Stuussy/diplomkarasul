@@ -24,6 +24,103 @@ async function getAdminClinicIds(userId) {
   return Array.from(clinicIds);
 }
 
+function getAppointmentEndTime(appointment) {
+  if (appointment.endTime) {
+    return new Date(appointment.endTime);
+  }
+  return dayjs(appointment.startTime)
+    .add(appointment.durationMinutes || 30, 'minute')
+    .toDate();
+}
+
+async function ensureStaffAppointmentAccess(user, appointment) {
+  const doctorId = appointment.doctor?._id || appointment.doctor;
+  const clinicId = appointment.clinic?._id || appointment.clinic;
+
+  if (user.role === 'superadmin') return null;
+
+  if (user.role === 'doctor') {
+    return doctorId?.toString() === user.id
+      ? null
+      : 'Можно изменять статус только своих приёмов.';
+  }
+
+  if (user.role === 'admin') {
+    const clinicIds = await getAdminClinicIds(user.id);
+    return clinicIds.includes(clinicId?.toString()) ? null : 'Нет доступа к клинике.';
+  }
+
+  return 'Недостаточно прав для изменения статуса.';
+}
+
+async function markAppointmentAttendance(req, res, nextStatus) {
+  try {
+    const appointment = await Appointment.findById(req.params.id)
+      .populate('doctor', 'firstName lastName specialties')
+      .populate('patient', 'firstName lastName phone')
+      .populate('clinic')
+      .populate('review', 'rating comment createdAt');
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Запись не найдена.' });
+    }
+
+    const accessError = await ensureStaffAppointmentAccess(req.user, appointment);
+    if (accessError) {
+      return res.status(403).json({ message: accessError });
+    }
+
+    if (!['scheduled', 'confirmed'].includes(appointment.status)) {
+      return res.status(400).json({
+        message:
+          nextStatus === 'completed'
+            ? 'Завершить можно только запланированный или подтверждённый приём.'
+            : 'Отметить неявку можно только для запланированного или подтверждённого приёма.',
+      });
+    }
+
+    if (new Date() < getAppointmentEndTime(appointment)) {
+      return res.status(400).json({
+        message:
+          nextStatus === 'completed'
+            ? 'Отметить завершение можно только после окончания приёма.'
+            : 'Отметить неявку можно только после окончания времени приёма.',
+      });
+    }
+
+    if (nextStatus === 'completed') {
+      appointment.status = 'completed';
+      appointment.completedAt = new Date();
+      appointment.completedBy = req.user.id;
+      appointment.noShowAt = null;
+      appointment.noShowMarkedBy = null;
+    } else {
+      appointment.status = 'no_show';
+      appointment.noShowAt = new Date();
+      appointment.noShowMarkedBy = req.user.id;
+      appointment.completedAt = null;
+      appointment.completedBy = null;
+    }
+
+    await appointment.save();
+
+    await notifyMany([appointment.doctor?._id, appointment.patient?._id], {
+      title: nextStatus === 'completed' ? 'Приём завершён' : 'Приём отмечен как неявка',
+      body:
+        nextStatus === 'completed'
+          ? `Визит ${dayjs(appointment.startTime).format('DD.MM HH:mm')} завершён`
+          : `Визит ${dayjs(appointment.startTime).format('DD.MM HH:mm')} отмечен как неявка`,
+      type: 'appointment',
+      data: { appointmentId: appointment._id.toString() },
+    });
+
+    return res.json(appointment);
+  } catch (error) {
+    console.error('Ошибка изменения статуса приёма:', error);
+    return res.status(500).json({ message: 'Не удалось изменить статус приёма.' });
+  }
+}
+
 const router = express.Router();
 
 const createValidators = [
@@ -246,6 +343,9 @@ router.post('/:id/confirm', auth(['patient']), async (req, res) => {
   if (!appointment || appointment.patient.toString() !== req.user.id) {
     return res.status(404).json({ message: 'Запись не найдена.' });
   }
+  if (appointment.status !== 'scheduled') {
+    return res.status(400).json({ message: 'Подтвердить можно только ожидающую запись.' });
+  }
 
   const now = new Date();
   if (
@@ -338,6 +438,9 @@ router.post('/:id/cancel', auth(['patient', 'admin', 'superadmin']), async (req,
   if (!appointment) {
     return res.status(404).json({ message: 'Запись не найдена.' });
   }
+  if (!['scheduled', 'confirmed'].includes(appointment.status)) {
+    return res.status(400).json({ message: 'Отменить можно только активную запись.' });
+  }
 
   if (req.user.role === 'patient' && appointment.patient.toString() !== req.user.id) {
     return res.status(403).json({ message: 'Можно отменять только свои записи.' });
@@ -427,6 +530,14 @@ router.post('/:id/cancel', auth(['patient', 'admin', 'superadmin']), async (req,
   res.json(appointment);
 });
 
+router.post('/:id/complete', auth(['doctor', 'admin', 'superadmin']), async (req, res) => {
+  return markAppointmentAttendance(req, res, 'completed');
+});
+
+router.post('/:id/no-show', auth(['doctor', 'admin', 'superadmin']), async (req, res) => {
+  return markAppointmentAttendance(req, res, 'no_show');
+});
+
 router.patch(
   '/:id/reschedule',
   auth(['patient', 'doctor', 'admin', 'superadmin']),
@@ -440,6 +551,9 @@ router.patch(
     const appointment = await Appointment.findById(req.params.id);
     if (!appointment) {
       return res.status(404).json({ message: 'Запись не найдена.' });
+    }
+    if (!['scheduled', 'confirmed'].includes(appointment.status)) {
+      return res.status(400).json({ message: 'Перенести можно только активную запись.' });
     }
 
     if (req.user.role === 'patient' && appointment.patient.toString() !== req.user.id) {

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/session_provider.dart';
@@ -9,7 +11,7 @@ import 'screens/profile_screen.dart';
 import 'screens/role_dashboards.dart';
 import 'screens/support_screen.dart';
 import 'screens/notifications_screen.dart';
-import 'widgets/patient_ui.dart';
+import 'theme/clinic_theme.dart';
 
 class MainNavigationScreen extends StatelessWidget {
   const MainNavigationScreen({super.key});
@@ -65,6 +67,7 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
   }
 
   void _onItemTapped(int index) {
+    HapticFeedback.selectionClick();
     setState(() => _selectedIndex = index);
   }
 
@@ -74,52 +77,55 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
       backgroundColor: Colors.transparent,
       extendBody: true,
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: PatientPalette.background,
-        ),
+        decoration: const BoxDecoration(color: ClinicTheme.mist),
         child: SafeArea(
           top: true,
           bottom: false,
           child: Column(
             children: [
               AppBar(
-                backgroundColor: Colors.transparent,
-                foregroundColor: Colors.black87,
+                backgroundColor: ClinicTheme.snow,
+                foregroundColor: ClinicTheme.midnight,
                 elevation: 0,
+                scrolledUnderElevation: 0,
                 titleSpacing: 24,
-                toolbarHeight: 72,
+                toolbarHeight: 64,
                 title: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
                   child: Text(
                     _titles[_selectedIndex],
                     key: ValueKey(_titles[_selectedIndex]),
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 actions: [
-                  IconButton(
+                  _NavAction(
+                    icon: LucideIcons.messageCircle,
                     tooltip: 'Чат-поддержка',
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const SupportScreen()),
-                      );
-                    },
-                    icon: const Icon(Icons.chat_bubble_outline),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SupportScreen()),
+                    ),
                   ),
-                  IconButton(
+                  _NavAction(
+                    icon: LucideIcons.bell,
                     tooltip: 'Уведомления',
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-                      );
-                    },
-                    icon: const Icon(Icons.notifications_none_rounded),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen(),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
                 ],
               ),
               Expanded(
-                child: IndexedStack(index: _selectedIndex, children: _options),
+                child: IndexedStack(
+                  index: _selectedIndex,
+                  children: _options,
+                ),
               ),
             ],
           ),
@@ -131,44 +137,72 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
           final bottomPadding = safeBottom > 0 ? safeBottom : 12.0;
           return Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: NavigationBar(
-                selectedIndex: _selectedIndex,
-                onDestinationSelected: _onItemTapped,
-                height: 64,
-                elevation: 0,
-                surfaceTintColor: Colors.transparent,
-                backgroundColor: Colors.white.withValues(alpha: 0.95),
-                indicatorColor: PatientPalette.primary.withValues(alpha: 0.12),
-                animationDuration: const Duration(milliseconds: 400),
-                destinations: const [
-                  NavigationDestination(
-                    icon: Icon(Icons.home_outlined),
-                    selectedIcon: Icon(Icons.home_rounded),
-                    label: 'Главная',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.map_outlined),
-                    selectedIcon: Icon(Icons.map_rounded),
-                    label: 'Карта',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.event_outlined),
-                    selectedIcon: Icon(Icons.event_available_rounded),
-                    label: 'Записи',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.person_outline),
-                    selectedIcon: Icon(Icons.person),
-                    label: 'Профиль',
-                  ),
-                ],
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                color: ClinicTheme.snow,
+                boxShadow: ClinicTheme.shadowMd,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: NavigationBar(
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: _onItemTapped,
+                  height: 64,
+                  elevation: 0,
+                  surfaceTintColor: Colors.transparent,
+                  backgroundColor: Colors.transparent,
+                  indicatorColor: ClinicTheme.azure.withValues(alpha: 0.12),
+                  animationDuration: const Duration(milliseconds: 400),
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(LucideIcons.home),
+                      selectedIcon: Icon(LucideIcons.home, color: ClinicTheme.azure),
+                      label: 'Главная',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(LucideIcons.mapPin),
+                      selectedIcon: Icon(LucideIcons.mapPin, color: ClinicTheme.azure),
+                      label: 'Карта',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(LucideIcons.calendarDays),
+                      selectedIcon: Icon(LucideIcons.calendarDays, color: ClinicTheme.azure),
+                      label: 'Записи',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(LucideIcons.userCircle),
+                      selectedIcon: Icon(LucideIcons.userCircle, color: ClinicTheme.azure),
+                      label: 'Профиль',
+                    ),
+                  ],
+                ),
               ),
             ),
           );
         },
       ),
+    );
+  }
+}
+
+class _NavAction extends StatelessWidget {
+  const _NavAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon, size: 22, color: ClinicTheme.slate),
     );
   }
 }

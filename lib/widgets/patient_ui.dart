@@ -1,88 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../theme/clinic_theme.dart';
-import 'clinic_card.dart';
+import 'dent_card.dart';
+import 'dent_badge.dart';
 
+/// Palette aliases for patient-facing screens (backward compatible).
 class PatientPalette {
-  static const Color primary = ClinicTheme.sage;
-  static const Color secondary = Color(0xFF8EAB9F);
-  static const Color accent = ClinicTheme.info;
-  static const Color success = ClinicTheme.success;
-  static const Color warning = ClinicTheme.warning;
-  static const Color error = ClinicTheme.error;
-  static const Color surface = ClinicTheme.porcelain;
-  static const Color background = ClinicTheme.ivory;
+  static const Color primary = ClinicTheme.azure;
+  static const Color secondary = ClinicTheme.violet;
+  static const Color accent = ClinicTheme.violet;
+  static const Color success = ClinicTheme.mint;
+  static const Color warning = ClinicTheme.amber;
+  static const Color error = ClinicTheme.coral;
+  static const Color surface = ClinicTheme.snow;
+  static const Color background = ClinicTheme.mist;
 
-  static const LinearGradient hero = LinearGradient(
-    colors: [ClinicTheme.sage, Color(0xFF7AA7FF)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
+  static const LinearGradient hero = ClinicTheme.heroGradient;
 
   static LinearGradient muted([double opacity = 0.08]) {
-    return LinearGradient(
-      colors: [
-        ClinicTheme.sage.withValues(alpha: opacity + 0.02),
-        ClinicTheme.info.withValues(alpha: opacity + 0.02),
-      ],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
+    return ClinicTheme.mutedGradient(opacity);
   }
 }
 
-class PatientCard extends StatelessWidget {
-  const PatientCard({
-    super.key,
-    required this.child,
-    this.padding = const EdgeInsets.all(18),
-    this.margin,
-    this.onTap,
-    this.gradient,
-    this.color = PatientPalette.surface,
-    this.borderRadius = ClinicTheme.radiusM,
-    this.elevation = 10,
-  });
-
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  final EdgeInsetsGeometry? margin;
-  final VoidCallback? onTap;
-  final Gradient? gradient;
-  final Color color;
-  final double borderRadius;
-  final double elevation;
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(borderRadius);
-    final boxShadow = [
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.06),
-        blurRadius: elevation,
-        offset: const Offset(0, 4),
-      ),
-    ];
-    return Container(
-      margin: margin,
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        gradient: gradient,
-        color: gradient == null ? color : null,
-        boxShadow: boxShadow,
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius,
-          child: Padding(padding: padding, child: child),
-        ),
-      ),
-    );
-  }
-}
-
+/// Section title with optional action.
 class PatientSectionTitle extends StatelessWidget {
   const PatientSectionTitle({
     super.key,
@@ -121,6 +62,7 @@ class PatientSectionTitle extends StatelessWidget {
   }
 }
 
+/// Backward compatible badge (delegates to DentBadge).
 class PatientBadge extends StatelessWidget {
   const PatientBadge({
     super.key,
@@ -135,56 +77,39 @@ class PatientBadge extends StatelessWidget {
   final Color? color;
   final PatientBadgeVariant variant;
 
-  Color _resolveColor() {
+  DentBadgeVariant _mapVariant() {
     switch (variant) {
       case PatientBadgeVariant.success:
-        return PatientPalette.success;
+        return DentBadgeVariant.success;
       case PatientBadgeVariant.warning:
-        return PatientPalette.warning;
+        return DentBadgeVariant.warning;
       case PatientBadgeVariant.error:
-        return PatientPalette.error;
+        return DentBadgeVariant.error;
       case PatientBadgeVariant.info:
-        return PatientPalette.primary;
+        return DentBadgeVariant.info;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final resolved = color ?? _resolveColor();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: resolved.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(ClinicTheme.radiusL),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 16, color: resolved),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: resolved,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
+    return DentBadge(
+      label: label,
+      icon: icon,
+      color: color,
+      variant: _mapVariant(),
     );
   }
 }
 
 enum PatientBadgeVariant { info, success, warning, error }
 
+/// Empty state placeholder.
 class PatientEmptyState extends StatelessWidget {
   const PatientEmptyState({
     super.key,
     required this.title,
     required this.message,
-    this.icon = Icons.inbox_outlined,
+    this.icon = LucideIcons.inbox,
     this.action,
   });
 
@@ -195,12 +120,12 @@ class PatientEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClinicCard(
+    return DentCard(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 40, color: Colors.black45),
+          Icon(icon, size: 40, color: ClinicTheme.slate),
           const SizedBox(height: 16),
           Text(
             title,
@@ -220,6 +145,7 @@ class PatientEmptyState extends StatelessWidget {
   }
 }
 
+/// Quick stat tile for dashboards.
 class PatientQuickStat extends StatelessWidget {
   const PatientQuickStat({
     super.key,
@@ -240,17 +166,24 @@ class PatientQuickStat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CircleAvatar(
-          radius: 22,
-          backgroundColor: resolvedColor.withValues(alpha: 0.12),
-          child: Icon(icon, color: resolvedColor),
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: resolvedColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          ),
+          child: Icon(icon, color: resolvedColor, size: 22),
         ),
         const SizedBox(height: 10),
         Text(
           value,
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
-        Text(label, style: const TextStyle(color: Colors.black54)),
+        Text(
+          label,
+          style: TextStyle(color: ClinicTheme.slate, fontSize: 13),
+        ),
       ],
     );
   }

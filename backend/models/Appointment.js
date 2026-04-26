@@ -16,6 +16,10 @@ const appointmentSchema = new mongoose.Schema(
       default: 'scheduled',
     },
     confirmedAt: Date,
+    completedAt: Date,
+    completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    noShowAt: Date,
+    noShowMarkedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     notes: String,
     slot: { type: mongoose.Schema.Types.ObjectId, ref: 'ScheduleSlot' },
     confirmWindow: {

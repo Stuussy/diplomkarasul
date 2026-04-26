@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/user.dart';
 import '../providers/session_provider.dart';
+import '../theme/clinic_theme.dart';
+import '../widgets/dent_card.dart';
+import '../widgets/dent_badge.dart';
+import '../widgets/dent_shimmer.dart';
 import '../widgets/patient_ui.dart';
 import '../widgets/section_header.dart';
-import '../widgets/clinic_card.dart';
 import 'appointment_request_screen.dart';
 import 'doctor_detail_screen.dart';
 
@@ -33,10 +37,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _refresh() async {
     setState(() {
-      _futureDoctors = context
-          .read<SessionProvider>()
-          .apiService
-          .fetchDoctors();
+      _futureDoctors = context.read<SessionProvider>().apiService.fetchDoctors();
     });
   }
 
@@ -47,34 +48,18 @@ class _MapScreenState extends State<MapScreen> {
     try {
       final deepLink = Uri.parse(_twoGisDeepLink);
       final webLink = Uri.parse(_twoGisWebUrl);
-
       bool opened = false;
       try {
-        opened = await launchUrl(
-          deepLink,
-          mode: LaunchMode.externalApplication,
-        );
-        if (opened) {
-          debugPrint('2GIS deep link opened');
-        }
+        opened = await launchUrl(deepLink, mode: LaunchMode.externalApplication);
       } catch (_) {
         opened = false;
       }
-
       if (!opened) {
         opened = await launchUrl(webLink, mode: LaunchMode.externalApplication);
-        if (opened) {
-          debugPrint('2GIS web link opened');
-        }
       }
-
       if (!opened && mounted) {
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Не удалось открыть карту. Проверьте установку 2GIS.',
-            ),
-          ),
+          const SnackBar(content: Text('Не удалось открыть карту. Проверьте установку 2GIS.')),
         );
       }
     } finally {
@@ -88,34 +73,35 @@ class _MapScreenState extends State<MapScreen> {
     final isPatient = role == 'patient';
 
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: PatientPalette.background,
-      ),
+      decoration: const BoxDecoration(color: ClinicTheme.mist),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: ClinicCard(
-              gradient: PatientPalette.hero,
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: DentCard(
+              gradient: ClinicTheme.heroGradient,
+              borderRadius: ClinicTheme.radiusL,
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Dental AI на карте',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    children: [
+                      const Icon(LucideIcons.mapPin, color: Colors.white70, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Dental AI на карте',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: Colors.white70,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Нажмите, чтобы построить маршрут в 2GIS и рассчитать время в пути до клиники.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Text(
+                    'Постройте маршрут в 2GIS и рассчитайте время в пути до клиники.',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
@@ -124,21 +110,18 @@ class _MapScreenState extends State<MapScreen> {
                     children: [
                       FilledButton.icon(
                         onPressed: _isOpeningMap ? null : _openClinicLocation,
-                        icon: const Icon(Icons.map_outlined),
-                        label: Text(
-                          _isOpeningMap ? 'Открываем…' : 'Открыть 2GIS',
+                        icon: const Icon(LucideIcons.navigation, size: 16),
+                        label: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: Text(
+                            _isOpeningMap ? 'Открываем…' : 'Открыть 2GIS',
+                            key: ValueKey(_isOpeningMap),
+                          ),
                         ),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.white,
-                          foregroundColor: PatientPalette.primary,
+                          foregroundColor: ClinicTheme.azure,
                         ),
-                      ),
-                      TextButton(
-                        onPressed: _isOpeningMap ? null : _openClinicLocation,
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
-                        ),
-                        child: const Text('Поделиться адресом'),
                       ),
                     ],
                   ),
@@ -146,8 +129,8 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
             child: SectionHeader(
               title: 'Команда клиники',
               subtitle: 'Выберите врача и запишитесь онлайн',
@@ -169,24 +152,22 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Widget _buildDoctorsList(
-    AsyncSnapshot<List<AppUser>> snapshot,
-    bool canContactSupport,
-  ) {
+  Widget _buildDoctorsList(AsyncSnapshot<List<AppUser>> snapshot, bool isPatient) {
     if (snapshot.connectionState == ConnectionState.waiting) {
       return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         children: const [
-          SizedBox(height: 200),
-          Center(child: CircularProgressIndicator()),
+          SizedBox(height: 16),
+          DentShimmerCard(height: 140),
+          SizedBox(height: 16),
+          DentShimmerCard(height: 140),
         ],
       );
     }
     if (snapshot.hasError) {
       return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          const SizedBox(height: 200),
+          const SizedBox(height: 120),
           Center(child: Text('Ошибка: ${snapshot.error}')),
         ],
       );
@@ -194,194 +175,100 @@ class _MapScreenState extends State<MapScreen> {
     final doctors = snapshot.data ?? [];
     if (doctors.isEmpty) {
       return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
         children: const [
-          SizedBox(height: 120),
+          SizedBox(height: 80),
           PatientEmptyState(
             title: 'Нет доступных врачей',
-            message:
-                'Скоро добавим новых специалистов. Попробуйте обновить позже.',
-            icon: Icons.health_and_safety_outlined,
+            message: 'Скоро добавим новых специалистов.',
+            icon: LucideIcons.stethoscope,
           ),
         ],
       );
     }
     return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
       itemCount: doctors.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      separatorBuilder: (_, __) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
         final doctor = doctors[index];
-        return _DoctorCard(
-          doctor: doctor,
-          canContactSupport: canContactSupport,
-          onOpenDetail: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => DoctorDetailScreen(doctor: doctor),
-              ),
-            );
-          },
-          onOpenMap: _isOpeningMap ? null : _openClinicLocation,
-        );
-      },
-    );
-  }
-}
-
-class _DoctorCard extends StatelessWidget {
-  const _DoctorCard({
-    required this.doctor,
-    required this.canContactSupport,
-    required this.onOpenDetail,
-    required this.onOpenMap,
-  });
-
-  final AppUser doctor;
-  final bool canContactSupport;
-  final VoidCallback onOpenDetail;
-  final Future<void> Function()? onOpenMap;
-
-  @override
-  Widget build(BuildContext context) {
-    final specialty = doctor.specialties.isNotEmpty
-        ? doctor.specialties.join(', ')
-        : 'Специализация уточняется';
-    final clinicLabel = doctor.clinics.isNotEmpty
-        ? doctor.clinics.join(', ')
-        : 'Наша клиника';
-
-    return ClinicCard(
-      margin: const EdgeInsets.only(bottom: 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        final specialty = doctor.specialties.isNotEmpty
+            ? doctor.specialties.join(', ')
+            : 'Специализация уточняется';
+        return DentCard(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => DoctorDetailScreen(doctor: doctor)),
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 32,
-                backgroundColor: PatientPalette.primary.withValues(alpha: 0.12),
-                child: Text(
-                  doctor.firstName.isNotEmpty
-                      ? doctor.firstName[0].toUpperCase()
-                      : doctor.lastName.isNotEmpty
-                      ? doctor.lastName[0].toUpperCase()
-                      : '?',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      doctor.fullName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: ClinicTheme.azure.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Center(
+                      child: Text(
+                        doctor.firstName.isNotEmpty ? doctor.firstName[0].toUpperCase() : '?',
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: ClinicTheme.azure),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      specialty,
-                      style: const TextStyle(color: Colors.black54),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.place_outlined,
-                          size: 16,
-                          color: Colors.black45,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            clinicLabel,
-                            style: const TextStyle(color: Colors.black54),
-                          ),
-                        ),
+                        Text(doctor.fullName, style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 2),
+                        Text(specialty, style: Theme.of(context).textTheme.bodySmall),
                       ],
                     ),
-                    if (doctor.phone != null && doctor.phone!.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.phone_outlined,
-                            size: 16,
-                            color: Colors.black45,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            doctor.phone!,
-                            style: const TextStyle(color: Colors.black87),
-                          ),
-                        ],
+                  ),
+                  const Icon(LucideIcons.chevronRight, color: ClinicTheme.slate, size: 20),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  DentBadge(
+                    label: doctor.rating.toStringAsFixed(1),
+                    icon: LucideIcons.star,
+                    variant: DentBadgeVariant.warning,
+                  ),
+                  const SizedBox(width: 8),
+                  Text('${doctor.reviews} отзывов', style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+              if (isPatient) ...[
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => AppointmentRequestScreen(doctor: doctor)),
                       ),
-                    ],
+                      child: const Text('Записаться'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _isOpeningMap ? null : _openClinicLocation,
+                      icon: const Icon(LucideIcons.navigation, size: 16),
+                      label: const Text('Маршрут'),
+                    ),
                   ],
                 ),
-              ),
-              IconButton(
-                onPressed: onOpenDetail,
-                icon: const Icon(Icons.chevron_right_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              PatientBadge(
-                label: doctor.rating.toStringAsFixed(1),
-                icon: Icons.star_rate_rounded,
-                variant: PatientBadgeVariant.warning,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${doctor.reviews} отзывов',
-                style: const TextStyle(color: Colors.black54),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (canContactSupport)
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                FilledButton(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => AppointmentRequestScreen(doctor: doctor),
-                    ),
-                  ),
-                  child: const Text('Записаться'),
-                ),
-                OutlinedButton(
-                  onPressed: onOpenDetail,
-                  child: const Text('Профиль'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onOpenMap == null ? null : () => onOpenMap!(),
-                  icon: const Icon(Icons.map_outlined),
-                  label: const Text('Маршрут'),
-                ),
               ],
-            )
-          else
-            const Text(
-              'Запись пациентов выполняется через мобильное приложение.',
-              style: TextStyle(fontSize: 12, color: Colors.black45),
-            ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -397,12 +284,13 @@ class StarRating extends StatelessWidget {
     final half = value - fullStars >= 0.5;
     return Row(
       children: List.generate(5, (index) {
-        if (index < fullStars) {
-          return Icon(Icons.star, color: Colors.orange.shade400, size: 18);
-        } else if (index == fullStars && half) {
-          return Icon(Icons.star_half, color: Colors.orange.shade400, size: 18);
+        Color color;
+        if (index < fullStars || (index == fullStars && half)) {
+          color = ClinicTheme.amber;
+        } else {
+          color = ClinicTheme.mist;
         }
-        return Icon(Icons.star_border, color: Colors.orange.shade200, size: 18);
+        return Icon(LucideIcons.star, color: color, size: 18);
       }),
     );
   }

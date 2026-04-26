@@ -83,7 +83,7 @@ class ClinicButton extends StatelessWidget {
           onPressed: onPressed,
           child: Text(
             label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(color: ClinicTheme.graphite),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(color: ClinicTheme.slate),
           ),
         );
     }

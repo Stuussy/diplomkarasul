@@ -1,9 +1,19 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const Clinic = require('../models/Clinic');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
+
+async function getAdminClinicIds(userId) {
+  const admin = await User.findById(userId).select('clinics');
+  const clinicIds = new Set();
+  (admin?.clinics || []).forEach((id) => clinicIds.add(id.toString()));
+  const ownedClinics = await Clinic.find({ admin: userId }).select('_id');
+  ownedClinics.forEach((clinic) => clinicIds.add(clinic._id.toString()));
+  return Array.from(clinicIds);
+}
 
 router.post(
   '/',
@@ -149,26 +159,50 @@ router.patch(
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    const updates = {};
-    ['firstName', 'lastName', 'phone', 'bio'].forEach((field) => {
-      if (req.body[field] !== undefined) updates[field] = req.body[field];
-    });
-    if (req.body.experienceYears !== undefined) {
-      updates.experienceYears = req.body.experienceYears;
+
+    try {
+      const targetUser = await User.findById(req.params.id).select('role clinics');
+      if (!targetUser) {
+        return res.status(404).json({ message: 'Пользователь не найден.' });
+      }
+
+      if (req.user.role === 'admin') {
+        const adminClinicIds = await getAdminClinicIds(req.user.id);
+        const hasClinicAccess = (targetUser.clinics || []).some((clinicId) =>
+          adminClinicIds.includes(clinicId.toString()),
+        );
+        if (targetUser.role !== 'doctor' || !hasClinicAccess) {
+          return res
+            .status(403)
+            .json({ message: 'Админ может редактировать только врачей своих клиник.' });
+        }
+      }
+
+      const updates = {};
+      ['firstName', 'lastName', 'phone', 'bio'].forEach((field) => {
+        if (req.body[field] !== undefined) updates[field] = req.body[field];
+      });
+      if (req.body.experienceYears !== undefined) {
+        updates.experienceYears = req.body.experienceYears;
+      }
+      if (Array.isArray(req.body.services)) {
+        updates.services = req.body.services;
+      }
+      if (Array.isArray(req.body.specialties)) {
+        updates.specialties = req.body.specialties;
+      }
+
+      const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true }).select(
+        '-passwordHash',
+      );
+      if (!user) {
+        return res.status(404).json({ message: 'Пользователь не найден.' });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error('Ошибка обновления пользователя:', error);
+      res.status(500).json({ message: 'Не удалось обновить пользователя.' });
     }
-    if (Array.isArray(req.body.services)) {
-      updates.services = req.body.services;
-    }
-    if (Array.isArray(req.body.specialties)) {
-      updates.specialties = req.body.specialties;
-    }
-    const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true }).select(
-      '-passwordHash',
-    );
-    if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден.' });
-    }
-    res.json(user);
   },
 );
 

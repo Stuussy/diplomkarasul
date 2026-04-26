@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../models/fine.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
+import '../theme/clinic_theme.dart';
+import '../widgets/dent_card.dart';
+import '../widgets/dent_badge.dart';
+import '../widgets/dent_shimmer.dart';
 import '../widgets/patient_ui.dart';
-import '../widgets/clinic_card.dart';
-import '../widgets/section_header.dart';
 import 'medical_records_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -18,269 +20,319 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  late Future<List<Fine>> _finesFuture;
-  Future<Map<String, dynamic>>? _calendarFuture;
+  late Future<List<dynamic>> _finesFuture;
 
   @override
   void initState() {
     super.initState();
-    final api = context.read<SessionProvider>().apiService;
-    _finesFuture = api.fetchFines();
-    final role = context.read<SessionProvider>().user?.role;
-    if (role == 'patient' || role == 'doctor') {
-      _calendarFuture = api.fetchGoogleCalendarStatus();
+    _finesFuture = _loadFines();
+  }
+
+  Future<List<dynamic>> _loadFines() async {
+    try {
+      final api = context.read<SessionProvider>().apiService;
+      return await api.fetchMyFines();
+    } catch (_) {
+      return [];
     }
   }
 
   Future<void> _refresh() async {
-    await context.read<SessionProvider>().refreshProfile();
-    setState(() {
-      _finesFuture = context.read<SessionProvider>().apiService.fetchFines();
-      final role = context.read<SessionProvider>().user?.role;
-      if (role == 'patient' || role == 'doctor') {
-        _calendarFuture = context
-            .read<SessionProvider>()
-            .apiService
-            .fetchGoogleCalendarStatus();
+    setState(() => _finesFuture = _loadFines());
+  }
+
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Выйти из аккаунта?'),
+        content: const Text('Вы уверены, что хотите выйти?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: ClinicTheme.coral),
+            child: const Text('Выйти'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await context.read<SessionProvider>().logout();
+  }
+
+  Future<void> _changePassword() async {
+    final oldController = TextEditingController();
+    final newController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Сменить пароль'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: oldController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Текущий пароль'),
+                validator: (v) => v == null || v.isEmpty ? 'Обязательное поле' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: newController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Новый пароль'),
+                validator: (v) =>
+                    v == null || v.length < 6 ? 'Минимум 6 символов' : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context, true);
+              }
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true || !mounted) return;
+
+    final api = context.read<SessionProvider>().apiService;
+    try {
+      await api.changePassword(
+        oldPassword: oldController.text,
+        newPassword: newController.text,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Пароль изменён ✓'),
+            backgroundColor: ClinicTheme.mint,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<SessionProvider>().user;
-    if (user == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (user == null) return const SizedBox.shrink();
 
     return DecoratedBox(
-      decoration: const BoxDecoration(color: PatientPalette.background),
+      decoration: const BoxDecoration(color: ClinicTheme.mist),
       child: RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
           children: [
-            const SizedBox(height: 12),
-            _ProfileHeader(
-              userName: user.fullName,
-              email: user.email,
-              role: user.role,
-              onEdit: () => _showEditProfileSheet(user),
-            ),
-            const SizedBox(height: 20),
-            ClinicCard(
+            // Hero card
+            DentCard(
+              gradient: ClinicTheme.heroGradient,
+              borderRadius: ClinicTheme.radiusL,
+              padding: const EdgeInsets.all(24),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _InfoTile(
-                    icon: Icons.alternate_email,
-                    title: 'Email',
-                    value: user.email,
-                  ),
-                  const Divider(height: 24),
-                  _InfoTile(
-                    icon: Icons.phone_outlined,
-                    title: 'Телефон',
-                    value: user.phone?.isNotEmpty == true
-                        ? user.phone!
-                        : 'Не указан',
-                  ),
-                  const Divider(height: 24),
-                  _InfoTile(
-                    icon: Icons.badge_outlined,
-                    title: 'Статус',
-                    value: user.role,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            ClinicCard(
-              child: Column(
-                children: [
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.folder_shared_outlined),
-                    title: const Text('Медицинская карта'),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const MedicalRecordsScreen(),
+                  Row(
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.2),
+                          border: Border.all(color: Colors.white, width: 2.5),
                         ),
-                      );
-                    },
+                        child: Center(
+                          child: Text(
+                            _initials(user),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                    ],
                   ),
-                  const Divider(height: 24),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.lock_outline),
-                    title: const Text('Сменить пароль'),
-                    onTap: _showChangePasswordDialog,
+                  const SizedBox(height: 16),
+                  Text(
+                    user.fullName,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                    ),
                   ),
-                  const Divider(height: 24),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.logout),
-                    title: const Text('Выйти из аккаунта'),
-                    onTap: () => context.read<SessionProvider>().logout(),
+                  const SizedBox(height: 4),
+                  Text(
+                    user.email,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white70,
+                    ),
                   ),
-                ],
-              ),
-            ),
-            if (user.role == 'patient' || user.role == 'doctor') ...[
-              const SizedBox(height: 20),
-              ClinicCard(
-                child: FutureBuilder<Map<String, dynamic>>(
-                  future: _calendarFuture,
-                  builder: (context, snapshot) {
-                    final connected = snapshot.data?['connected'] == true;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        const Icon(LucideIcons.shieldCheck, size: 14, color: Colors.white),
+                        const SizedBox(width: 4),
                         Text(
-                          'Google Calendar',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          connected
-                              ? 'Календарь подключён. Записи будут синхронизироваться.'
-                              : 'Календарь не подключён. События не будут создаваться.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: connected
-                                    ? null
-                                    : () async {
-                                        final api = context
-                                            .read<SessionProvider>()
-                                            .apiService;
-                                        final url = await api
-                                            .getGoogleCalendarConnectUrl();
-                                        if (url.isNotEmpty) {
-                                          await launchUrl(
-                                            Uri.parse(url),
-                                            mode:
-                                                LaunchMode.externalApplication,
-                                          );
-                                        }
-                                      },
-                                child: const Text('Подключить'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: connected
-                                    ? () async {
-                                        final api = context
-                                            .read<SessionProvider>()
-                                            .apiService;
-                                        await api.disconnectGoogleCalendar();
-                                        if (!mounted) return;
-                                        setState(() {
-                                          _calendarFuture = api
-                                              .fetchGoogleCalendarStatus();
-                                        });
-                                      }
-                                    : null,
-                                child: const Text('Отключить'),
-                              ),
-                            ),
-                          ],
+                          _roleLabel(user.role),
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                         ),
                       ],
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-            const SizedBox(height: 24),
-            const SectionHeader(
-              title: 'Штрафы за позднюю отмену',
-              subtitle: 'Старайтесь подтверждать визит вовремя',
             ),
-            const SizedBox(height: 12),
-            FutureBuilder<List<Fine>>(
+
+            const SizedBox(height: 20),
+
+            // Info card
+            DentCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  _InfoRow(icon: LucideIcons.mail, label: 'Email', value: user.email),
+                  const Divider(height: 0, indent: 60),
+                  _InfoRow(icon: LucideIcons.phone, label: 'Телефон', value: user.phone ?? 'Не указан'),
+                  const Divider(height: 0, indent: 60),
+                  _InfoRow(icon: LucideIcons.badge, label: 'Роль', value: _roleLabel(user.role)),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Actions card
+            DentCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  if (user.role == 'patient')
+                    _ActionRow(
+                      icon: LucideIcons.folderHeart,
+                      label: 'Медицинская карта',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const MedicalRecordsScreen()),
+                      ),
+                    ),
+                  if (user.role == 'patient') const Divider(height: 0, indent: 60),
+                  _ActionRow(
+                    icon: LucideIcons.lock,
+                    label: 'Сменить пароль',
+                    onTap: _changePassword,
+                  ),
+                  const Divider(height: 0, indent: 60),
+                  _ActionRow(
+                    icon: LucideIcons.logOut,
+                    label: 'Выйти из аккаунта',
+                    color: ClinicTheme.coral,
+                    onTap: _logout,
+                  ),
+                ],
+              ),
+            ),
+
+            // Fines
+            const SizedBox(height: 24),
+            FutureBuilder<List<dynamic>>(
               future: _finesFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Text('Ошибка: ${snapshot.error}');
+                  return const DentShimmerCard(height: 80);
                 }
-
                 final fines = snapshot.data ?? [];
-                if (fines.isEmpty) {
-                  return const PatientEmptyState(
-                    title: 'Штрафов нет',
-                    message:
-                        'Отменяйте записи заранее — так вы экономите своё время и время врача.',
-                    icon: Icons.emoji_emotions_outlined,
-                  );
-                }
+                if (fines.isEmpty) return const SizedBox.shrink();
 
                 return Column(
-                  children: fines
-                      .map(
-                        (fine) => ClinicCard(
-                          margin: const EdgeInsets.only(bottom: 12),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Штрафы', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 12),
+                    ...fines.map((fine) {
+                      final isPaid = fine['status'] == 'paid';
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: DentCard(
+                          padding: const EdgeInsets.all(16),
                           child: Row(
                             children: [
-                              CircleAvatar(
-                                radius: 24,
-                                backgroundColor:
-                                    (fine.isPaid
-                                            ? PatientPalette.success
-                                            : PatientPalette.error)
-                                        .withValues(alpha: 0.12),
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: isPaid
+                                      ? ClinicTheme.mintSoft
+                                      : ClinicTheme.coralSoft,
+                                  shape: BoxShape.circle,
+                                ),
                                 child: Icon(
-                                  fine.isPaid
-                                      ? Icons.check_circle
-                                      : Icons.warning_amber_rounded,
-                                  color: fine.isPaid
-                                      ? PatientPalette.success
-                                      : PatientPalette.error,
+                                  isPaid ? LucideIcons.checkCircle : LucideIcons.alertCircle,
+                                  color: isPaid ? ClinicTheme.mint : ClinicTheme.coral,
+                                  size: 20,
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${fine.amount.toStringAsFixed(0)} тг',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                      '${fine['amount']} ₸',
+                                      style: Theme.of(context).textTheme.titleMedium,
                                     ),
-                                    const SizedBox(height: 4),
                                     Text(
-                                      fine.reason,
-                                      style: const TextStyle(
-                                        color: Colors.black54,
-                                      ),
+                                      fine['reason'] ?? 'Штраф',
+                                      style: Theme.of(context).textTheme.bodySmall,
                                     ),
                                   ],
                                 ),
                               ),
-                              PatientBadge(
-                                label: fine.isPaid ? 'Оплачен' : 'Не оплачен',
-                                variant: fine.isPaid
-                                    ? PatientBadgeVariant.success
-                                    : PatientBadgeVariant.warning,
+                              DentBadge(
+                                label: isPaid ? 'Оплачен' : 'Не оплачен',
+                                variant: isPaid ? DentBadgeVariant.success : DentBadgeVariant.error,
                               ),
                             ],
                           ),
                         ),
-                      )
-                      .toList(),
+                      );
+                    }),
+                  ],
                 );
               },
             ),
@@ -290,327 +342,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _showEditProfileSheet(AppUser user) async {
-    final firstNameController = TextEditingController(text: user.firstName);
-    final lastNameController = TextEditingController(text: user.lastName);
-    final phoneController = TextEditingController(text: user.phone ?? '');
-    final isDoctor = user.role == 'doctor';
-    final specialtiesController = TextEditingController(
-      text: user.specialties.join(', '),
-    );
-    final servicesController = TextEditingController(
-      text: user.services.join(', '),
-    );
-    final experienceController = TextEditingController(
-      text: user.experienceYears == 0 ? '' : '${user.experienceYears}',
-    );
-    final bioController = TextEditingController(text: user.bio ?? '');
-    final formKey = GlobalKey<FormState>();
-    bool isSaving = false;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        final session = this.context.read<SessionProvider>();
-        final messenger = ScaffoldMessenger.of(this.context);
-        final navigator = Navigator.of(this.context);
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            top: 24,
-          ),
-          child: StatefulBuilder(
-            builder: (context, setState) {
-              Future<void> submit() async {
-                if (!formKey.currentState!.validate()) return;
-                setState(() => isSaving = true);
-                final error = await session.updateProfile(
-                  firstName: firstNameController.text.trim(),
-                  lastName: lastNameController.text.trim(),
-                  phone: phoneController.text.trim(),
-                  experienceYears: int.tryParse(
-                    experienceController.text.trim(),
-                  ),
-                  specialties: specialtiesController.text
-                      .split(',')
-                      .map((e) => e.trim())
-                      .where((e) => e.isNotEmpty)
-                      .toList(),
-                  services: servicesController.text
-                      .split(',')
-                      .map((e) => e.trim())
-                      .where((e) => e.isNotEmpty)
-                      .toList(),
-                  bio: bioController.text.trim().isEmpty
-                      ? null
-                      : bioController.text.trim(),
-                );
-                setState(() => isSaving = false);
-                if (error != null) {
-                  messenger.showSnackBar(SnackBar(content: Text(error)));
-                  return;
-                }
-                navigator.pop();
-                messenger.showSnackBar(
-                  const SnackBar(content: Text('Профиль обновлен')),
-                );
-              }
-
-              return Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    TextFormField(
-                      controller: firstNameController,
-                      decoration: const InputDecoration(labelText: 'Имя'),
-                      validator: (value) =>
-                          value == null || value.isEmpty ? 'Введите имя' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: lastNameController,
-                      decoration: const InputDecoration(labelText: 'Фамилия'),
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Введите фамилию'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: phoneController,
-                      decoration: const InputDecoration(labelText: 'Телефон'),
-                    ),
-                    if (isDoctor) ...[
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: experienceController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Опыт (лет)',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: specialtiesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Специализации (через запятую)',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: servicesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Услуги (через запятую)',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: bioController,
-                        decoration: const InputDecoration(labelText: 'О себе'),
-                        maxLines: 3,
-                      ),
-                    ],
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isSaving ? null : submit,
-                        child: isSaving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Сохранить изменения'),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-
-    firstNameController.dispose();
-    lastNameController.dispose();
-    phoneController.dispose();
+  String _initials(AppUser user) {
+    final f = user.firstName.isNotEmpty ? user.firstName[0] : '';
+    final l = user.lastName.isNotEmpty ? user.lastName[0] : '';
+    return '$f$l'.toUpperCase();
   }
 
-  Future<void> _showChangePasswordDialog() async {
-    final currentController = TextEditingController();
-    final newController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    bool isSubmitting = false;
-
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            Future<void> submit() async {
-              if (isSubmitting) return;
-              if (!formKey.currentState!.validate()) return;
-              setState(() => isSubmitting = true);
-              final api = context.read<SessionProvider>().apiService;
-              try {
-                await api.changePassword(
-                  currentPassword: currentController.text,
-                  newPassword: newController.text,
-                );
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Пароль успешно обновлен')),
-                  );
-                }
-              } catch (error) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Ошибка: $error')));
-                }
-              } finally {
-                if (context.mounted) setState(() => isSubmitting = false);
-              }
-            }
-
-            return AlertDialog(
-              title: const Text('Сменить пароль'),
-              content: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: currentController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Текущий пароль',
-                      ),
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Введите пароль'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: newController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Новый пароль',
-                      ),
-                      validator: (value) => value != null && value.length >= 6
-                          ? null
-                          : 'Мин. 6 символов',
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isSubmitting
-                      ? null
-                      : () => Navigator.of(context).pop(),
-                  child: const Text('Отмена'),
-                ),
-                ElevatedButton(
-                  onPressed: isSubmitting ? null : submit,
-                  child: isSubmitting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Сохранить'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    currentController.dispose();
-    newController.dispose();
+  String _roleLabel(String role) {
+    switch (role) {
+      case 'patient':
+        return 'Пациент';
+      case 'doctor':
+        return 'Врач';
+      case 'admin':
+        return 'Администратор';
+      default:
+        return role;
+    }
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({
-    required this.userName,
-    required this.email,
-    required this.role,
-    required this.onEdit,
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
   });
 
-  final String userName;
-  final String email;
-  final String role;
-  final VoidCallback onEdit;
+  final IconData icon;
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
-    return ClinicCard(
-      gradient: PatientPalette.hero,
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      child: Row(
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 36,
-                backgroundColor: Colors.white.withValues(alpha: 0.15),
-                child: Text(
-                  userName.isNotEmpty ? userName[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                    fontSize: 30,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, color: Colors.white),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text(
-            userName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: ClinicTheme.azureSoft,
+              borderRadius: BorderRadius.circular(10),
             ),
+            child: Icon(icon, color: ClinicTheme.azure, size: 18),
           ),
-          const SizedBox(height: 4),
-          Text(email, style: const TextStyle(color: Colors.white70)),
-          const SizedBox(height: 16),
-          PatientBadge(
-            label: role,
-            icon: Icons.verified_user_outlined,
-            color: Colors.white,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.labelMedium),
+                Text(value, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            ),
           ),
         ],
       ),
@@ -618,25 +404,42 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-class _InfoTile extends StatelessWidget {
-  const _InfoTile({
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
     required this.icon,
-    required this.title,
-    required this.value,
+    required this.label,
+    required this.onTap,
+    this.color,
   });
 
   final IconData icon;
-  final String title;
-  final String value;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title, style: const TextStyle(color: Colors.black54)),
-      subtitle: Text(
-        value,
-        style: const TextStyle(fontWeight: FontWeight.w600),
+    final resolved = color ?? ClinicTheme.midnight;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: (color ?? ClinicTheme.azure).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color ?? ClinicTheme.azure, size: 18),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Text(label, style: TextStyle(color: resolved, fontWeight: FontWeight.w500))),
+            Icon(LucideIcons.chevronRight, color: ClinicTheme.slate, size: 18),
+          ],
+        ),
       ),
     );
   }

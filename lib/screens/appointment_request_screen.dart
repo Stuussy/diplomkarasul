@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../models/slot.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
-import '../widgets/patient_ui.dart';
-import '../widgets/section_header.dart';
-import '../widgets/clinic_card.dart';
+import '../theme/clinic_theme.dart';
+import '../widgets/dent_card.dart';
+import '../widgets/dent_badge.dart';
+import '../widgets/dent_shimmer.dart';
 
 class AppointmentRequestScreen extends StatefulWidget {
   const AppointmentRequestScreen({super.key, required this.doctor});
@@ -21,72 +24,68 @@ class AppointmentRequestScreen extends StatefulWidget {
 class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
   late Future<List<Slot>> _futureSlots;
   Slot? _selectedSlot;
-  DateTime? _selectedDate;
-  late String _selectedService;
-  late final List<String> _services;
+  String _selectedService = '';
   bool _isBooking = false;
-  bool _isCheckingBooking = true;
   bool _hasActiveBooking = false;
 
   @override
   void initState() {
     super.initState();
-    final api = context.read<SessionProvider>().apiService;
-    _futureSlots = api.fetchSlots(
-      doctorId: widget.doctor.id,
-      status: 'available',
-    );
-    _services = widget.doctor.specialties.isNotEmpty
-        ? widget.doctor.specialties
-        : const ['Консультация'];
-    _selectedService = _services.first;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadBookingState());
-  }
-
-  Future<void> _loadBookingState() async {
-    final api = context.read<SessionProvider>().apiService;
-    try {
-      final appointments = await api.fetchAppointments();
-      final hasActive = appointments
-          .where(
-            (app) => app.status == 'scheduled' || app.status == 'confirmed',
-          )
-          .isNotEmpty;
-      if (!mounted) return;
-      setState(() {
-        _hasActiveBooking = hasActive;
-        _isCheckingBooking = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isCheckingBooking = false);
+    _futureSlots = _loadSlots();
+    if (widget.doctor.specialties.isNotEmpty) {
+      _selectedService = widget.doctor.specialties.first;
     }
+    _checkActiveBooking();
   }
 
-  Future<void> _bookSlot() async {
-    final slot = _selectedSlot;
-    if (slot == null) return;
-    setState(() => _isBooking = true);
+  Future<List<Slot>> _loadSlots() {
     final api = context.read<SessionProvider>().apiService;
+    return api.fetchSlots(doctorId: widget.doctor.id, status: 'available');
+  }
+
+  Future<void> _checkActiveBooking() async {
     try {
-      await api.bookSlot(slot: slot, service: _selectedService);
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Запись подтверждена.')));
-      setState(() => _hasActiveBooking = true);
-      Navigator.of(context).pop(true);
-    } catch (e) {
-      if (!mounted) return;
-      final message = e.toString().contains('already')
-          ? 'Вы уже записаны. Сначала отмените текущую запись.'
-          : 'Не удалось записаться: $e';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-      if (message.contains('уже записаны')) {
-        setState(() => _hasActiveBooking = true);
+      final api = context.read<SessionProvider>().apiService;
+      final now = DateTime.now();
+      final appointments = await api.fetchMyAppointments(
+        from: now,
+        to: now.add(const Duration(days: 60)),
+      );
+      if (mounted) {
+        setState(() {
+          _hasActiveBooking = appointments.any(
+            (a) => a.status == 'scheduled' || a.status == 'confirmed',
+          );
+        });
       }
+    } catch (_) {}
+  }
+
+  Future<void> _book() async {
+    if (_selectedSlot == null || _selectedService.isEmpty) return;
+    setState(() => _isBooking = true);
+    HapticFeedback.lightImpact();
+
+    final api = context.read<SessionProvider>().apiService;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await api.bookAppointment(
+        slotId: _selectedSlot!.id,
+        service: _selectedService,
+      );
+      HapticFeedback.mediumImpact();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Вы успешно записаны! ✓'),
+          backgroundColor: ClinicTheme.mint,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
       if (mounted) setState(() => _isBooking = false);
     }
@@ -94,359 +93,284 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final doctor = widget.doctor;
+    final specialty = widget.doctor.specialties.isNotEmpty
+        ? widget.doctor.specialties.join(', ')
+        : 'Специализация уточняется';
+
     return Scaffold(
+      backgroundColor: ClinicTheme.mist,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         title: const Text('Запись к врачу'),
       ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(color: PatientPalette.background),
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClinicCard(
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 32,
-                            backgroundColor: PatientPalette.primary.withValues(
-                              alpha: 0.12,
-                            ),
-                            child: Text(doctor.firstName[0].toUpperCase()),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  doctor.fullName,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  doctor.specialties.isNotEmpty
-                                      ? doctor.specialties.join(', ')
-                                      : 'Стоматолог',
-                                  style: const TextStyle(color: Colors.black54),
-                                ),
-                                const SizedBox(height: 8),
-                                PatientBadge(
-                                  label:
-                                      '${doctor.rating.toStringAsFixed(1)} · рейтинг',
-                                  icon: Icons.star_rounded,
-                                  variant: PatientBadgeVariant.warning,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Tooltip(
-                              message: 'Скоро',
-                              child: OutlinedButton.icon(
-                                onPressed: null,
-                                icon: const Icon(Icons.call_outlined),
-                                label: const Text('Аудио'),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Tooltip(
-                              message: 'Скоро',
-                              child: OutlinedButton.icon(
-                                onPressed: null,
-                                icon: const Icon(Icons.videocam_outlined),
-                                label: const Text('Видео'),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Tooltip(
-                              message: 'Скоро',
-                              child: OutlinedButton.icon(
-                                onPressed: null,
-                                icon: const Icon(Icons.chat_bubble_outline),
-                                label: const Text('Чат'),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                if (_services.length > 1) ...[
-                  const SizedBox(height: 24),
-                  const SectionHeader(
-                    title: 'Выберите услугу',
-                    subtitle: 'Можно поменять перед подтверждением',
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: _services
-                        .map(
-                          (service) => ChoiceChip(
-                            label: Text(service),
-                            selected: _selectedService == service,
-                            onSelected: (_) =>
-                                setState(() => _selectedService = service),
-                            selectedColor: PatientPalette.primary,
-                            labelStyle: TextStyle(
-                              color: _selectedService == service
-                                  ? Colors.white
-                                  : Colors.black87,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                const SectionHeader(
-                  title: 'Выберите дату',
-                  subtitle: 'Доступные окна для записи',
-                ),
-                const SizedBox(height: 12),
-                if (_isCheckingBooking)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
-                    child: LinearProgressIndicator(minHeight: 2),
-                  )
-                else if (_hasActiveBooking)
-                  ClinicCard(
-                    margin: const EdgeInsets.only(bottom: 12),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Doctor mini-card
+                  DentCard(
+                    padding: const EdgeInsets.all(16),
                     child: Row(
-                      children: const [
-                        Icon(Icons.info_outline, color: PatientPalette.warning),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'У вас уже есть активная запись. Сначала отмените её в разделе «Записи».',
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: ClinicTheme.azure.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(14),
                           ),
+                          child: Center(
+                            child: Text(
+                              widget.doctor.firstName.isNotEmpty
+                                  ? widget.doctor.firstName[0].toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: ClinicTheme.azure,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.doctor.fullName,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(specialty, style: Theme.of(context).textTheme.bodySmall),
+                            ],
+                          ),
+                        ),
+                        DentBadge(
+                          label: widget.doctor.rating.toStringAsFixed(1),
+                          icon: LucideIcons.star,
+                          variant: DentBadgeVariant.warning,
                         ),
                       ],
                     ),
                   ),
-                Expanded(
-                  child: FutureBuilder<List<Slot>>(
+
+                  if (_hasActiveBooking) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: ClinicTheme.amberSoft,
+                        borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(LucideIcons.alertTriangle, color: ClinicTheme.amber, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'У вас уже есть активная запись. Можно записаться повторно.',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: ClinicTheme.midnight),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Service selection
+                  if (widget.doctor.specialties.length > 1) ...[
+                    const SizedBox(height: 24),
+                    Text('Услуга', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: widget.doctor.specialties.map((s) {
+                        final selected = s == _selectedService;
+                        return GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _selectedService = s);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: selected ? ClinicTheme.azure : ClinicTheme.snow,
+                              borderRadius: BorderRadius.circular(20),
+                              border: selected ? null : Border.all(color: ClinicTheme.mist),
+                            ),
+                            child: Text(
+                              s,
+                              style: TextStyle(
+                                color: selected ? Colors.white : ClinicTheme.midnight,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+
+                  // Slots
+                  const SizedBox(height: 24),
+                  Text('Доступные слоты', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+
+                  FutureBuilder<List<Slot>>(
                     future: _futureSlots,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
+                        return Column(
+                          children: List.generate(3, (_) => const Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: DentShimmer(height: 56),
+                          )),
+                        );
+                      }
+                      if (snapshot.hasError) {
                         return Center(child: Text('Ошибка: ${snapshot.error}'));
                       }
                       final slots = snapshot.data ?? [];
                       if (slots.isEmpty) {
-                        return const PatientEmptyState(
-                          title: 'Нет свободных слотов',
-                          message:
-                              'Свяжитесь с администратором или попробуйте снова позже.',
-                          icon: Icons.schedule_outlined,
+                        return Container(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            children: [
+                              Icon(LucideIcons.calendarX, size: 40, color: ClinicTheme.slate),
+                              const SizedBox(height: 12),
+                              Text('Нет доступных слотов', style: Theme.of(context).textTheme.titleMedium),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Попробуйте позже или выберите другого врача',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
                         );
                       }
 
-                      final grouped = _groupSlotsByDate(slots);
-                      final dates = grouped.keys.toList()..sort();
-                      _selectedDate ??= dates.first;
-                      final selectedKey = _selectedDate!;
-                      final daySlots = grouped[selectedKey] ?? [];
-
-                      if (_selectedSlot != null &&
-                          !_sameDate(_selectedSlot!.startTime, selectedKey)) {
-                        _selectedSlot = null;
+                      // Group by date
+                      final grouped = <String, List<Slot>>{};
+                      for (final slot in slots) {
+                        final dayKey = '${slot.startTime.year}-${slot.startTime.month.toString().padLeft(2, '0')}-${slot.startTime.day.toString().padLeft(2, '0')}';
+                        grouped.putIfAbsent(dayKey, () => []).add(slot);
                       }
 
-                      return ListView(
-                        children: [
-                          SizedBox(
-                            height: 86,
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: dates.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(width: 12),
-                              itemBuilder: (context, index) {
-                                final date = dates[index];
-                                final isSelected = _sameDate(date, selectedKey);
-                                return GestureDetector(
-                                  onTap: () =>
-                                      setState(() => _selectedDate = date),
-                                  child: Container(
-                                    width: 70,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? PatientPalette.primary
-                                          : Colors.white,
-                                      borderRadius: BorderRadius.circular(18),
-                                      border: Border.all(
-                                        color: PatientPalette.background,
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: grouped.entries.map((entry) {
+                          final date = DateTime.parse(entry.key);
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Text(
+                                  _formatDayLabel(date),
+                                  style: Theme.of(context).textTheme.labelLarge?.copyWith(color: ClinicTheme.slate),
+                                ),
+                              ),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: entry.value.map((slot) {
+                                  final selected = _selectedSlot?.id == slot.id;
+                                  return GestureDetector(
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => _selectedSlot = slot);
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: selected ? ClinicTheme.azure : ClinicTheme.snow,
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: selected ? null : Border.all(color: ClinicTheme.mist),
+                                        boxShadow: selected ? [
+                                          BoxShadow(
+                                            color: ClinicTheme.azure.withValues(alpha: 0.2),
+                                            blurRadius: 12,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ] : null,
                                       ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.05,
-                                          ),
-                                          blurRadius: 12,
-                                          offset: const Offset(0, 6),
+                                      child: Text(
+                                        '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}',
+                                        style: TextStyle(
+                                          color: selected ? Colors.white : ClinicTheme.midnight,
+                                          fontWeight: FontWeight.w600,
                                         ),
-                                      ],
+                                      ),
                                     ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          _shortWeekday(date),
-                                          style: TextStyle(
-                                            color: isSelected
-                                                ? Colors.white70
-                                                : Colors.black54,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${date.day}',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w700,
-                                            color: isSelected
-                                                ? Colors.white
-                                                : Colors.black87,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          const SectionHeader(
-                            title: 'Выберите время',
-                            subtitle: 'Доступные слоты',
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: daySlots
-                                .map(
-                                  (slot) => ChoiceChip(
-                                    label: Text(_formatSlot(slot)),
-                                    selected: _selectedSlot?.id == slot.id,
-                                    onSelected: _hasActiveBooking
-                                        ? null
-                                        : (_) => setState(
-                                            () => _selectedSlot = slot,
-                                          ),
-                                    selectedColor: PatientPalette.primary,
-                                    labelStyle: TextStyle(
-                                      color: _selectedSlot?.id == slot.id
-                                          ? Colors.white
-                                          : Colors.black87,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    backgroundColor: Colors.white,
-                                    side: BorderSide(
-                                      color: _selectedSlot?.id == slot.id
-                                          ? Colors.transparent
-                                          : PatientPalette.background,
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ],
+                                  );
+                                }).toList(),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                          );
+                        }).toList(),
                       );
                     },
                   ),
+                ],
+              ),
+            ),
+          ),
+
+          // Bottom CTA
+          Container(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              16,
+              20,
+              16 + MediaQuery.of(context).padding.bottom,
+            ),
+            decoration: BoxDecoration(
+              color: ClinicTheme.snow,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0x0C000000),
+                  blurRadius: 16,
+                  offset: const Offset(0, -4),
                 ),
               ],
             ),
+            child: SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: FilledButton(
+                onPressed: _selectedSlot == null || _isBooking ? null : _book,
+                child: _isBooking
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                      )
+                    : const Text('Записаться'),
+              ),
+            ),
           ),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        child: FilledButton(
-          onPressed: _selectedSlot == null || _isBooking || _hasActiveBooking
-              ? null
-              : _bookSlot,
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          child: _isBooking
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : Text(
-                  _hasActiveBooking
-                      ? 'Вы уже записаны'
-                      : 'Записаться на выбранное время',
-                ),
-        ),
+        ],
       ),
     );
   }
 
-  Map<DateTime, List<Slot>> _groupSlotsByDate(List<Slot> slots) {
-    final map = <DateTime, List<Slot>>{};
-    for (final slot in slots) {
-      final date = DateTime(
-        slot.startTime.year,
-        slot.startTime.month,
-        slot.startTime.day,
-      );
-      map.putIfAbsent(date, () => []).add(slot);
-    }
-    return map;
-  }
-
-  bool _sameDate(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  String _shortWeekday(DateTime date) {
-    const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-    return days[date.weekday % 7];
-  }
-
-  String _formatSlot(Slot slot) {
-    final start =
-        '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}';
-    final end =
-        '${slot.endTime.hour.toString().padLeft(2, '0')}:${slot.endTime.minute.toString().padLeft(2, '0')}';
-    return '$start - $end';
+  String _formatDayLabel(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dateDay = DateTime(date.year, date.month, date.day);
+    if (dateDay == today) return 'Сегодня';
+    if (dateDay == today.add(const Duration(days: 1))) return 'Завтра';
+    const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    return '${weekDays[date.weekday - 1]}, ${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}';
   }
 }

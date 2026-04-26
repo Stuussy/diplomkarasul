@@ -133,7 +133,7 @@ router.patch('/:id', auth(['admin', 'superadmin']), async (req, res) => {
   res.json(updated);
 });
 
-router.post('/:id/qr', auth(['doctor', 'admin', 'superadmin']), async (req, res) => {
+router.post('/:id/qr', auth(['admin', 'superadmin']), async (req, res) => {
   const clinic = await Clinic.findById(req.params.id);
   if (!clinic) {
     return res.status(404).json({ message: 'Клиника не найдена.' });

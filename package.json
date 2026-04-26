@@ -1,5 +1,10 @@
 {
-  "dependencies": {
-    "mongoose": "^9.0.0"
+  "name": "rasuls-dent-repo",
+  "private": true,
+  "description": "Repo-level maintenance scripts. Backend runtime dependencies live in ./backend.",
+  "scripts": {
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:start": "npm --prefix backend start",
+    "backend:test": "npm --prefix backend test"
   }
 }

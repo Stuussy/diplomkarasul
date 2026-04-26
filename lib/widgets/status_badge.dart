@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../theme/clinic_theme.dart';
+import 'dent_badge.dart';
 
+/// Unified status badge that maps appointment status to semantic colors.
 class StatusBadge extends StatelessWidget {
   const StatusBadge({super.key, required this.status});
 
@@ -9,45 +11,22 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _color();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(ClinicTheme.radiusL),
-      ),
-      child: Text(
-        _label(),
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color),
-      ),
-    );
+    final (label, variant) = _resolve(status);
+    return DentBadge(label: label, variant: variant);
   }
 
-  Color _color() {
+  (String, DentBadgeVariant) _resolve(String status) {
     switch (status) {
-      case 'confirmed':
-        return ClinicTheme.success;
-      case 'completed':
-        return ClinicTheme.info;
-      case 'cancelled':
-        return ClinicTheme.error;
       case 'scheduled':
-      default:
-        return ClinicTheme.warning;
-    }
-  }
-
-  String _label() {
-    switch (status) {
+        return ('Запланирован', DentBadgeVariant.info);
       case 'confirmed':
-        return 'Подтверждено';
+        return ('Подтверждён', DentBadgeVariant.success);
       case 'completed':
-        return 'Завершено';
+        return ('Завершён', DentBadgeVariant.neutral);
       case 'cancelled':
-        return 'Отменено';
-      case 'scheduled':
+        return ('Отменён', DentBadgeVariant.error);
       default:
-        return 'Ожидает';
+        return (status, DentBadgeVariant.neutral);
     }
   }
 }

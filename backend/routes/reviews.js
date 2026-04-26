@@ -30,7 +30,13 @@ router.post(
       if (appointment.status !== 'completed') {
         return res.status(400).json({ message: 'Оставить отзыв можно после завершения приёма.' });
       }
-      if (appointment.review) {
+      const existingReview =
+        appointment.review || (await Review.findOne({ appointment: appointment._id }).select('_id'));
+      if (existingReview) {
+        if (!appointment.review) {
+          appointment.review = existingReview._id || existingReview;
+          await appointment.save();
+        }
         return res.status(409).json({ message: 'Отзыв уже оставлен.' });
       }
 

@@ -1,221 +1,213 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+
+import '../theme/clinic_theme.dart';
 
 class FilterSheet extends StatefulWidget {
-  const FilterSheet({
-    super.key,
-    required this.specialties,
-    required this.selectedSpecialty,
-    required this.minRating,
-    required this.maxDistance,
-    required this.instantBookOnly,
-  });
-
-  final List<String> specialties;
-  final String selectedSpecialty;
-  final double minRating;
-  final double maxDistance;
-  final bool instantBookOnly;
+  const FilterSheet({super.key});
 
   @override
   State<FilterSheet> createState() => _FilterSheetState();
 }
 
 class _FilterSheetState extends State<FilterSheet> {
-  static const double _defaultDistance = 50;
-  final List<double> _ratings = [0, 4.5, 4.0, 3.5, 3.0, 2.5];
-
-  late int _specialtyIndex;
-  late double _selectedRating;
-  late double _distance;
-  late bool _instantBook;
-
-  @override
-  void initState() {
-    super.initState();
-    _specialtyIndex = widget.specialties.indexOf(widget.selectedSpecialty);
-    if (_specialtyIndex == -1) _specialtyIndex = 0;
-    _selectedRating = _resolveInitialRating(widget.minRating);
-    _distance = widget.maxDistance.clamp(1, 150);
-    _instantBook = widget.instantBookOnly;
-  }
-
-  double _resolveInitialRating(double value) {
-    if (value <= 0) return _ratings.first;
-    for (final rating in _ratings) {
-      if (rating == 0) continue;
-      if (value >= rating) {
-        return rating;
-      }
-    }
-    return _ratings.last;
-  }
+  String? _sortOrder;
+  double? _minRating;
+  bool _instantBooking = false;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
+    return DraggableScrollableSheet(
+      initialChildSize: 0.65,
+      maxChildSize: 0.85,
+      minChildSize: 0.3,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: ClinicTheme.snow,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: ClinicTheme.mist,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const Text(
-              'Специализация',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              children: List.generate(widget.specialties.length, (index) {
-                final selected = _specialtyIndex == index;
-                return ChoiceChip(
-                  label: Text(widget.specialties[index]),
-                  selected: selected,
-                  onSelected: (_) => setState(() => _specialtyIndex = index),
-                );
-              }),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Рейтинг',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Column(
-              children: _ratings.map((rating) {
-                final selected = _selectedRating == rating;
-                return InkWell(
-                  onTap: () => setState(() => _selectedRating = rating),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
+              const SizedBox(height: 16),
+
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Фильтры', style: Theme.of(context).textTheme.titleLarge),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(LucideIcons.x, size: 22),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Sort
+              Text('Сортировка', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildChip('По рейтингу', 'rating'),
+                  _buildChip('По отзывам', 'reviews'),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Rating
+              Text('Минимальный рейтинг', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              ...([4.5, 4.0, 3.5, 3.0] as List<double>).map((r) {
+                final selected = _minRating == r;
+                return GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _minRating = selected ? null : r);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: selected ? ClinicTheme.azureSoft : ClinicTheme.mist,
+                      borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+                    ),
                     child: Row(
                       children: [
-                        Container(
-                          width: 22,
-                          height: 22,
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 20,
+                          height: 20,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: selected
-                                  ? Colors.blue
-                                  : Colors.grey.shade400,
+                              color: selected ? ClinicTheme.azure : ClinicTheme.slate,
+                              width: 2,
                             ),
+                            color: selected ? ClinicTheme.azure : Colors.transparent,
                           ),
-                          alignment: Alignment.center,
                           child: selected
-                              ? Container(
-                                  width: 12,
-                                  height: 12,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.blue,
-                                    shape: BoxShape.circle,
-                                  ),
-                                )
+                              ? const Icon(LucideIcons.check, size: 12, color: Colors.white)
                               : null,
                         ),
                         const SizedBox(width: 12),
-                        if (rating == 0)
-                          const Text(
-                            'Любой рейтинг',
-                            style: TextStyle(fontWeight: FontWeight.w500),
-                          )
-                        else ...[
-                          ...List.generate(
-                            5,
-                            (index) => Icon(
-                              Icons.star,
-                              color: index < rating
-                                  ? Colors.orange
-                                  : Colors.grey.shade300,
-                              size: 18,
-                            ),
+                        Row(
+                          children: List.generate(5, (i) => Icon(
+                            LucideIcons.star,
+                            size: 16,
+                            color: i < r ? ClinicTheme.amber : ClinicTheme.mist,
+                          )),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${r.toStringAsFixed(1)}+',
+                          style: TextStyle(
+                            color: selected ? ClinicTheme.azure : ClinicTheme.midnight,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '$rating+',
-                            style: TextStyle(
-                              color: selected ? Colors.black : Colors.black54,
-                            ),
-                          ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
                 );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Дистанция (км)',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+              }),
+
+              const SizedBox(height: 16),
+
+              // Instant booking toggle
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                decoration: BoxDecoration(
+                  color: ClinicTheme.mist,
+                  borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
                 ),
-                Text('${_distance.round()} км'),
-              ],
-            ),
-            Slider(
-              value: _distance,
-              min: 1,
-              max: 150,
-              divisions: 15,
-              label: '${_distance.round()} км',
-              onChanged: (value) => setState(() => _distance = value),
-              activeColor: Colors.blue,
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Мгновенная запись'),
-              subtitle: const Text(
-                'Показываем только врачей со свободными слотами',
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Мгновенная запись'),
+                  subtitle: const Text('Только врачи с открытыми слотами'),
+                  value: _instantBooking,
+                  activeColor: ClinicTheme.azure,
+                  onChanged: (v) => setState(() => _instantBooking = v),
+                ),
               ),
-              value: _instantBook,
-              onChanged: (value) => setState(() => _instantBook = value),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _specialtyIndex = 0;
-                        _selectedRating = _ratings.first;
-                        _distance = _defaultDistance;
-                        _instantBook = false;
-                      });
-                    },
-                    child: const Text('Сбросить'),
+
+              const SizedBox(height: 24),
+
+              // Actions
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setState(() {
+                          _sortOrder = null;
+                          _minRating = null;
+                          _instantBooking = false;
+                        });
+                      },
+                      child: const Text('Сбросить'),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop({
-                      'specialty': widget.specialties[_specialtyIndex],
-                      'rating': _selectedRating,
-                      'distance': _distance,
-                      'instantBook': _instantBook,
-                    }),
-                    child: const Text('Применить'),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context, {
+                        'sort': _sortOrder,
+                        'rating': _minRating,
+                        'instantBooking': _instantBooking,
+                      }),
+                      child: const Text('Применить'),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildChip(String label, String value) {
+    final selected = _sortOrder == value;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _sortOrder = selected ? null : value);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? ClinicTheme.azure : ClinicTheme.snow,
+          borderRadius: BorderRadius.circular(20),
+          border: selected ? null : Border.all(color: ClinicTheme.mist),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : ClinicTheme.midnight,
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
         ),
       ),
     );
