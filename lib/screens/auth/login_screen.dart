@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../providers/session_provider.dart';
 import '../../theme/clinic_theme.dart';
 import '../../widgets/glass_container.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -300,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                     const SizedBox(height: 16),
 
-                    // Toggle
+                    // Toggle login/register
                     TextButton(
                       onPressed: () => setState(() => _isLogin = !_isLogin),
                       child: Text(
@@ -310,6 +311,19 @@ class _LoginScreenState extends State<LoginScreen>
                         style: const TextStyle(color: Colors.white70),
                       ),
                     ),
+
+                    if (_isLogin)
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordScreen(),
+                          ),
+                        ),
+                        child: const Text(
+                          'Забыли пароль?',
+                          style: TextStyle(color: Colors.white38),
+                        ),
+                      ),
 
                     const SizedBox(height: 40),
                   ],
