@@ -31,7 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<List<dynamic>> _loadFines() async {
     try {
       final api = context.read<SessionProvider>().apiService;
-      return await api.fetchMyFines();
+      return await api.fetchFines();
     } catch (_) {
       return [];
     }
@@ -117,7 +117,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final api = context.read<SessionProvider>().apiService;
     try {
       await api.changePassword(
-        oldPassword: oldController.text,
+        currentPassword: oldController.text,
         newPassword: newController.text,
       );
       if (mounted) {

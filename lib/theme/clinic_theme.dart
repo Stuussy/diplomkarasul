@@ -8,6 +8,7 @@ class ClinicTheme {
   static const slate = Color(0xFF6E7681);
   static const mist = Color(0xFFF0F3F6);
   static const snow = Color(0xFFFFFFFF);
+  static const line = Color(0xFFE1E4E8);
 
   // ── Brand ──
   static const azure = Color(0xFF2E7CF6);

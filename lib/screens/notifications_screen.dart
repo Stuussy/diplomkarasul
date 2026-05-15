@@ -57,7 +57,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'appointment':
         return LucideIcons.calendarCheck;
       case 'support':
-        return LucideIcons.headset;
+        return LucideIcons.headphones;
       default:
         return LucideIcons.bell;
     }

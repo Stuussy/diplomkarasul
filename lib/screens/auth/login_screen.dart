@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../providers/session_provider.dart';
 import '../../theme/clinic_theme.dart';
 import '../../widgets/glass_container.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -64,32 +65,32 @@ class _LoginScreenState extends State<LoginScreen>
     final session = context.read<SessionProvider>();
     final messenger = ScaffoldMessenger.of(context);
 
+    String? error;
     try {
+      final email = _emailController.text.trim().toLowerCase();
       if (_isLogin) {
-        await session.login(
-          _emailController.text.trim(),
-          _passwordController.text,
-        );
+        error = await session.login(email, _passwordController.text);
       } else {
-        await session.register(
-          _firstNameController.text.trim(),
-          _lastNameController.text.trim(),
-          _emailController.text.trim(),
-          _passwordController.text,
+        error = await session.register(
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          email: email,
+          password: _passwordController.text,
         );
       }
     } catch (e) {
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(e.toString()),
-        backgroundColor: ClinicTheme.coral,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ));
+      error = e.toString();
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+
+    if (error != null && mounted) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(error),
+        backgroundColor: ClinicTheme.coral,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
     }
   }
 
@@ -300,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                     const SizedBox(height: 16),
 
-                    // Toggle
+                    // Toggle login/register
                     TextButton(
                       onPressed: () => setState(() => _isLogin = !_isLogin),
                       child: Text(
@@ -310,6 +311,19 @@ class _LoginScreenState extends State<LoginScreen>
                         style: const TextStyle(color: Colors.white70),
                       ),
                     ),
+
+                    if (_isLogin)
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordScreen(),
+                          ),
+                        ),
+                        child: const Text(
+                          'Забыли пароль?',
+                          style: TextStyle(color: Colors.white38),
+                        ),
+                      ),
 
                     const SizedBox(height: 40),
                   ],
