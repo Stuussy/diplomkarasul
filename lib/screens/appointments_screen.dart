@@ -32,7 +32,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   Future<List<Appointment>> _loadAppointments() async {
     final api = context.read<SessionProvider>().apiService;
     final now = DateTime.now();
-    return api.fetchMyAppointments(
+    return api.fetchAppointments(
       from: now.subtract(const Duration(days: 365)),
       to: now.add(const Duration(days: 90)),
     );
@@ -52,10 +52,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     final api = context.read<SessionProvider>().apiService;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await api.confirmAppointmentByQr(
-        appointmentId: appointment.id,
-        qrPayload: result,
-      );
+      await api.confirmAppointmentByQr(result);
       HapticFeedback.mediumImpact();
       messenger.showSnackBar(
         SnackBar(
@@ -342,7 +339,7 @@ class _AppointmentCard extends StatelessWidget {
       case 'confirmed':
         return (ClinicTheme.mint, LucideIcons.checkCircle);
       case 'completed':
-        return (ClinicTheme.slate, LucideIcons.circleCheck);
+        return (ClinicTheme.slate, LucideIcons.checkCircle2);
       case 'cancelled':
         return (ClinicTheme.coral, LucideIcons.xCircle);
       default:

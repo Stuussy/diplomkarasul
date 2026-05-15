@@ -224,7 +224,7 @@ class _SupportScreenState extends State<SupportScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(LucideIcons.sendHorizontal, color: Colors.white, size: 20),
+                            : const Icon(LucideIcons.send, color: Colors.white, size: 20),
                       ),
                     ),
                   ],

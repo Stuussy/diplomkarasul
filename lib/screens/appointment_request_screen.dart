@@ -47,7 +47,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
     try {
       final api = context.read<SessionProvider>().apiService;
       final now = DateTime.now();
-      final appointments = await api.fetchMyAppointments(
+      final appointments = await api.fetchAppointments(
         from: now,
         to: now.add(const Duration(days: 60)),
       );
@@ -69,8 +69,8 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
     final api = context.read<SessionProvider>().apiService;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await api.bookAppointment(
-        slotId: _selectedSlot!.id,
+      await api.bookSlot(
+        slot: _selectedSlot!,
         service: _selectedService,
       );
       HapticFeedback.mediumImpact();

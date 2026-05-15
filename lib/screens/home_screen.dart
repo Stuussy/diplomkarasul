@@ -54,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final api = context.read<SessionProvider>().apiService;
       final now = DateTime.now();
-      final appointments = await api.fetchMyAppointments(
+      final appointments = await api.fetchAppointments(
         from: now,
         to: now.add(const Duration(days: 30)),
       );
@@ -411,27 +411,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
                 return SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-                  sliver: SliverList(
-                    delegate: SliverChildSeparatedBuilderDelegate(
-                      (context, index) {
-                        final doctor = doctors[index];
-                        return _DoctorTile(
-                          doctor: doctor,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => DoctorDetailScreen(doctor: doctor),
-                            ),
+                  sliver: SliverList.separated(
+                    itemBuilder: (context, index) {
+                      final doctor = doctors[index];
+                      return _DoctorTile(
+                        doctor: doctor,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => DoctorDetailScreen(doctor: doctor),
                           ),
-                          onBook: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => AppointmentRequestScreen(doctor: doctor),
-                            ),
+                        ),
+                        onBook: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => AppointmentRequestScreen(doctor: doctor),
                           ),
-                        );
-                      },
-                      separatorBuilder: (_, __) => const SizedBox(height: 16),
-                      childCount: doctors.length,
-                    ),
+                        ),
+                      );
+                    },
+                    separatorBuilder: (_, __) => const SizedBox(height: 16),
+                    itemCount: doctors.length,
                   ),
                 );
               },

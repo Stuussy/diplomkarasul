@@ -623,7 +623,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(LucideIcons.userCircle, size: 20), text: 'Обзор'),
-              Tab(icon: Icon(LucideIcons.hospital, size: 20), text: 'Клиника'),
+              Tab(icon: Icon(LucideIcons.building2, size: 20), text: 'Клиника'),
               Tab(icon: Icon(LucideIcons.calendarClock, size: 20), text: 'Расписание'),
             ],
           ),
@@ -1274,7 +1274,7 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
                                 border: const OutlineInputBorder(),
                                 suffixIcon: IconButton(
                                   onPressed: () => _sendSupportReply(message),
-                                  icon: const Icon(LucideIcons.sendHorizontal, size: 20),
+                                  icon: const Icon(LucideIcons.send, size: 20),
                                 ),
                               ),
                             ),
