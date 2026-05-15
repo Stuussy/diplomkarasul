@@ -306,7 +306,7 @@ router.post('/', auth(['patient']), createValidators, async (req, res) => {
 
 router.get('/', auth(), async (req, res) => {
   const query = {};
-  const { from, to, doctorId, patientId, clinicId } = req.query;
+  const { from, to, doctorId, patientId, clinicId, status } = req.query;
 
   if (from && to) {
     query.startTime = { $gte: new Date(from), $lte: new Date(to) };
@@ -314,6 +314,14 @@ router.get('/', auth(), async (req, res) => {
   if (doctorId) query.doctor = doctorId;
   if (patientId) query.patient = patientId;
   if (clinicId) query.clinic = clinicId;
+  if (status) {
+    const statuses = String(status).split(',').map((s) => s.trim()).filter(Boolean);
+    if (statuses.length === 1) {
+      query.status = statuses[0];
+    } else if (statuses.length > 1) {
+      query.status = { $in: statuses };
+    }
+  }
 
   if (req.user.role === 'patient') {
     query.patient = req.user.id;
