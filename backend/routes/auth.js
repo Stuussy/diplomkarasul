@@ -8,6 +8,8 @@ const nodemailer = require('nodemailer');
 
 const router = express.Router();
 
+const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
+
 const registerValidators = [
   body('firstName').notEmpty().withMessage('Имя обязательно.'),
   body('lastName').notEmpty().withMessage('Фамилия обязательна.'),
@@ -22,7 +24,8 @@ router.post('/register', registerValidators, async (req, res) => {
   }
 
   try {
-    const { firstName, lastName, email, password, phone } = req.body;
+    const { firstName, lastName, password, phone } = req.body;
+    const email = normalizeEmail(req.body.email);
 
     const existing = await User.findOne({ email });
     if (existing) {
@@ -37,6 +40,7 @@ router.post('/register', registerValidators, async (req, res) => {
       phone,
       passwordHash,
       role: 'patient',
+      isActive: true,
     });
 
     const token = signToken(user);
@@ -57,7 +61,8 @@ router.post(
     }
 
     try {
-      const { email, password } = req.body;
+      const { password } = req.body;
+      const email = normalizeEmail(req.body.email);
       const user = await User.findOne({ email, isActive: true });
 
       if (!user) {
@@ -191,7 +196,8 @@ router.post('/bootstrap-director', registerValidators, async (req, res) => {
   }
 
   try {
-    const { firstName, lastName, email, password, phone } = req.body;
+    const { firstName, lastName, password, phone } = req.body;
+    const email = normalizeEmail(req.body.email);
     const passwordHash = await User.hashPassword(password);
     const superAdmin = await User.create({
       firstName,
@@ -200,6 +206,7 @@ router.post('/bootstrap-director', registerValidators, async (req, res) => {
       phone,
       passwordHash,
       role: 'superadmin',
+      isActive: true,
     });
 
     const token = signToken(superAdmin);
@@ -216,7 +223,7 @@ router.post('/forgot-password', [body('email').isEmail()], async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { email } = req.body;
+  const email = normalizeEmail(req.body.email);
   try {
     const user = await User.findOne({ email });
     if (user) {
@@ -258,7 +265,8 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, code, newPassword } = req.body;
+    const { code, newPassword } = req.body;
+    const email = normalizeEmail(req.body.email);
     try {
       const user = await User.findOne({ email });
       if (!user || !user.resetPasswordCodeHash || !user.resetPasswordExpires) {

@@ -93,6 +93,7 @@ async function createUserIfMissing(userData, clinicId) {
     clinics: clinicId ? [clinicId] : [],
     phone: userData.phone,
     specialties: userData.specialties ?? [],
+    isActive: true,
   });
   console.log(`Создан пользователь ${userData.role}: ${user.email}`);
   return user;

@@ -65,32 +65,32 @@ class _LoginScreenState extends State<LoginScreen>
     final session = context.read<SessionProvider>();
     final messenger = ScaffoldMessenger.of(context);
 
+    String? error;
     try {
+      final email = _emailController.text.trim().toLowerCase();
       if (_isLogin) {
-        await session.login(
-          _emailController.text.trim(),
-          _passwordController.text,
-        );
+        error = await session.login(email, _passwordController.text);
       } else {
-        await session.register(
+        error = await session.register(
           firstName: _firstNameController.text.trim(),
           lastName: _lastNameController.text.trim(),
-          email: _emailController.text.trim(),
+          email: email,
           password: _passwordController.text,
         );
       }
     } catch (e) {
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(e.toString()),
-        backgroundColor: ClinicTheme.coral,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ));
+      error = e.toString();
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+
+    if (error != null && mounted) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(error),
+        backgroundColor: ClinicTheme.coral,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
     }
   }
 

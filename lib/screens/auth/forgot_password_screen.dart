@@ -59,8 +59,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
 
     final api = context.read<SessionProvider>().apiService;
     try {
-      await api.requestPasswordReset(_emailController.text.trim());
-      _sentToEmail = _emailController.text.trim();
+      final email = _emailController.text.trim().toLowerCase();
+      await api.requestPasswordReset(email);
+      _sentToEmail = email;
       if (mounted) setState(() => _codeSent = true);
       HapticFeedback.mediumImpact();
     } catch (e) {
