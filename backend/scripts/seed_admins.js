@@ -100,9 +100,18 @@ async function createUserIfMissing(userData, clinicId) {
 }
 
 async function createClinic(adminId) {
+  if (!adminId) {
+    throw new Error('createClinic: adminId is required but was empty');
+  }
   const existing = await Clinic.findOne({ name: clinicData.name });
   if (existing) {
-    console.log('Клиника уже существует:', existing.name);
+    if (!existing.admin) {
+      existing.admin = adminId;
+      await existing.save();
+      console.log('Клиника обновлена (назначен admin):', existing.name);
+    } else {
+      console.log('Клиника уже существует:', existing.name);
+    }
     return existing;
   }
   const clinic = await Clinic.create({ ...clinicData, admin: adminId });
@@ -115,6 +124,9 @@ async function seed() {
     await connect();
 
     const superAdmin = await createUserIfMissing(superAdminData, null);
+    if (!superAdmin || !superAdmin._id) {
+      throw new Error('Не удалось создать или найти суперадмина');
+    }
     const clinic = await createClinic(superAdmin._id);
 
     await createUserIfMissing(adminData, clinic._id);
