@@ -52,7 +52,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   Future<void> _refresh() async {
     final future = _loadAppointments();
-    setState(() => _futureAppointments = future);
+    setState(() { _futureAppointments = future; });
     await future;
   }
 

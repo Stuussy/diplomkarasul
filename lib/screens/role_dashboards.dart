@@ -1125,7 +1125,7 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
 
   Future<void> _refresh() async {
     final future = _loadMessages();
-    setState(() => _messagesFuture = future);
+    setState(() { _messagesFuture = future; });
     await future;
   }
 
@@ -1142,7 +1142,7 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
       controller.clear();
       if (!mounted) return;
       final future = _loadMessages();
-      setState(() => _messagesFuture = future);
+      setState(() { _messagesFuture = future; });
       await future;
     } catch (error) {
       if (!mounted) return;
@@ -1230,9 +1230,21 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
                 }
                 final messages = snapshot.data ?? [];
                 if (messages.isEmpty) {
-                  return const Center(child: Text('Нет обращений'));
+                  return RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: const [
+                        SizedBox(height: 80),
+                        Center(child: Text('Нет обращений')),
+                      ],
+                    ),
+                  );
                 }
-                return ListView.builder(
+                return RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
@@ -1308,6 +1320,7 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
                       ),
                     );
                   },
+                ),
                 );
               },
             ),
