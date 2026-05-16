@@ -197,7 +197,7 @@ class _MetricsGrid extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 2.2,
+        childAspectRatio: 1.6,
       ),
       itemBuilder: (context, index) => _MetricCard(metric: metrics[index]),
     );
@@ -213,9 +213,10 @@ class _MetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return DentCard(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             metric.value,
@@ -223,7 +224,7 @@ class _MetricCard extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(metric.label, style: theme.textTheme.bodySmall),
           if (metric.caption != null) ...[
             const SizedBox(height: 2),
