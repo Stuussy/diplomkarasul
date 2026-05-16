@@ -17,6 +17,9 @@ import 'doctor_detail_screen.dart';
 const _twoGisWebUrl =
     'https://2gis.kz/astana/search/%D1%81%D1%82%D0%BE%D0%BC%D0%BE%D1%82%D0%BE%D0%BB%D0%BE%D0%B3%D0%B8%D1%8F/filters/sort%3Drating/firm/70000001041371459?m=71.421132%2C51.123988%2F18&immersive=on';
 const _twoGisDeepLink = 'dgis://2gis.ru/firm/70000001041371459';
+// Yandex Navi / Taxi deep link to clinic location (Astana)
+const _taxiDeepLink = 'yandexnavi://build_route_on_map?lat=51.1694&lon=71.4491';
+const _taxiWebUrl = 'https://taxi.yandex.ru/route/?end-lat=51.1694&end-lon=71.4491';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -28,6 +31,7 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   late Future<List<AppUser>> _futureDoctors;
   bool _isOpeningMap = false;
+  bool _isOpeningTaxi = false;
 
   @override
   void initState() {
@@ -39,6 +43,30 @@ class _MapScreenState extends State<MapScreen> {
     setState(() {
       _futureDoctors = context.read<SessionProvider>().apiService.fetchDoctors();
     });
+  }
+
+  Future<void> _callTaxi() async {
+    if (_isOpeningTaxi) return;
+    setState(() => _isOpeningTaxi = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      bool opened = false;
+      try {
+        opened = await launchUrl(Uri.parse(_taxiDeepLink), mode: LaunchMode.externalApplication);
+      } catch (_) {
+        opened = false;
+      }
+      if (!opened) {
+        opened = await launchUrl(Uri.parse(_taxiWebUrl), mode: LaunchMode.externalApplication);
+      }
+      if (!opened && mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Не удалось открыть Яндекс Такси.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isOpeningTaxi = false);
+    }
   }
 
   Future<void> _openClinicLocation() async {
@@ -121,6 +149,15 @@ class _MapScreenState extends State<MapScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: ClinicTheme.azure,
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _isOpeningTaxi ? null : _callTaxi,
+                        icon: const Icon(LucideIcons.car, size: 16),
+                        label: Text(_isOpeningTaxi ? 'Загрузка…' : 'Вызвать такси'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white38),
                         ),
                       ),
                     ],

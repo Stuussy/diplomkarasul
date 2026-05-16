@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/session_provider.dart';
+import 'screens/ai_consultation_screen.dart';
 import 'screens/appointments_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/map_screen.dart';
@@ -102,6 +103,13 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
                   ),
                 ),
                 actions: [
+                  _NavAction(
+                    icon: LucideIcons.bot,
+                    tooltip: 'ИИ-ассистент',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AiConsultationScreen()),
+                    ),
+                  ),
                   _NavAction(
                     icon: LucideIcons.messageCircle,
                     tooltip: 'Чат-поддержка',

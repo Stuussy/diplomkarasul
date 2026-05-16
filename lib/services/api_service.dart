@@ -782,4 +782,14 @@ class ApiService {
     );
     _decode(response);
   }
+
+  Future<String> aiConsult(String question) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/ai/consult'),
+      headers: _headers(),
+      body: jsonEncode({'question': question}),
+    );
+    final data = _decode(response) as Map<String, dynamic>;
+    return data['answer']?.toString() ?? '';
+  }
 }

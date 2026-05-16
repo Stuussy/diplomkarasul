@@ -13,6 +13,7 @@ router.use('/notifications', require('./notifications'));
 router.use('/stats', require('./stats'));
 router.use('/profile', require('./profile'));
 router.use('/reviews', require('./reviews'));
+router.use('/ai', require('./ai'));
 router.use('/', require('./integrations'));
 router.use('/', require('./health'));
 
