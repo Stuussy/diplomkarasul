@@ -14,10 +14,18 @@ class SessionProvider extends ChangeNotifier {
   String? _token;
   bool _isLoading = true;
 
+  int _bookingVersion = 0;
+
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _token != null && _user != null;
   AppUser? get user => _user;
   ApiService get apiService => _apiService;
+  int get bookingVersion => _bookingVersion;
+
+  void notifyBooked() {
+    _bookingVersion++;
+    notifyListeners();
+  }
 
   Future<void> _restoreSession() async {
     final prefs = await SharedPreferences.getInstance();

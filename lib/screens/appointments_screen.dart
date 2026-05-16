@@ -22,11 +22,23 @@ class AppointmentsScreen extends StatefulWidget {
 class _AppointmentsScreenState extends State<AppointmentsScreen> {
   late Future<List<Appointment>> _futureAppointments;
   int _tabIndex = 0;
+  int _trackedBookingVersion = 0;
 
   @override
   void initState() {
     super.initState();
     _futureAppointments = _loadAppointments();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final session = Provider.of<SessionProvider>(context);
+    final ver = session.bookingVersion;
+    if (_trackedBookingVersion != ver) {
+      _trackedBookingVersion = ver;
+      _futureAppointments = _loadAppointments();
+    }
   }
 
   Future<List<Appointment>> _loadAppointments() async {
@@ -39,8 +51,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _futureAppointments = _loadAppointments());
-    await _futureAppointments;
+    final future = _loadAppointments();
+    setState(() => _futureAppointments = future);
+    await future;
   }
 
   Future<void> _confirmViaQr(Appointment appointment) async {

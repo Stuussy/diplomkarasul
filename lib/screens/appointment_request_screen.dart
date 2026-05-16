@@ -75,6 +75,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
       );
       HapticFeedback.mediumImpact();
       if (!mounted) return;
+      context.read<SessionProvider>().notifyBooked();
       messenger.showSnackBar(
         SnackBar(
           content: const Text('Вы успешно записаны! ✓'),

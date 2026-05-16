@@ -48,19 +48,27 @@ function geminiRequest(prompt) {
       res.on('end', () => {
         try {
           const parsed = JSON.parse(data);
+          if (parsed.error) {
+            console.error('Gemini API error response:', JSON.stringify(parsed.error));
+            return reject(new Error(parsed.error.message || 'Gemini API error'));
+          }
           const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) {
-            resolve(text);
-          } else {
-            reject(new Error('Не удалось получить ответ от ИИ.'));
+            return resolve(text);
           }
+          console.error('Gemini unexpected response (status %d):', res.statusCode, data.substring(0, 500));
+          reject(new Error('Не удалось получить ответ от ИИ.'));
         } catch (e) {
+          console.error('Gemini parse error, raw body:', data.substring(0, 300));
           reject(new Error('Ошибка разбора ответа ИИ.'));
         }
       });
     });
 
-    req.on('error', reject);
+    req.on('error', (e) => {
+      console.error('Gemini network error:', e.message);
+      reject(e);
+    });
     req.setTimeout(15000, () => {
       req.destroy(new Error('Таймаут запроса к ИИ.'));
     });
