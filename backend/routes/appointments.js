@@ -148,19 +148,6 @@ router.post('/', auth(['patient']), createValidators, async (req, res) => {
         .status(400)
         .json({ message: 'Для ручного бронирования нужны doctorId, clinicId и startTime.' });
     }
-
-    const existingActive = await Appointment.findOne({
-      patient: patientId,
-      status: { $in: ['scheduled', 'confirmed'] },
-    });
-    if (existingActive) {
-      return res.status(409).json({
-        code: 'already_booked',
-        message: 'Вы уже записаны на приём. Отмените текущую запись перед новой.',
-      });
-    }
-
-    let slot;
     if (slotId) {
       slot = await ScheduleSlot.findOneAndUpdate(
         { _id: slotId, status: 'available' },
@@ -306,7 +293,7 @@ router.post('/', auth(['patient']), createValidators, async (req, res) => {
 
 router.get('/', auth(), async (req, res) => {
   const query = {};
-  const { from, to, doctorId, patientId, clinicId } = req.query;
+  const { from, to, doctorId, patientId, clinicId, status } = req.query;
 
   if (from && to) {
     query.startTime = { $gte: new Date(from), $lte: new Date(to) };
@@ -314,6 +301,14 @@ router.get('/', auth(), async (req, res) => {
   if (doctorId) query.doctor = doctorId;
   if (patientId) query.patient = patientId;
   if (clinicId) query.clinic = clinicId;
+  if (status) {
+    const statuses = String(status).split(',').map((s) => s.trim()).filter(Boolean);
+    if (statuses.length === 1) {
+      query.status = statuses[0];
+    } else if (statuses.length > 1) {
+      query.status = { $in: statuses };
+    }
+  }
 
   if (req.user.role === 'patient') {
     query.patient = req.user.id;
@@ -706,7 +701,7 @@ router.patch(
 
 router.post(
   '/slots',
-  auth(['admin', 'superadmin']),
+  auth(['doctor', 'admin', 'superadmin']),
   [
     body('doctorId').notEmpty(),
     body('clinicId').notEmpty(),
@@ -725,7 +720,11 @@ router.post(
         return res.status(400).json({ message: 'Время окончания должно быть позже начала.' });
       }
 
-      if (req.user.role === 'admin') {
+      if (req.user.role === 'doctor') {
+        if (doctorId !== req.user.id) {
+          return res.status(403).json({ message: 'Врач может создавать слоты только для себя.' });
+        }
+      } else if (req.user.role === 'admin') {
         const clinic = await Clinic.findById(clinicId);
         const adminClinicIds = await getAdminClinicIds(req.user.id);
         const hasAccess =
@@ -759,8 +758,10 @@ router.get('/slots', auth(), async (req, res) => {
   if (status) filter.status = status;
   if (req.user.role === 'patient') {
     filter.status = 'available';
+    // Patient can query by doctorId (already set above from req.query)
+  } else if (req.user.role === 'doctor') {
+    filter.doctor = req.user.id; // Doctor sees only their own slots
   }
-  if (req.user.role === 'doctor') filter.doctor = req.user.id;
   if (req.user.role === 'admin') {
     const clinicIds = await getAdminClinicIds(req.user.id);
     if (clinicIds.length === 0) {

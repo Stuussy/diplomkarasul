@@ -164,7 +164,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: _SegmentedControl(
               index: _tabIndex,
-              labels: const ['Предстоящие', 'Прошедшие'],
+              labels: const ['Активные', 'Завершённые', 'Отменённые'],
               onChanged: (i) {
                 HapticFeedback.selectionClick();
                 setState(() => _tabIndex = i);
@@ -195,26 +195,43 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
                 final now = DateTime.now();
                 final all = snapshot.data ?? [];
-                final upcoming = all.where((a) =>
-                    a.startTime.isAfter(now) &&
-                    (a.status == 'scheduled' || a.status == 'confirmed')).toList()
+                final active = all.where((a) =>
+                    (a.status == 'scheduled' || a.status == 'confirmed') &&
+                    a.startTime.isAfter(now.subtract(const Duration(hours: 2)))).toList()
                   ..sort((a, b) => a.startTime.compareTo(b.startTime));
-                final past = all.where((a) =>
-                    a.startTime.isBefore(now) || a.status == 'completed' || a.status == 'cancelled').toList()
+                final completed = all.where((a) =>
+                    a.status == 'completed' ||
+                    (a.status == 'confirmed' && a.startTime.isBefore(now.subtract(const Duration(hours: 2)))) ||
+                    a.status == 'no_show').toList()
                   ..sort((a, b) => b.startTime.compareTo(a.startTime));
-                final list = _tabIndex == 0 ? upcoming : past;
+                final cancelled = all.where((a) => a.status == 'cancelled').toList()
+                  ..sort((a, b) => b.startTime.compareTo(a.startTime));
+
+                final list = switch (_tabIndex) {
+                  0 => active,
+                  1 => completed,
+                  _ => cancelled,
+                };
 
                 if (list.isEmpty) {
+                  final emptyTitle = switch (_tabIndex) {
+                    0 => 'Нет активных записей',
+                    1 => 'Нет завершённых записей',
+                    _ => 'Нет отменённых записей',
+                  };
+                  final emptyMessage = switch (_tabIndex) {
+                    0 => 'Запишитесь к врачу на вкладке «Главная»',
+                    1 => 'Ваши завершённые приёмы будут отображены здесь',
+                    _ => 'Отменённые записи будут отображены здесь',
+                  };
                   return RefreshIndicator(
                     onRefresh: _refresh,
                     child: ListView(
                       children: [
                         const SizedBox(height: 80),
                         PatientEmptyState(
-                          title: _tabIndex == 0 ? 'Нет предстоящих записей' : 'Нет прошедших записей',
-                          message: _tabIndex == 0
-                              ? 'Запишитесь к врачу на вкладке «Главная»'
-                              : 'Ваши прошлые записи будут отображены здесь',
+                          title: emptyTitle,
+                          message: emptyMessage,
                           icon: LucideIcons.calendarX,
                         ),
                       ],
