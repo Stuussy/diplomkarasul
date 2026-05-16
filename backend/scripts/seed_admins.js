@@ -79,7 +79,21 @@ async function connect() {
 async function createUserIfMissing(userData, clinicId) {
   const existing = await User.findOne({ email: userData.email });
   if (existing) {
-    console.log(`Пользователь ${userData.email} уже существует.`);
+    let changed = false;
+    if (!existing.isActive) {
+      existing.isActive = true;
+      changed = true;
+    }
+    if (clinicId && !existing.clinics.some((c) => c.toString() === clinicId.toString())) {
+      existing.clinics.push(clinicId);
+      changed = true;
+    }
+    if (changed) {
+      await existing.save();
+      console.log(`Обновлён пользователь ${userData.email} (clinics/isActive).`);
+    } else {
+      console.log(`Пользователь ${userData.email} уже существует.`);
+    }
     return existing;
   }
 
