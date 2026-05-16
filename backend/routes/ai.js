@@ -6,7 +6,7 @@ const auth = require('../middleware/auth');
 const router = express.Router();
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash-latest'];
 
 const SYSTEM_PROMPT = `Ты — стоматологический ИИ-ассистент клиники Dental AI. Твоя задача:
 1. Помогать пациентам разобраться с симптомами и беспокойствами, связанными с зубами и полостью рта.
@@ -16,7 +16,7 @@ const SYSTEM_PROMPT = `Ты — стоматологический ИИ-асси
 5. Отвечать только по теме стоматологии. На посторонние темы вежливо отказывай.
 6. Отвечай на русском языке, кратко и понятно (до 300 слов).`;
 
-function geminiRequest(prompt) {
+function geminiRequest(prompt, model) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify({
       contents: [
@@ -34,7 +34,7 @@ function geminiRequest(prompt) {
 
     const options = {
       hostname: 'generativelanguage.googleapis.com',
-      path: `/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
+      path: `/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -87,13 +87,21 @@ router.post('/consult', auth(), async (req, res) => {
     return res.status(503).json({ message: 'AI-консультация временно недоступна.' });
   }
 
-  try {
-    const answer = await geminiRequest(String(question).trim());
-    res.json({ answer });
-  } catch (error) {
-    console.error('Gemini AI error:', error.message);
-    res.status(502).json({ message: 'ИИ временно недоступен. Попробуйте позже.' });
+  let lastError = null;
+  for (const model of GEMINI_MODELS) {
+    try {
+      const answer = await geminiRequest(String(question).trim(), model);
+      return res.json({ answer, model });
+    } catch (error) {
+      lastError = error;
+      console.error(`Gemini ${model} failed:`, error.message);
+    }
   }
+  console.error('All Gemini models failed. Last error:', lastError?.message);
+  res.status(502).json({
+    message: 'ИИ временно недоступен. Попробуйте позже.',
+    detail: lastError?.message,
+  });
 });
 
 module.exports = router;
