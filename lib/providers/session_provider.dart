@@ -15,16 +15,35 @@ class SessionProvider extends ChangeNotifier {
   bool _isLoading = true;
 
   int _bookingVersion = 0;
+  int _unreadNotifications = 0;
 
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _token != null && _user != null;
   AppUser? get user => _user;
   ApiService get apiService => _apiService;
   int get bookingVersion => _bookingVersion;
+  int get unreadNotifications => _unreadNotifications;
 
   void notifyBooked() {
     _bookingVersion++;
     notifyListeners();
+  }
+
+  Future<void> refreshUnreadNotifications() async {
+    if (_token == null) {
+      if (_unreadNotifications != 0) {
+        _unreadNotifications = 0;
+        notifyListeners();
+      }
+      return;
+    }
+    try {
+      final list = await _apiService.fetchNotifications(unreadOnly: true);
+      if (_unreadNotifications != list.length) {
+        _unreadNotifications = list.length;
+        notifyListeners();
+      }
+    } catch (_) {}
   }
 
   Future<void> _restoreSession() async {

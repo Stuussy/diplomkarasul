@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -40,9 +41,19 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() {
-      _futureDoctors = context.read<SessionProvider>().apiService.fetchDoctors();
-    });
+    final future = context.read<SessionProvider>().apiService.fetchDoctors();
+    setState(() { _futureDoctors = future; });
+    await future;
+  }
+
+  Future<bool> _tryLaunch(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      final mode = kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication;
+      return await launchUrl(uri, mode: mode, webOnlyWindowName: '_blank');
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _callTaxi() async {
@@ -51,13 +62,11 @@ class _MapScreenState extends State<MapScreen> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       bool opened = false;
-      try {
-        opened = await launchUrl(Uri.parse(_taxiDeepLink), mode: LaunchMode.externalApplication);
-      } catch (_) {
-        opened = false;
+      if (!kIsWeb) {
+        opened = await _tryLaunch(_taxiDeepLink);
       }
       if (!opened) {
-        opened = await launchUrl(Uri.parse(_taxiWebUrl), mode: LaunchMode.externalApplication);
+        opened = await _tryLaunch(_taxiWebUrl);
       }
       if (!opened && mounted) {
         messenger.showSnackBar(
@@ -74,20 +83,16 @@ class _MapScreenState extends State<MapScreen> {
     setState(() => _isOpeningMap = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final deepLink = Uri.parse(_twoGisDeepLink);
-      final webLink = Uri.parse(_twoGisWebUrl);
       bool opened = false;
-      try {
-        opened = await launchUrl(deepLink, mode: LaunchMode.externalApplication);
-      } catch (_) {
-        opened = false;
+      if (!kIsWeb) {
+        opened = await _tryLaunch(_twoGisDeepLink);
       }
       if (!opened) {
-        opened = await launchUrl(webLink, mode: LaunchMode.externalApplication);
+        opened = await _tryLaunch(_twoGisWebUrl);
       }
       if (!opened && mounted) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Не удалось открыть карту. Проверьте установку 2GIS.')),
+          const SnackBar(content: Text('Не удалось открыть карту 2GIS.')),
         );
       }
     } finally {
