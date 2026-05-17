@@ -1,14 +1,15 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:printing/printing.dart';
-import 'package:pdf/widgets.dart' as pw;
 
 import '../models/medical_record.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
+import '../services/medical_record_pdf.dart';
 import '../theme/clinic_theme.dart';
 import '../widgets/dent_card.dart';
 import '../widgets/dent_badge.dart';
@@ -174,15 +175,42 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                           )).toList(),
                         ),
                       ],
+                      if (record.price > 0) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(LucideIcons.badge, size: 14, color: ClinicTheme.azure),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Стоимость: ${_formatPrice(record.price)} ₸',
+                              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                    color: ClinicTheme.azure,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (_canEdit) ...[
                         const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton.icon(
-                            onPressed: () => _showEditDialog(record),
-                            icon: const Icon(LucideIcons.pencil, size: 14),
-                            label: const Text('Редактировать'),
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton.icon(
+                              onPressed: () => _confirmDelete(record),
+                              icon: const Icon(LucideIcons.trash, size: 14),
+                              label: const Text('Удалить'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFFE36A45),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            TextButton.icon(
+                              onPressed: () => _showEditDialog(record),
+                              icon: const Icon(LucideIcons.pencil, size: 14),
+                              label: const Text('Редактировать'),
+                            ),
+                          ],
                         ),
                       ],
                     ],
@@ -299,42 +327,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
   }
 
   Future<Uint8List> _buildRecordPdf(MedicalRecord record) async {
-    final doc = pw.Document();
-    final toothRows = record.toothMap
-        .map((item) =>
-            '${item.arch == 'upper' ? 'Верхняя' : 'Нижняя'} '
-            '${item.index}: ${item.status}')
-        .toList();
-    doc.addPage(
-      pw.Page(
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text('Медицинская карта', style: pw.TextStyle(fontSize: 22)),
-            pw.SizedBox(height: 8),
-            pw.Text('Запись: ${record.title}'),
-            pw.Text('Дата: ${_formatDate(record.createdAt)}'),
-            if (record.doctor != null)
-              pw.Text('Врач: ${record.doctor!.fullName}'),
-            if (record.description != null && record.description!.isNotEmpty) ...[
-              pw.SizedBox(height: 12),
-              pw.Text('Описание:'),
-              pw.Text(record.description!),
-            ],
-            if (record.tags.isNotEmpty) ...[
-              pw.SizedBox(height: 12),
-              pw.Text('Теги: ${record.tags.join(', ')}'),
-            ],
-            if (toothRows.isNotEmpty) ...[
-              pw.SizedBox(height: 12),
-              pw.Text('Отметки по зубам:'),
-              pw.Bullet(text: toothRows.join(' · ')),
-            ],
-          ],
-        ),
-      ),
-    );
-    return doc.save();
+    return MedicalRecordPdfBuilder.build(record);
   }
 
   Future<void> _exportRecord(MedicalRecord record) async {
@@ -353,8 +346,59 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
         '${date.year}';
   }
 
+  String _formatPrice(double value) {
+    final intValue = value.round();
+    final str = intValue.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < str.length; i++) {
+      if (i > 0 && (str.length - i) % 3 == 0) buf.write(' ');
+      buf.write(str[i]);
+    }
+    return buf.toString();
+  }
+
   Future<void> _showCreateDialog() async {
     await _showRecordEditor(record: null);
+  }
+
+  Future<void> _confirmDelete(MedicalRecord record) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final api = context.read<SessionProvider>().apiService;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Удалить запись?'),
+          content: Text(
+            'Запись «${record.title}» будет удалена безвозвратно.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFE36A45),
+              ),
+              child: const Text('Удалить'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+    try {
+      await api.deleteMedicalRecord(record.id);
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('Запись удалена')));
+      await _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+    }
   }
 
   Future<void> _showEditDialog(MedicalRecord record) async {
@@ -362,315 +406,378 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
   }
 
   Future<void> _showRecordEditor({MedicalRecord? record}) async {
-    final isEdit = record != null;
-    final titleController = TextEditingController(text: record?.title ?? '');
-    final descController = TextEditingController(text: record?.description ?? '');
-    final tags = <String>[...?record?.tags];
-    final tagInputController = TextEditingController();
-    final toothMap = <ToothMark>[...?record?.toothMap];
-    final formKey = GlobalKey<FormState>();
-    final api = context.read<SessionProvider>().apiService;
-    final pageMessenger = ScaffoldMessenger.of(context);
-
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (innerContext, setSheetState) {
-            bool isSaving = false;
+      builder: (_) => _RecordEditorSheet(
+        patientId: _resolvedPatientId!,
+        record: record,
+        onSaved: _refresh,
+      ),
+    );
+  }
+}
 
-            void addTag(String value) {
-              final clean = value.trim();
-              if (clean.isEmpty || tags.contains(clean)) return;
-              tags.add(clean);
-              tagInputController.clear();
-              setSheetState(() {});
-            }
+class _RecordEditorSheet extends StatefulWidget {
+  const _RecordEditorSheet({
+    required this.patientId,
+    required this.onSaved,
+    this.record,
+  });
 
-            Future<void> submit() async {
-              if (!formKey.currentState!.validate()) return;
-              final pending = tagInputController.text.trim();
-              if (pending.isNotEmpty && !tags.contains(pending)) {
-                tags.add(pending);
-              }
-              setSheetState(() => isSaving = true);
-              try {
-                if (isEdit) {
-                  await api.updateMedicalRecord(
-                    recordId: record.id,
-                    title: titleController.text.trim(),
-                    description: descController.text.trim(),
-                    tags: tags,
-                    toothMap: toothMap,
-                  );
-                } else {
-                  await api.createMedicalRecord(
-                    patientId: _resolvedPatientId!,
-                    title: titleController.text.trim(),
-                    description: descController.text.trim().isEmpty
-                        ? null
-                        : descController.text.trim(),
-                    tags: tags,
-                    toothMap: toothMap,
-                  );
-                }
-                if (!sheetContext.mounted) return;
-                Navigator.of(sheetContext).pop();
-                if (!mounted) return;
-                pageMessenger.showSnackBar(
-                  SnackBar(content: Text(isEdit ? 'Запись обновлена' : 'Запись добавлена')),
-                );
-                await _refresh();
-              } catch (error) {
-                if (!sheetContext.mounted) return;
-                ScaffoldMessenger.of(sheetContext).showSnackBar(
-                  SnackBar(content: Text('Ошибка: $error')),
-                );
-              } finally {
-                if (innerContext.mounted) setSheetState(() => isSaving = false);
-              }
-            }
+  final String patientId;
+  final MedicalRecord? record;
+  final Future<void> Function() onSaved;
 
-            final viewInsets = MediaQuery.of(innerContext).viewInsets.bottom;
-            final maxHeight = MediaQuery.of(innerContext).size.height * 0.92;
+  @override
+  State<_RecordEditorSheet> createState() => _RecordEditorSheetState();
+}
 
-            return AnimatedPadding(
-              duration: const Duration(milliseconds: 150),
-              padding: EdgeInsets.only(bottom: viewInsets),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: maxHeight),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: ClinicTheme.snow,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 10),
-                      Container(
-                        width: 44,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: ClinicTheme.mist,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+class _RecordEditorSheetState extends State<_RecordEditorSheet> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _descController;
+  late final TextEditingController _priceController;
+  late final TextEditingController _tagInputController;
+  late final List<String> _tags;
+  late final List<ToothMark> _toothMap;
+  final _formKey = GlobalKey<FormState>();
+  bool _isSaving = false;
+
+  bool get _isEdit => widget.record != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final record = widget.record;
+    _titleController = TextEditingController(text: record?.title ?? '');
+    _descController = TextEditingController(text: record?.description ?? '');
+    _priceController = TextEditingController(
+      text: (record?.price ?? 0) > 0 ? record!.price.round().toString() : '',
+    );
+    _tagInputController = TextEditingController();
+    _tags = <String>[...?record?.tags];
+    _toothMap = <ToothMark>[...?record?.toothMap];
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    _priceController.dispose();
+    _tagInputController.dispose();
+    super.dispose();
+  }
+
+  void _addTag(String value) {
+    final clean = value.trim();
+    if (clean.isEmpty || _tags.contains(clean)) return;
+    setState(() {
+      _tags.add(clean);
+      _tagInputController.clear();
+    });
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    final pending = _tagInputController.text.trim();
+    if (pending.isNotEmpty && !_tags.contains(pending)) {
+      _tags.add(pending);
+    }
+    setState(() => _isSaving = true);
+    final api = context.read<SessionProvider>().apiService;
+    final priceValue =
+        double.tryParse(_priceController.text.replaceAll(RegExp(r'[^0-9.]'), ''));
+    try {
+      if (_isEdit) {
+        await api.updateMedicalRecord(
+          recordId: widget.record!.id,
+          title: _titleController.text.trim(),
+          description: _descController.text.trim(),
+          tags: _tags,
+          toothMap: _toothMap,
+          price: priceValue ?? 0,
+        );
+      } else {
+        await api.createMedicalRecord(
+          patientId: widget.patientId,
+          title: _titleController.text.trim(),
+          description: _descController.text.trim().isEmpty
+              ? null
+              : _descController.text.trim(),
+          tags: _tags,
+          toothMap: _toothMap,
+          price: priceValue,
+        );
+      }
+      if (!mounted) return;
+      FocusScope.of(context).unfocus();
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_isEdit ? 'Запись обновлена' : 'Запись добавлена')),
+      );
+      await widget.onSaved();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: $error')),
+      );
+      setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final maxHeight = MediaQuery.of(context).size.height * 0.92;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: ClinicTheme.snow,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: ClinicTheme.mist,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: ClinicTheme.heroGradient,
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                gradient: ClinicTheme.heroGradient,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Icon(
-                                LucideIcons.clipboardPlus,
-                                color: Colors.white,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    isEdit ? 'Редактировать запись' : 'Новая запись',
-                                    style: Theme.of(innerContext).textTheme.titleLarge,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    isEdit
-                                        ? 'Обновите данные осмотра'
-                                        : 'Заполните данные осмотра пациента',
-                                    style: Theme.of(innerContext).textTheme.bodySmall,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'Закрыть',
-                              onPressed: isSaving
-                                  ? null
-                                  : () => Navigator.of(sheetContext).pop(),
-                              icon: const Icon(LucideIcons.x),
-                            ),
-                          ],
-                        ),
+                      child: const Icon(
+                        LucideIcons.clipboardList,
+                        color: Colors.white,
+                        size: 22,
                       ),
-                      const Divider(height: 1),
-                      Flexible(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                          child: Form(
-                            key: formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _FieldLabel(
-                                  icon: LucideIcons.fileText,
-                                  label: 'Заголовок',
-                                ),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: titleController,
-                                  decoration: InputDecoration(
-                                    hintText: 'Например: Профилактический осмотр',
-                                    filled: true,
-                                    fillColor: ClinicTheme.mist.withValues(alpha: 0.4),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                  ),
-                                  validator: (v) =>
-                                      v == null || v.trim().isEmpty ? 'Обязательное поле' : null,
-                                ),
-                                const SizedBox(height: 18),
-                                _FieldLabel(
-                                  icon: LucideIcons.notebookPen,
-                                  label: 'Описание / рекомендации',
-                                ),
-                                const SizedBox(height: 6),
-                                TextFormField(
-                                  controller: descController,
-                                  maxLines: 4,
-                                  decoration: InputDecoration(
-                                    hintText:
-                                        'Что было сделано, рекомендации, назначения…',
-                                    filled: true,
-                                    fillColor: ClinicTheme.mist.withValues(alpha: 0.4),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
-                                _FieldLabel(
-                                  icon: LucideIcons.tags,
-                                  label: 'Теги',
-                                ),
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    ...tags.map(
-                                      (tag) => InputChip(
-                                        label: Text(tag),
-                                        onDeleted: () {
-                                          tags.remove(tag);
-                                          setSheetState(() {});
-                                        },
-                                        backgroundColor: ClinicTheme.azureSoft,
-                                        labelStyle: const TextStyle(
-                                          color: ClinicTheme.azure,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        deleteIconColor: ClinicTheme.azure,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                TextField(
-                                  controller: tagInputController,
-                                  textInputAction: TextInputAction.done,
-                                  onSubmitted: addTag,
-                                  decoration: InputDecoration(
-                                    hintText: 'Добавьте тег и нажмите Enter',
-                                    prefixIcon: const Icon(LucideIcons.plus, size: 18),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(LucideIcons.cornerDownLeft, size: 18),
-                                      onPressed: () => addTag(tagInputController.text),
-                                    ),
-                                    filled: true,
-                                    fillColor: ClinicTheme.mist.withValues(alpha: 0.4),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
-                                _FieldLabel(
-                                  icon: LucideIcons.scanLine,
-                                  label: 'Зубная карта',
-                                ),
-                                const SizedBox(height: 6),
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: ClinicTheme.mist.withValues(alpha: 0.4),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: ToothChart(
-                                    toothMap: toothMap,
-                                    onChanged: (updated) {
-                                      toothMap
-                                        ..clear()
-                                        ..addAll(updated);
-                                      setSheetState(() {});
-                                    },
-                                  ),
-                                ),
-                              ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _isEdit ? 'Редактировать запись' : 'Новая запись',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _isEdit
+                                ? 'Обновите данные осмотра'
+                                : 'Заполните данные осмотра пациента',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Закрыть',
+                      onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+                      icon: const Icon(LucideIcons.x),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _FieldLabel(
+                          icon: LucideIcons.fileText,
+                          label: 'Заголовок',
+                        ),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _titleController,
+                          decoration: InputDecoration(
+                            hintText: 'Например: Профилактический осмотр',
+                            filled: true,
+                            fillColor: ClinicTheme.mist.withValues(alpha: 0.4),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          validator: (v) =>
+                              v == null || v.trim().isEmpty ? 'Обязательное поле' : null,
+                        ),
+                        const SizedBox(height: 18),
+                        _FieldLabel(
+                          icon: LucideIcons.pencil,
+                          label: 'Описание / рекомендации',
+                        ),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _descController,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            hintText: 'Что было сделано, рекомендации, назначения…',
+                            filled: true,
+                            fillColor: ClinicTheme.mist.withValues(alpha: 0.4),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
                             ),
                           ),
                         ),
+                        const SizedBox(height: 18),
+                        _FieldLabel(
+                          icon: LucideIcons.tags,
+                          label: 'Теги',
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ..._tags.map(
+                              (tag) => InputChip(
+                                label: Text(tag),
+                                onDeleted: () => setState(() => _tags.remove(tag)),
+                                backgroundColor: ClinicTheme.azureSoft,
+                                labelStyle: const TextStyle(
+                                  color: ClinicTheme.azure,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                deleteIconColor: ClinicTheme.azure,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _tagInputController,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: _addTag,
+                          decoration: InputDecoration(
+                            hintText: 'Добавьте тег и нажмите Enter',
+                            prefixIcon: const Icon(LucideIcons.plus, size: 18),
+                            suffixIcon: IconButton(
+                              icon: const Icon(LucideIcons.cornerDownLeft, size: 18),
+                              onPressed: () => _addTag(_tagInputController.text),
+                            ),
+                            filled: true,
+                            fillColor: ClinicTheme.mist.withValues(alpha: 0.4),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        _FieldLabel(
+                          icon: LucideIcons.badge,
+                          label: 'Стоимость приёма (₸)',
+                        ),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _priceController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: InputDecoration(
+                            hintText: 'Например: 25000',
+                            prefixText: '₸ ',
+                            filled: true,
+                            fillColor: ClinicTheme.mist.withValues(alpha: 0.4),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        _FieldLabel(
+                          icon: LucideIcons.scanLine,
+                          label: 'Зубная карта',
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: ClinicTheme.mist.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: ToothChart(
+                            toothMap: _toothMap,
+                            onChanged: (updated) {
+                              setState(() {
+                                _toothMap
+                                  ..clear()
+                                  ..addAll(updated);
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed:
+                              _isSaving ? null : () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: const Text('Отмена'),
+                        ),
                       ),
-                      SafeArea(
-                        top: false,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: isSaving
-                                      ? null
-                                      : () => Navigator.of(sheetContext).pop(),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: FilledButton.icon(
+                          onPressed: _isSaving ? null : _submit,
+                          icon: _isSaving
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
                                   ),
-                                  child: const Text('Отмена'),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 2,
-                                child: FilledButton.icon(
-                                  onPressed: isSaving ? null : submit,
-                                  icon: isSaving
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : const Icon(LucideIcons.check, size: 18),
-                                  label: Text(isEdit ? 'Сохранить' : 'Добавить запись'),
-                                  style: FilledButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                                )
+                              : const Icon(LucideIcons.check, size: 18),
+                          label: Text(_isEdit ? 'Сохранить' : 'Добавить запись'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
                         ),
                       ),
@@ -678,15 +785,11 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                   ),
                 ),
               ),
-            );
-          },
-        );
-      },
+            ],
+          ),
+        ),
+      ),
     );
-
-    titleController.dispose();
-    descController.dispose();
-    tagInputController.dispose();
   }
 }
 
