@@ -27,6 +27,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
   String _selectedService = '';
   bool _isBooking = false;
   bool _hasActiveBooking = false;
+  String? _selectedDateKey;
 
   @override
   void initState() {
@@ -63,6 +64,61 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
 
   Future<void> _book() async {
     if (_selectedSlot == null || _selectedService.isEmpty) return;
+
+    final slot = _selectedSlot!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final dateLabel = _formatDayLabel(slot.startTime);
+        final timeLabel =
+            '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}';
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Подтвердите запись'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(LucideIcons.user, size: 16, color: ClinicTheme.slate),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(widget.doctor.fullName)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(LucideIcons.calendar, size: 16, color: ClinicTheme.slate),
+                  const SizedBox(width: 8),
+                  Text('$dateLabel, $timeLabel'),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(LucideIcons.stethoscope, size: 16, color: ClinicTheme.slate),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_selectedService)),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Подтвердить'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+
     setState(() => _isBooking = true);
     HapticFeedback.lightImpact();
 
@@ -70,7 +126,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await api.bookSlot(
-        slot: _selectedSlot!,
+        slot: slot,
         service: _selectedService,
       );
       HapticFeedback.mediumImpact();
@@ -264,61 +320,129 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                         final dayKey = '${slot.startTime.year}-${slot.startTime.month.toString().padLeft(2, '0')}-${slot.startTime.day.toString().padLeft(2, '0')}';
                         grouped.putIfAbsent(dayKey, () => []).add(slot);
                       }
+                      final dateKeys = grouped.keys.toList();
+
+                      // Auto-select first date if not yet set
+                      final activeDate = (_selectedDateKey != null && grouped.containsKey(_selectedDateKey))
+                          ? _selectedDateKey!
+                          : dateKeys.first;
+                      if (_selectedDateKey != activeDate) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) setState(() => _selectedDateKey = activeDate);
+                        });
+                      }
+
+                      final slotsForDate = grouped[activeDate] ?? [];
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: grouped.entries.map((entry) {
-                          final date = DateTime.parse(entry.key);
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                child: Text(
-                                  _formatDayLabel(date),
-                                  style: Theme.of(context).textTheme.labelLarge?.copyWith(color: ClinicTheme.slate),
-                                ),
-                              ),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: entry.value.map((slot) {
-                                  final selected = _selectedSlot?.id == slot.id;
-                                  return GestureDetector(
-                                    onTap: () {
-                                      HapticFeedback.selectionClick();
-                                      setState(() => _selectedSlot = slot);
-                                    },
-                                    child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 200),
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                      decoration: BoxDecoration(
-                                        color: selected ? ClinicTheme.azure : ClinicTheme.snow,
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: selected ? null : Border.all(color: ClinicTheme.mist),
-                                        boxShadow: selected ? [
-                                          BoxShadow(
-                                            color: ClinicTheme.azure.withValues(alpha: 0.2),
-                                            blurRadius: 12,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ] : null,
-                                      ),
-                                      child: Text(
-                                        '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}',
-                                        style: TextStyle(
-                                          color: selected ? Colors.white : ClinicTheme.midnight,
-                                          fontWeight: FontWeight.w600,
+                        children: [
+                          // Horizontal date strip
+                          SizedBox(
+                            height: 72,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: dateKeys.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 8),
+                              itemBuilder: (context, index) {
+                                final key = dateKeys[index];
+                                final date = DateTime.parse(key);
+                                final isSelected = key == activeDate;
+                                const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+                                final dayOfWeek = weekDays[date.weekday - 1];
+                                return GestureDetector(
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    setState(() {
+                                      _selectedDateKey = key;
+                                      // Deselect slot if it's not on the new date
+                                      if (_selectedSlot != null) {
+                                        final slotKey = '${_selectedSlot!.startTime.year}-${_selectedSlot!.startTime.month.toString().padLeft(2, '0')}-${_selectedSlot!.startTime.day.toString().padLeft(2, '0')}';
+                                        if (slotKey != key) _selectedSlot = null;
+                                      }
+                                    });
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    width: 56,
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? ClinicTheme.azure : ClinicTheme.snow,
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: isSelected ? null : Border.all(color: ClinicTheme.mist),
+                                      boxShadow: isSelected ? [
+                                        BoxShadow(
+                                          color: ClinicTheme.azure.withValues(alpha: 0.25),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
                                         ),
-                                      ),
+                                      ] : null,
                                     ),
-                                  );
-                                }).toList(),
-                              ),
-                              const SizedBox(height: 8),
-                            ],
-                          );
-                        }).toList(),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          dayOfWeek,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: isSelected ? Colors.white.withValues(alpha: 0.8) : ClinicTheme.slate,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          date.day.toString(),
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w700,
+                                            color: isSelected ? Colors.white : ClinicTheme.midnight,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Time slots for selected date
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: slotsForDate.map((slot) {
+                              final selected = _selectedSlot?.id == slot.id;
+                              return GestureDetector(
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  setState(() => _selectedSlot = slot);
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: selected ? ClinicTheme.azure : ClinicTheme.snow,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: selected ? null : Border.all(color: ClinicTheme.mist),
+                                    boxShadow: selected ? [
+                                      BoxShadow(
+                                        color: ClinicTheme.azure.withValues(alpha: 0.2),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ] : null,
+                                  ),
+                                  child: Text(
+                                    '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}',
+                                    style: TextStyle(
+                                      color: selected ? Colors.white : ClinicTheme.midnight,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
                       );
                     },
                   ),
