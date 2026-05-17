@@ -716,6 +716,7 @@ class ApiService {
     String? appointmentId,
     List<String>? tags,
     List<ToothMark>? toothMap,
+    double? price,
     List<File>? files,
   }) async {
     final response = await _sendMultipart(
@@ -728,6 +729,7 @@ class ApiService {
         if (tags != null) 'tags': tags.join(','),
         if (toothMap != null)
           'toothMap': jsonEncode(toothMap.map((t) => t.toJson()).toList()),
+        if (price != null) 'price': price.toString(),
       },
       files: files,
     );
@@ -741,6 +743,7 @@ class ApiService {
     String? description,
     List<String>? tags,
     List<ToothMark>? toothMap,
+    double? price,
   }) async {
     final response = await http.patch(
       Uri.parse('$_baseUrl/records/$recordId'),
@@ -751,6 +754,7 @@ class ApiService {
         if (tags != null) 'tags': tags,
         if (toothMap != null)
           'toothMap': toothMap.map((t) => t.toJson()).toList(),
+        if (price != null) 'price': price,
       }),
     );
     final data = _decode(response);

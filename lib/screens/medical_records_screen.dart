@@ -1,14 +1,15 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:printing/printing.dart';
-import 'package:pdf/widgets.dart' as pw;
 
 import '../models/medical_record.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
+import '../services/medical_record_pdf.dart';
 import '../theme/clinic_theme.dart';
 import '../widgets/dent_card.dart';
 import '../widgets/dent_badge.dart';
@@ -174,6 +175,22 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                           )).toList(),
                         ),
                       ],
+                      if (record.price > 0) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(LucideIcons.badge, size: 14, color: ClinicTheme.azure),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Стоимость: ${_formatPrice(record.price)} ₸',
+                              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                    color: ClinicTheme.azure,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (_canEdit) ...[
                         const SizedBox(height: 12),
                         Align(
@@ -299,42 +316,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
   }
 
   Future<Uint8List> _buildRecordPdf(MedicalRecord record) async {
-    final doc = pw.Document();
-    final toothRows = record.toothMap
-        .map((item) =>
-            '${item.arch == 'upper' ? 'Верхняя' : 'Нижняя'} '
-            '${item.index}: ${item.status}')
-        .toList();
-    doc.addPage(
-      pw.Page(
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text('Медицинская карта', style: pw.TextStyle(fontSize: 22)),
-            pw.SizedBox(height: 8),
-            pw.Text('Запись: ${record.title}'),
-            pw.Text('Дата: ${_formatDate(record.createdAt)}'),
-            if (record.doctor != null)
-              pw.Text('Врач: ${record.doctor!.fullName}'),
-            if (record.description != null && record.description!.isNotEmpty) ...[
-              pw.SizedBox(height: 12),
-              pw.Text('Описание:'),
-              pw.Text(record.description!),
-            ],
-            if (record.tags.isNotEmpty) ...[
-              pw.SizedBox(height: 12),
-              pw.Text('Теги: ${record.tags.join(', ')}'),
-            ],
-            if (toothRows.isNotEmpty) ...[
-              pw.SizedBox(height: 12),
-              pw.Text('Отметки по зубам:'),
-              pw.Bullet(text: toothRows.join(' · ')),
-            ],
-          ],
-        ),
-      ),
-    );
-    return doc.save();
+    return MedicalRecordPdfBuilder.build(record);
   }
 
   Future<void> _exportRecord(MedicalRecord record) async {
@@ -353,6 +335,17 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
         '${date.year}';
   }
 
+  String _formatPrice(double value) {
+    final intValue = value.round();
+    final str = intValue.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < str.length; i++) {
+      if (i > 0 && (str.length - i) % 3 == 0) buf.write(' ');
+      buf.write(str[i]);
+    }
+    return buf.toString();
+  }
+
   Future<void> _showCreateDialog() async {
     await _showRecordEditor(record: null);
   }
@@ -365,6 +358,9 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
     final isEdit = record != null;
     final titleController = TextEditingController(text: record?.title ?? '');
     final descController = TextEditingController(text: record?.description ?? '');
+    final priceController = TextEditingController(
+      text: (record?.price ?? 0) > 0 ? record!.price.round().toString() : '',
+    );
     final tags = <String>[...?record?.tags];
     final tagInputController = TextEditingController();
     final toothMap = <ToothMark>[...?record?.toothMap];
@@ -396,6 +392,8 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                 tags.add(pending);
               }
               setSheetState(() => isSaving = true);
+              final priceValue =
+                  double.tryParse(priceController.text.replaceAll(RegExp(r'[^0-9.]'), ''));
               try {
                 if (isEdit) {
                   await api.updateMedicalRecord(
@@ -404,6 +402,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                     description: descController.text.trim(),
                     tags: tags,
                     toothMap: toothMap,
+                    price: priceValue ?? 0,
                   );
                 } else {
                   await api.createMedicalRecord(
@@ -414,6 +413,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                         : descController.text.trim(),
                     tags: tags,
                     toothMap: toothMap,
+                    price: priceValue,
                   );
                 }
                 if (!sheetContext.mounted) return;
@@ -601,6 +601,29 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                                 ),
                                 const SizedBox(height: 18),
                                 _FieldLabel(
+                                  icon: LucideIcons.badge,
+                                  label: 'Стоимость приёма (₸)',
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: priceController,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  decoration: InputDecoration(
+                                    hintText: 'Например: 25000',
+                                    prefixText: '₸ ',
+                                    filled: true,
+                                    fillColor: ClinicTheme.mist.withValues(alpha: 0.4),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+                                _FieldLabel(
                                   icon: LucideIcons.scanLine,
                                   label: 'Зубная карта',
                                 ),
@@ -686,6 +709,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
 
     titleController.dispose();
     descController.dispose();
+    priceController.dispose();
     tagInputController.dispose();
   }
 }

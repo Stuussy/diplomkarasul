@@ -15,6 +15,7 @@ const medicalRecordSchema = new mongoose.Schema(
       },
     ],
     tags: [{ type: String }],
+    price: { type: Number, default: 0 },
     toothMap: [
       {
         arch: { type: String, enum: ['upper', 'lower'], required: true },

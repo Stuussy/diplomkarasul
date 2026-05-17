@@ -84,7 +84,7 @@ router.post(
   upload.array('files', 5),
   async (req, res) => {
     try {
-      const { patientId, appointmentId, title, description, tags } = req.body;
+      const { patientId, appointmentId, title, description, tags, price } = req.body;
       if (!patientId) {
         return res.status(400).json({ message: 'Не указан пациент для медицинской записи.' });
       }
@@ -149,6 +149,7 @@ router.post(
         format: file.mimetype,
       }));
 
+      const priceNum = Number(price);
       const record = await MedicalRecord.create({
         patient: patientId,
         doctor: relatedAppointment ? relatedAppointment.doctor : req.user.id,
@@ -158,13 +159,14 @@ router.post(
         attachments,
         tags: tags ? tags.split(',').map((tag) => tag.trim()) : [],
         toothMap,
+        price: Number.isFinite(priceNum) && priceNum > 0 ? priceNum : 0,
         createdBy: req.user.id,
       });
 
-      const populated = await MedicalRecord.findById(record._id).populate(
-        'doctor',
-        'firstName lastName specialties',
-      );
+      const populated = await MedicalRecord.findById(record._id)
+        .populate('doctor', 'firstName lastName specialties')
+        .populate('patient', 'firstName lastName phone email')
+        .populate({ path: 'appointment', populate: { path: 'clinic' } });
       res.status(201).json(populated);
     } catch (error) {
       console.error('Ошибка сохранения записи:', error);
@@ -176,6 +178,8 @@ router.post(
 router.get('/mine', auth(['patient']), async (req, res) => {
   const records = await MedicalRecord.find({ patient: req.user.id })
     .populate('doctor', 'firstName lastName specialties')
+    .populate('patient', 'firstName lastName phone email')
+    .populate({ path: 'appointment', populate: { path: 'clinic' } })
     .sort({ createdAt: -1 });
   res.json(records);
 });
@@ -214,10 +218,11 @@ router.get('/:patientId', auth(['doctor', 'admin', 'superadmin']), async (req, r
       records = await filterAccessibleRecords(records, req.user, adminClinicIds);
     }
 
-    const populatedRecords = await MedicalRecord.populate(records, {
-      path: 'doctor',
-      select: 'firstName lastName specialties',
-    });
+    const populatedRecords = await MedicalRecord.populate(records, [
+      { path: 'doctor', select: 'firstName lastName specialties' },
+      { path: 'patient', select: 'firstName lastName phone email' },
+      { path: 'appointment', populate: { path: 'clinic' } },
+    ]);
 
     res.json(populatedRecords);
   } catch (error) {
@@ -294,10 +299,17 @@ router.patch('/:id', auth(['doctor', 'admin', 'superadmin']), async (req, res) =
       }
       updatable.toothMap = Array.isArray(toothMap) ? toothMap : [];
     }
+    if (req.body.price !== undefined) {
+      const priceNum = Number(req.body.price);
+      updatable.price = Number.isFinite(priceNum) && priceNum > 0 ? priceNum : 0;
+    }
 
     const updated = await MedicalRecord.findByIdAndUpdate(record._id, updatable, {
       new: true,
-    });
+    })
+      .populate('doctor', 'firstName lastName specialties')
+      .populate('patient', 'firstName lastName phone email')
+      .populate({ path: 'appointment', populate: { path: 'clinic' } });
     res.json(updated);
   } catch (error) {
     console.error('Ошибка обновления медицинской записи:', error);
