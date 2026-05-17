@@ -1158,20 +1158,11 @@ class SupportManagerDashboard extends StatefulWidget {
 class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
   String _filter = 'open';
   late Future<List<SupportMessage>> _messagesFuture;
-  final Map<String, TextEditingController> _replyControllers = {};
 
   @override
   void initState() {
     super.initState();
     _messagesFuture = _loadMessages();
-  }
-
-  @override
-  void dispose() {
-    for (final controller in _replyControllers.values) {
-      controller.dispose();
-    }
-    super.dispose();
   }
 
   Future<List<SupportMessage>> _loadMessages() {
@@ -1181,57 +1172,67 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
 
   Future<void> _refresh() async {
     final future = _loadMessages();
-    setState(() { _messagesFuture = future; });
+    setState(() => _messagesFuture = future);
     await future;
-  }
-
-  TextEditingController _controllerForThread(String id) {
-    return _replyControllers.putIfAbsent(id, TextEditingController.new);
-  }
-
-  Future<void> _sendSupportReply(SupportMessage message) async {
-    final controller = _controllerForThread(message.id);
-    if (controller.text.trim().isEmpty) return;
-    final api = context.read<SessionProvider>().apiService;
-    try {
-      await api.replySupportMessage(messageId: message.id, content: controller.text.trim());
-      controller.clear();
-      if (!mounted) return;
-      final future = _loadMessages();
-      setState(() { _messagesFuture = future; });
-      await future;
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Не удалось отправить ответ: $error')));
-    }
-  }
-
-  Future<void> _updateStatus(SupportMessage message, String status) async {
-    final api = context.read<SessionProvider>().apiService;
-    try {
-      await api.updateSupportMessageStatus(message.id, status: status);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Статус обращения обновлен на "$status"')),
-      );
-      _refresh();
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не удалось обновить: $error')),
-      );
-    }
   }
 
   Future<void> _logout() async {
     await context.read<SessionProvider>().logout();
   }
 
+  void _openChat(SupportMessage message) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SupportChatSheet(
+        message: message,
+        onRefresh: _refresh,
+      ),
+    );
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'open':
+        return const Color(0xFF2E7CF6);
+      case 'in_progress':
+        return const Color(0xFFF5A524);
+      case 'resolved':
+        return const Color(0xFF1AAB8A);
+      default:
+        return const Color(0xFF6E7681);
+    }
+  }
+
+  String _statusLabel(String status) {
+    switch (status) {
+      case 'open':
+        return 'Открыто';
+      case 'in_progress':
+        return 'В работе';
+      case 'resolved':
+        return 'Решено';
+      default:
+        return status;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF0F3F6),
       appBar: AppBar(
-        title: const Text('Поддержка пользователей'),
+        title: const Text('Обращения'),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0D1117),
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: const Color(0xFFE1E4E8)),
+        ),
         actions: [
           IconButton(
             onPressed: _refresh,
@@ -1254,27 +1255,47 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: DropdownButtonFormField<String>(
-              initialValue: _filter,
-              items: const [
-                DropdownMenuItem(value: 'all', child: Text('Все')),
-                DropdownMenuItem(value: 'open', child: Text('Открытые')),
-                DropdownMenuItem(value: 'in_progress', child: Text('В работе')),
-                DropdownMenuItem(value: 'resolved', child: Text('Решенные')),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() {
-                  _filter = value;
-                  _messagesFuture = _loadMessages();
-                });
-              },
-              decoration: const InputDecoration(
-                labelText: 'Фильтр статуса',
-                border: OutlineInputBorder(),
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final entry in const [
+                    ('all', 'Все'),
+                    ('open', 'Открытые'),
+                    ('in_progress', 'В работе'),
+                    ('resolved', 'Решённые'),
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(entry.$2),
+                        selected: _filter == entry.$1,
+                        onSelected: (_) => setState(() {
+                          _filter = entry.$1;
+                          _messagesFuture = _loadMessages();
+                        }),
+                        selectedColor: const Color(0xFF2E7CF6),
+                        labelStyle: TextStyle(
+                          color: _filter == entry.$1
+                              ? Colors.white
+                              : const Color(0xFF0D1117),
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                        checkmarkColor: Colors.white,
+                        backgroundColor: const Color(0xFFF0F3F6),
+                        side: BorderSide.none,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                    ),
+                ],
               ),
+            ),
+          ),
+          const SizedBox(height: 1),
             ),
           ),
           Expanded(
@@ -1289,94 +1310,151 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
                   return RefreshIndicator(
                     onRefresh: _refresh,
                     child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: const [
-                        SizedBox(height: 80),
-                        Center(child: Text('Нет обращений')),
+                      padding: const EdgeInsets.all(24),
+                      children: [
+                        const SizedBox(height: 64),
+                        const Icon(LucideIcons.messageSquare,
+                            size: 48, color: Color(0xFF6E7681)),
+                        const SizedBox(height: 16),
+                        const Center(
+                          child: Text(
+                            'Нет обращений',
+                            style: TextStyle(
+                                color: Color(0xFF6E7681), fontSize: 16),
+                          ),
+                        ),
                       ],
                     ),
                   );
                 }
                 return RefreshIndicator(
                   onRefresh: _refresh,
-                  child: ListView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    final controller = _controllerForThread(message.id);
-                    final patientId = message.patient?.id;
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              message.patient?.fullName ?? 'Пользователь',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 4),
-                            Text('Категория: ${message.category} • Статус: ${message.status}'),
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF5F7FA),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  for (final entry in message.history)
-                                    _SupportChatBubble(
-                                      entry: entry,
-                                      isPatient: entry.sender?.id == patientId ||
-                                          entry.sender?.role == 'patient',
-                                    ),
-                                  if (message.history.isEmpty)
-                                    Text(
-                                      message.content,
-                                      style: const TextStyle(color: Color(0xFF6E7681)),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
+                  child: ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: messages.length,
+                    separatorBuilder: (_, __) => const Divider(
+                        height: 1, indent: 72, endIndent: 0),
+                    itemBuilder: (context, index) {
+                      final msg = messages[index];
+                      final lastEntry = msg.history.isNotEmpty
+                          ? msg.history.last
+                          : null;
+                      final preview = lastEntry?.content ?? msg.content;
+                      final isFromPatient = lastEntry == null ||
+                          lastEntry.sender?.id == msg.patient?.id ||
+                          lastEntry.sender?.role == 'patient';
+                      final statusColor = _statusColor(msg.status);
+                      final statusLabel = _statusLabel(msg.status);
+                      return Material(
+                        color: Colors.white,
+                        child: InkWell(
+                          onTap: () => _openChat(msg),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            child: Row(
                               children: [
-                                TextButton(
-                                  onPressed: () => _updateStatus(message, 'in_progress'),
-                                  child: const Text('В работу'),
+                                CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor:
+                                      const Color(0xFF2E7CF6).withValues(alpha: 0.12),
+                                  child: Text(
+                                    (msg.patient?.fullName ?? '?')
+                                        .substring(0, 1)
+                                        .toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Color(0xFF2E7CF6),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 18,
+                                    ),
+                                  ),
                                 ),
-                                TextButton(
-                                  onPressed: () => _updateStatus(message, 'resolved'),
-                                  child: const Text('Решить'),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              msg.patient?.fullName ??
+                                                  'Пользователь',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 15,
+                                                color: Color(0xFF0D1117),
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          Container(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: statusColor
+                                                  .withValues(alpha: 0.12),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                            ),
+                                            child: Text(
+                                              statusLabel,
+                                              style: TextStyle(
+                                                color: statusColor,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          if (!isFromPatient)
+                                            const Text(
+                                              'Вы: ',
+                                              style: TextStyle(
+                                                color: Color(0xFF6E7681),
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          Expanded(
+                                            child: Text(
+                                              preview,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: Color(0xFF6E7681),
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Категория: ${msg.category}',
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF9CA3AF)),
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                                const Icon(LucideIcons.chevronRight,
+                                    size: 18, color: Color(0xFFD0D5DD)),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: controller,
-                              minLines: 2,
-                              maxLines: 4,
-                              decoration: InputDecoration(
-                                labelText: 'Ответ клиенту',
-                                border: const OutlineInputBorder(),
-                                suffixIcon: IconButton(
-                                  onPressed: () => _sendSupportReply(message),
-                                  icon: const Icon(LucideIcons.send, size: 20),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      );
+                    },
+                  ),
                 );
               },
             ),
@@ -2028,6 +2106,257 @@ Widget _buildErrorCard(String message) {
       child: Text(message),
     ),
   );
+}
+
+class _SupportChatSheet extends StatefulWidget {
+  const _SupportChatSheet({required this.message, required this.onRefresh});
+
+  final SupportMessage message;
+  final Future<void> Function() onRefresh;
+
+  @override
+  State<_SupportChatSheet> createState() => _SupportChatSheetState();
+}
+
+class _SupportChatSheetState extends State<_SupportChatSheet> {
+  final _controller = TextEditingController();
+  final _scrollController = ScrollController();
+  late SupportMessage _message;
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _message = widget.message;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _send() async {
+    if (_controller.text.trim().isEmpty) return;
+    setState(() => _sending = true);
+    final api = context.read<SessionProvider>().apiService;
+    try {
+      await api.replySupportMessage(
+          messageId: _message.id, content: _controller.text.trim());
+      _controller.clear();
+      final refreshed = await api.fetchSupportMessages();
+      final updated =
+          refreshed.where((m) => m.id == _message.id).toList();
+      if (mounted && updated.isNotEmpty) {
+        setState(() => _message = updated.first);
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _scrollToBottom());
+      }
+      widget.onRefresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось отправить: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _updateStatus(String status) async {
+    final api = context.read<SessionProvider>().apiService;
+    try {
+      await api.updateSupportMessageStatus(_message.id, status: status);
+      widget.onRefresh();
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось обновить: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final patientId = _message.patient?.id;
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    return Container(
+      height: MediaQuery.sizeOf(context).height * 0.88,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF0F3F6),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          const SizedBox(height: 8),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD0D5DD),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Header
+          Container(
+            color: Colors.white,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor:
+                      const Color(0xFF2E7CF6).withValues(alpha: 0.12),
+                  child: Text(
+                    (_message.patient?.fullName ?? '?')
+                        .substring(0, 1)
+                        .toUpperCase(),
+                    style: const TextStyle(
+                      color: Color(0xFF2E7CF6),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _message.patient?.fullName ?? 'Пользователь',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: Color(0xFF0D1117),
+                        ),
+                      ),
+                      Text(
+                        'Категория: ${_message.category}',
+                        style: const TextStyle(
+                            fontSize: 12, color: Color(0xFF6E7681)),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_message.status != 'in_progress')
+                  TextButton(
+                    onPressed: () => _updateStatus('in_progress'),
+                    child: const Text('В работу',
+                        style: TextStyle(fontSize: 13)),
+                  ),
+                if (_message.status != 'resolved')
+                  TextButton(
+                    onPressed: () => _updateStatus('resolved'),
+                    style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF1AAB8A)),
+                    child: const Text('Решить',
+                        style: TextStyle(fontSize: 13)),
+                  ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Messages
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+              itemCount: _message.history.isEmpty
+                  ? 1
+                  : _message.history.length,
+              itemBuilder: (context, index) {
+                if (_message.history.isEmpty) {
+                  return _SupportChatBubble(
+                    entry: SupportMessageEntry(
+                      sender: _message.patient,
+                      content: _message.content,
+                      createdAt: DateTime.now(),
+                    ),
+                    isPatient: true,
+                  );
+                }
+                final entry = _message.history[index];
+                final isPatient = entry.sender?.id == patientId ||
+                    entry.sender?.role == 'patient';
+                return _SupportChatBubble(
+                    entry: entry, isPatient: isPatient);
+              },
+            ),
+          ),
+          // Reply bar
+          Container(
+            color: Colors.white,
+            padding: EdgeInsets.fromLTRB(12, 10, 12, 10 + bottom),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    minLines: 1,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.newline,
+                    decoration: InputDecoration(
+                      hintText: 'Ответ клиенту…',
+                      hintStyle:
+                          const TextStyle(color: Color(0xFF9CA3AF)),
+                      filled: true,
+                      fillColor: const Color(0xFFF0F3F6),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _sending
+                    ? const SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : GestureDetector(
+                        onTap: _send,
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFF2E7CF6),
+                                Color(0xFF5B9BFF)
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          child: const Icon(LucideIcons.send,
+                              color: Colors.white, size: 20),
+                        ),
+                      ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SupportChatBubble extends StatelessWidget {
