@@ -64,6 +64,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await context.read<SessionProvider>().logout();
   }
 
+  Future<void> _editProfile() async {
+    final user = context.read<SessionProvider>().user;
+    if (user == null) return;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditProfileSheet(user: user),
+    );
+  }
+
   Future<void> _changePassword() async {
     final oldController = TextEditingController();
     final newController = TextEditingController();
@@ -181,6 +193,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       const Spacer(),
+                      GestureDetector(
+                        onTap: _editProfile,
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                          ),
+                          child: const Icon(LucideIcons.pencil, color: Colors.white, size: 17),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -359,6 +384,221 @@ class _ProfileScreenState extends State<ProfileScreen> {
       default:
         return role;
     }
+  }
+}
+
+class _EditProfileSheet extends StatefulWidget {
+  const _EditProfileSheet({required this.user});
+  final AppUser user;
+
+  @override
+  State<_EditProfileSheet> createState() => _EditProfileSheetState();
+}
+
+class _EditProfileSheetState extends State<_EditProfileSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _firstNameController;
+  late final TextEditingController _lastNameController;
+  late final TextEditingController _phoneController;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _firstNameController = TextEditingController(text: widget.user.firstName);
+    _lastNameController = TextEditingController(text: widget.user.lastName);
+    _phoneController = TextEditingController(text: widget.user.phone ?? '');
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    final session = context.read<SessionProvider>();
+    final error = await session.updateProfile(
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(error),
+        backgroundColor: ClinicTheme.coral,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
+    } else {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Профиль обновлён ✓'),
+        backgroundColor: ClinicTheme.mint,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: ClinicTheme.line,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  gradient: ClinicTheme.heroGradient,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(LucideIcons.userCog, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Редактировать профиль',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: ClinicTheme.midnight,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: _buildField(_firstNameController, 'Имя', LucideIcons.user,
+                        validator: (v) => v == null || v.trim().isEmpty ? 'Введите имя' : null)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildField(_lastNameController, 'Фамилия', LucideIcons.user,
+                        validator: (v) => v == null || v.trim().isEmpty ? 'Введите фамилию' : null)),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _buildField(
+                  _phoneController, 'Номер телефона', LucideIcons.phone,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s()]'))],
+                  validator: (v) {
+                    final raw = v?.trim() ?? '';
+                    if (raw.isEmpty) return null;
+                    final digits = raw.replaceAll(RegExp(r'\D'), '');
+                    if (digits.length < 10) return 'Некорректный номер';
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 22),
+          SizedBox(
+            height: 52,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: ClinicTheme.heroGradient,
+                borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+                boxShadow: [
+                  BoxShadow(
+                    color: ClinicTheme.azure.withValues(alpha: 0.3),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: ElevatedButton(
+                onPressed: _saving ? null : _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(ClinicTheme.radiusS)),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                      )
+                    : const Text('Сохранить',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildField(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      validator: validator,
+      style: const TextStyle(color: ClinicTheme.midnight, fontSize: 15),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: ClinicTheme.slate, fontSize: 14),
+        floatingLabelStyle: const TextStyle(color: ClinicTheme.azure, fontWeight: FontWeight.w500),
+        prefixIcon: Icon(icon, color: ClinicTheme.slate, size: 18),
+        filled: true,
+        fillColor: ClinicTheme.mist.withValues(alpha: 0.5),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.line),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.line),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.azure, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.coral),
+        ),
+        errorStyle: const TextStyle(color: ClinicTheme.coral),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+    );
   }
 }
 
