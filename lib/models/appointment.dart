@@ -36,11 +36,14 @@ class Appointment {
   DateTime get endTime => startTime.add(Duration(minutes: durationMinutes));
 
   factory Appointment.fromJson(Map<String, dynamic> json) {
+    final rawDoctor = json['doctor'];
+    final rawPatient = json['patient'];
+    final rawClinic = json['clinic'];
     return Appointment(
       id: json['_id'] ?? '',
-      doctor: json['doctor'] != null ? AppUser.fromJson(json['doctor']) : null,
-      patient: json['patient'] != null ? AppUser.fromJson(json['patient']) : null,
-      clinic: json['clinic'] != null ? Clinic.fromJson(json['clinic']) : null,
+      doctor: rawDoctor is Map<String, dynamic> ? AppUser.fromJson(rawDoctor) : null,
+      patient: rawPatient is Map<String, dynamic> ? AppUser.fromJson(rawPatient) : null,
+      clinic: rawClinic is Map<String, dynamic> ? Clinic.fromJson(rawClinic) : null,
       service: json['service'] ?? '',
       startTime: DateTime.parse(json['startTime']).toLocal(),
       durationMinutes: json['durationMinutes'] ?? 30,
@@ -54,7 +57,7 @@ class Appointment {
       cancelBefore:
           json['cancelBefore'] != null ? DateTime.parse(json['cancelBefore']).toLocal() : null,
       fineIssued: json['fineIssued'] ?? false,
-      review: json['review'] != null ? Review.fromJson(json['review']) : null,
+      review: json['review'] is Map<String, dynamic> ? Review.fromJson(json['review']) : null,
     );
   }
 }

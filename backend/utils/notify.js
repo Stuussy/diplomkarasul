@@ -13,7 +13,13 @@ async function createNotification(userId, payload) {
 }
 
 async function notifyMany(userIds, payload) {
-  const unique = Array.from(new Set((userIds || []).filter(Boolean).map((id) => id.toString())));
+  const unique = Array.from(
+    new Set(
+      (userIds || [])
+        .filter(Boolean)
+        .map((id) => (id && id._id ? id._id : id).toString()),
+    ),
+  );
   if (unique.length === 0) return [];
   const docs = unique.map((user) => ({
     user,

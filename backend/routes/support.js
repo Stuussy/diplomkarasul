@@ -111,7 +111,8 @@ router.post('/:id/reply', auth(supportScopes), async (req, res) => {
   if (!message) {
     return res.status(404).json({ message: 'Обращение не найдено.' });
   }
-  if (req.user.role === 'patient' && message.patient.toString() !== req.user.id) {
+  const patientId = message.patient?._id?.toString() || message.patient?.toString();
+  if (req.user.role === 'patient' && patientId !== req.user.id) {
     return res.status(403).json({ message: 'Нет доступа.' });
   }
 

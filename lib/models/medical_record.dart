@@ -20,7 +20,7 @@ class MedicalRecord {
   final List<ToothMark> toothMap;
 
   factory MedicalRecord.fromJson(Map<String, dynamic> json) {
-    final doctorJson = json['doctor'] as Map<String, dynamic>?;
+    final rawDoctor = json['doctor'];
     return MedicalRecord(
       id: json['_id']?.toString() ?? '',
       title: json['title'] ?? '',
@@ -28,7 +28,7 @@ class MedicalRecord {
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt']).toLocal()
           : DateTime.fromMillisecondsSinceEpoch(0),
-      doctor: doctorJson != null ? AppUser.fromJson(doctorJson) : null,
+      doctor: rawDoctor is Map<String, dynamic> ? AppUser.fromJson(rawDoctor) : null,
       tags: (json['tags'] as List<dynamic>? ?? []).cast<String>(),
       toothMap: (json['toothMap'] as List<dynamic>? ?? [])
           .map((item) => ToothMark.fromJson(item as Map<String, dynamic>))

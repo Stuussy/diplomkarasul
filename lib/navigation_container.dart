@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -51,6 +53,7 @@ class _PatientNavigationShell extends StatefulWidget {
 
 class _PatientNavigationShellState extends State<_PatientNavigationShell> {
   int _selectedIndex = 0;
+  Timer? _unreadTimer;
 
   late final List<Widget> _options;
   late final List<String> _titles;
@@ -65,6 +68,18 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
       ProfileScreen(),
     ];
     _titles = const ['Главная', 'Карта', 'Записи', 'Профиль'];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SessionProvider>().refreshUnreadNotifications();
+    });
+    _unreadTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) context.read<SessionProvider>().refreshUnreadNotifications();
+    });
+  }
+
+  @override
+  void dispose() {
+    _unreadTimer?.cancel();
+    super.dispose();
   }
 
   void _onItemTapped(int index) {
@@ -120,11 +135,19 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
                   _NavAction(
                     icon: LucideIcons.bell,
                     tooltip: 'Уведомления',
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const NotificationsScreen(),
-                      ),
-                    ),
+                    badge: context.watch<SessionProvider>().unreadNotifications,
+                    onPressed: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationsScreen(),
+                        ),
+                      );
+                      if (mounted) {
+                        context
+                            .read<SessionProvider>()
+                            .refreshUnreadNotifications();
+                      }
+                    },
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -199,18 +222,51 @@ class _NavAction extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
+    this.badge = 0,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
+    final button = IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
       icon: Icon(icon, size: 22, color: ClinicTheme.slate),
+    );
+    if (badge <= 0) return button;
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        button,
+        Positioned(
+          top: 8,
+          right: 6,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: Colors.white, width: 1.5),
+            ),
+            child: Text(
+              badge > 99 ? '99+' : '$badge',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                height: 1.1,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

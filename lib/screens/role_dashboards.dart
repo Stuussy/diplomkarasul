@@ -1124,9 +1124,9 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
   }
 
   Future<void> _refresh() async {
-    setState(() {
-      _messagesFuture = _loadMessages();
-    });
+    final future = _loadMessages();
+    setState(() { _messagesFuture = future; });
+    await future;
   }
 
   TextEditingController _controllerForThread(String id) {
@@ -1141,7 +1141,9 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
       await api.replySupportMessage(messageId: message.id, content: controller.text.trim());
       controller.clear();
       if (!mounted) return;
-      setState(() => _messagesFuture = _loadMessages());
+      final future = _loadMessages();
+      setState(() { _messagesFuture = future; });
+      await future;
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -1228,14 +1230,27 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
                 }
                 final messages = snapshot.data ?? [];
                 if (messages.isEmpty) {
-                  return const Center(child: Text('Нет обращений'));
+                  return RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: const [
+                        SizedBox(height: 80),
+                        Center(child: Text('Нет обращений')),
+                      ],
+                    ),
+                  );
                 }
-                return ListView.builder(
+                return RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
                     final controller = _controllerForThread(message.id);
+                    final patientId = message.patient?.id;
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
                       child: Padding(
@@ -1248,9 +1263,31 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
                               style: const TextStyle(fontWeight: FontWeight.w600),
                             ),
                             const SizedBox(height: 4),
-                            Text('Категория: ${message.category}'),
-                            const SizedBox(height: 8),
-                            Text(message.content),
+                            Text('Категория: ${message.category} • Статус: ${message.status}'),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5F7FA),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (final entry in message.history)
+                                    _SupportChatBubble(
+                                      entry: entry,
+                                      isPatient: entry.sender?.id == patientId ||
+                                          entry.sender?.role == 'patient',
+                                    ),
+                                  if (message.history.isEmpty)
+                                    Text(
+                                      message.content,
+                                      style: const TextStyle(color: Color(0xFF6E7681)),
+                                    ),
+                                ],
+                              ),
+                            ),
                             const SizedBox(height: 12),
                             Row(
                               children: [
@@ -1283,6 +1320,7 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
                       ),
                     );
                   },
+                ),
                 );
               },
             ),
@@ -1934,6 +1972,51 @@ Widget _buildErrorCard(String message) {
       child: Text(message),
     ),
   );
+}
+
+class _SupportChatBubble extends StatelessWidget {
+  const _SupportChatBubble({required this.entry, required this.isPatient});
+
+  final SupportMessageEntry entry;
+  final bool isPatient;
+
+  @override
+  Widget build(BuildContext context) {
+    final senderName = entry.sender?.fullName ??
+        (isPatient ? 'Пациент' : 'Поддержка');
+    final time = '${entry.createdAt.day.toString().padLeft(2, '0')}.'
+        '${entry.createdAt.month.toString().padLeft(2, '0')} '
+        '${entry.createdAt.hour.toString().padLeft(2, '0')}:'
+        '${entry.createdAt.minute.toString().padLeft(2, '0')}';
+    return Align(
+      alignment: isPatient ? Alignment.centerLeft : Alignment.centerRight,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        constraints: const BoxConstraints(maxWidth: 480),
+        decoration: BoxDecoration(
+          color: isPatient ? Colors.white : const Color(0xFFDDEBFF),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE3E7EC)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$senderName • $time',
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF6E7681),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(entry.content),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _StatCard extends StatelessWidget {

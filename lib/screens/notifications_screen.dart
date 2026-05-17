@@ -27,21 +27,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = _load());
-    await _future;
+    final future = _load();
+    setState(() { _future = future; });
+    await future;
   }
 
   Future<void> _markAllRead() async {
-    final api = context.read<SessionProvider>().apiService;
-    await api.markAllNotificationsRead();
-    await _refresh();
+    final messenger = ScaffoldMessenger.of(context);
+    final session = context.read<SessionProvider>();
+    try {
+      await session.apiService.markAllNotificationsRead();
+      await session.refreshUnreadNotifications();
+      await _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Не удалось: $e')));
+    }
   }
 
   Future<void> _markRead(AppNotification notification) async {
     if (notification.isRead) return;
-    final api = context.read<SessionProvider>().apiService;
-    await api.markNotificationRead(notification.id);
-    await _refresh();
+    final session = context.read<SessionProvider>();
+    try {
+      await session.apiService.markNotificationRead(notification.id);
+      await session.refreshUnreadNotifications();
+      await _refresh();
+    } catch (_) {}
   }
 
   String _formatDate(DateTime date) {
