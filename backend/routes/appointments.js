@@ -403,13 +403,13 @@ router.post('/qr-confirm', auth(['patient']), async (req, res) => {
     return res.status(404).json({ message: 'Клиника не найдена.' });
   }
 
-  const windowStart = dayjs().subtract(4, 'hour').toDate();
-  const windowEnd = dayjs().add(1, 'day').toDate();
+  const windowStart = dayjs().subtract(1, 'day').toDate();
+  const windowEnd = dayjs().add(7, 'day').toDate();
 
   const appointment = await Appointment.findOne({
     patient: req.user.id,
     clinic: clinicId,
-    status: 'scheduled',
+    status: { $in: ['scheduled', 'confirmed'] },
     startTime: { $gte: windowStart, $lte: windowEnd },
   })
     .sort({ startTime: 1 })
@@ -418,10 +418,15 @@ router.post('/qr-confirm', auth(['patient']), async (req, res) => {
     .populate('clinic');
 
   if (!appointment) {
-    return res.status(404).json({ message: 'Нет подходящих записей для подтверждения.' });
+    return res.status(404).json({
+      message:
+        'Нет подходящих записей: в этой клинике на ближайшие 7 дней не найдено активных записей.',
+    });
   }
 
-  appointment.status = 'confirmed';
+  if (appointment.status !== 'confirmed') {
+    appointment.status = 'confirmed';
+  }
   appointment.confirmedAt = new Date();
   await appointment.save();
 
