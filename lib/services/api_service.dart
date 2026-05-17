@@ -737,6 +737,14 @@ class ApiService {
     return MedicalRecord.fromJson(data);
   }
 
+  Future<void> deleteMedicalRecord(String recordId) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/records/$recordId'),
+      headers: _headers(),
+    );
+    _decode(response);
+  }
+
   Future<MedicalRecord> updateMedicalRecord({
     required String recordId,
     String? title,

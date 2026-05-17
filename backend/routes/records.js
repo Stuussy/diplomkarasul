@@ -317,4 +317,40 @@ router.patch('/:id', auth(['doctor', 'admin', 'superadmin']), async (req, res) =
   }
 });
 
+router.delete('/:id', auth(['doctor', 'admin', 'superadmin']), async (req, res) => {
+  try {
+    const record = await MedicalRecord.findById(req.params.id);
+    if (!record) {
+      return res.status(404).json({ message: 'Запись не найдена.' });
+    }
+
+    if (req.user.role === 'doctor') {
+      if (!idsEqual(record.doctor, req.user.id)) {
+        return res.status(403).json({ message: 'Можно удалять только свои записи.' });
+      }
+    } else if (req.user.role === 'admin') {
+      const adminClinicIds = await getAdminClinicIds(req.user.id);
+      if (adminClinicIds.length === 0) {
+        return res.status(403).json({ message: 'Нет доступа к клиникам.' });
+      }
+      let allowed = false;
+      if (record.appointment) {
+        const appt = await Appointment.findById(record.appointment).select('clinic');
+        if (appt && adminClinicIds.includes(appt.clinic.toString())) allowed = true;
+      } else if (idsEqual(record.createdBy, req.user.id)) {
+        allowed = true;
+      }
+      if (!allowed) {
+        return res.status(403).json({ message: 'Нет доступа к этой записи.' });
+      }
+    }
+
+    await record.deleteOne();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Ошибка удаления медицинской записи:', error);
+    res.status(500).json({ message: 'Не удалось удалить медицинскую запись.' });
+  }
+});
+
 module.exports = router;

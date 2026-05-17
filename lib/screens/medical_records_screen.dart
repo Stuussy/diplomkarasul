@@ -193,13 +193,24 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                       ],
                       if (_canEdit) ...[
                         const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton.icon(
-                            onPressed: () => _showEditDialog(record),
-                            icon: const Icon(LucideIcons.pencil, size: 14),
-                            label: const Text('Редактировать'),
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton.icon(
+                              onPressed: () => _confirmDelete(record),
+                              icon: const Icon(LucideIcons.trash, size: 14),
+                              label: const Text('Удалить'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFFE36A45),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            TextButton.icon(
+                              onPressed: () => _showEditDialog(record),
+                              icon: const Icon(LucideIcons.pencil, size: 14),
+                              label: const Text('Редактировать'),
+                            ),
+                          ],
                         ),
                       ],
                     ],
@@ -350,6 +361,46 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
     await _showRecordEditor(record: null);
   }
 
+  Future<void> _confirmDelete(MedicalRecord record) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final api = context.read<SessionProvider>().apiService;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Удалить запись?'),
+          content: Text(
+            'Запись «${record.title}» будет удалена безвозвратно.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFE36A45),
+              ),
+              child: const Text('Удалить'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+    try {
+      await api.deleteMedicalRecord(record.id);
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('Запись удалена')));
+      await _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+    }
+  }
+
   Future<void> _showEditDialog(MedicalRecord record) async {
     await _showRecordEditor(record: record);
   }
@@ -367,6 +418,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
     final formKey = GlobalKey<FormState>();
     final api = context.read<SessionProvider>().apiService;
     final pageMessenger = ScaffoldMessenger.of(context);
+    bool isSaving = false;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -375,7 +427,6 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (innerContext, setSheetState) {
-            bool isSaving = false;
 
             void addTag(String value) {
               final clean = value.trim();
@@ -417,6 +468,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                   );
                 }
                 if (!sheetContext.mounted) return;
+                FocusScope.of(sheetContext).unfocus();
                 Navigator.of(sheetContext).pop();
                 if (!mounted) return;
                 pageMessenger.showSnackBar(
@@ -424,11 +476,13 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                 );
                 await _refresh();
               } catch (error) {
-                if (!sheetContext.mounted) return;
+                if (!sheetContext.mounted) {
+                  pageMessenger.showSnackBar(SnackBar(content: Text('Ошибка: $error')));
+                  return;
+                }
                 ScaffoldMessenger.of(sheetContext).showSnackBar(
                   SnackBar(content: Text('Ошибка: $error')),
                 );
-              } finally {
                 if (innerContext.mounted) setSheetState(() => isSaving = false);
               }
             }
