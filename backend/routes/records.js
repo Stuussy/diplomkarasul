@@ -161,7 +161,11 @@ router.post(
         createdBy: req.user.id,
       });
 
-      res.status(201).json(record);
+      const populated = await MedicalRecord.findById(record._id).populate(
+        'doctor',
+        'firstName lastName specialties',
+      );
+      res.status(201).json(populated);
     } catch (error) {
       console.error('Ошибка сохранения записи:', error);
       res.status(500).json({ message: 'Не удалось сохранить медицинскую запись.' });
