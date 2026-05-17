@@ -1296,8 +1296,6 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
             ),
           ),
           const SizedBox(height: 1),
-            ),
-          ),
           Expanded(
             child: FutureBuilder<List<SupportMessage>>(
               future: _messagesFuture,
