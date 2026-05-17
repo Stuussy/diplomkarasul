@@ -52,6 +52,45 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     });
   }
 
+  Future<void> _completeAppointment(Appointment appointment) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final api = context.read<SessionProvider>().apiService;
+    final patientName = appointment.patient?.fullName ?? 'пациент';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Завершить приём?'),
+          content: Text(
+            'Приём «$patientName» (${appointment.service}) будет помечен как завершённый.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Отмена'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              icon: const Icon(LucideIcons.checkCheck, size: 16),
+              label: const Text('Завершить'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+    try {
+      await api.completeAppointment(appointment.id);
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('Приём завершён ✓')));
+      await _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+    }
+  }
+
   Future<void> _logout() async {
     await context.read<SessionProvider>().logout();
   }
@@ -171,43 +210,60 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                       ),
                       const SizedBox(height: 4),
                       ...appointments.map(
-                        (appointment) => ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(
-                            appointment.status == 'confirmed'
-                                ? LucideIcons.checkCircle
-                                : LucideIcons.clock,
-                            color: appointment.status == 'confirmed' ? const Color(0xFF1AAB8A) : const Color(0xFF2E7CF6),
-                          ),
-                          title: Text(
-                              '${appointment.patient?.fullName ?? 'Пациент'} • ${appointment.service}'),
-                          subtitle:
-                              Text('${_formatDate(appointment.startTime)} · ${appointment.status}'),
-                          trailing: Wrap(
-                            spacing: 8,
-                            children: [
-                              IconButton(
-                                tooltip: 'Медкарта',
-                                onPressed: appointment.patient == null
-                                    ? null
-                                    : () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => MedicalRecordsScreen(
-                                              patientId: appointment.patient!.id,
-                                              title:
-                                                  'Карта: ${appointment.patient!.fullName}',
-                                              allowCreate: true,
-                                              allowEdit: true,
+                        (appointment) {
+                          final isActive = appointment.status == 'scheduled' ||
+                              appointment.status == 'confirmed';
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              appointment.status == 'completed'
+                                  ? LucideIcons.checkCheck
+                                  : appointment.status == 'confirmed'
+                                      ? LucideIcons.checkCircle
+                                      : LucideIcons.clock,
+                              color: appointment.status == 'completed'
+                                  ? const Color(0xFF1AAB8A)
+                                  : appointment.status == 'confirmed'
+                                      ? const Color(0xFF1AAB8A)
+                                      : const Color(0xFF2E7CF6),
+                            ),
+                            title: Text(
+                                '${appointment.patient?.fullName ?? 'Пациент'} • ${appointment.service}'),
+                            subtitle: Text(
+                                '${_formatDate(appointment.startTime)} · ${appointment.status}'),
+                            trailing: Wrap(
+                              spacing: 4,
+                              children: [
+                                if (isActive)
+                                  IconButton(
+                                    tooltip: 'Завершить приём',
+                                    onPressed: () => _completeAppointment(appointment),
+                                    icon: const Icon(LucideIcons.checkCheck,
+                                        size: 20, color: Color(0xFF1AAB8A)),
+                                  ),
+                                IconButton(
+                                  tooltip: 'Медкарта',
+                                  onPressed: appointment.patient == null
+                                      ? null
+                                      : () {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => MedicalRecordsScreen(
+                                                patientId: appointment.patient!.id,
+                                                title:
+                                                    'Карта: ${appointment.patient!.fullName}',
+                                                allowCreate: true,
+                                                allowEdit: true,
+                                              ),
                                             ),
-                                          ),
-                                        );
-                                      },
-                                icon: const Icon(LucideIcons.folderHeart, size: 20),
-                              ),
-                            ],
-                          ),
-                        ),
+                                          );
+                                        },
+                                  icon: const Icon(LucideIcons.folderHeart, size: 20),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

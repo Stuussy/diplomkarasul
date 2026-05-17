@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -7,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import '../../providers/session_provider.dart';
 import '../../theme/clinic_theme.dart';
-import '../../widgets/glass_container.dart';
 import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -22,38 +19,25 @@ class _LoginScreenState extends State<LoginScreen>
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _phoneController = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _obscureConfirm = true;
 
-  late AnimationController _bgAnimController;
-  late Animation<Alignment> _bgAlign;
-
-  @override
-  void initState() {
-    super.initState();
-    _bgAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat(reverse: true);
-    _bgAlign = AlignmentTween(
-      begin: const Alignment(-1.0, -1.0),
-      end: const Alignment(1.0, 0.5),
-    ).animate(CurvedAnimation(
-      parent: _bgAnimController,
-      curve: Curves.easeInOut,
-    ));
-  }
+  static final _passwordRegex = RegExp(r'^(?=.*[A-ZА-ЯЁ])(?=.*[!@#\$%^&*(),.?":{}|<>_\-+=/\\\[\]~`;]).{6,}$');
 
   @override
   void dispose() {
-    _bgAnimController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -76,6 +60,7 @@ class _LoginScreenState extends State<LoginScreen>
           lastName: _lastNameController.text.trim(),
           email: email,
           password: _passwordController.text,
+          phone: _phoneController.text.trim(),
         );
       }
     } catch (e) {
@@ -97,39 +82,37 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: ClinicTheme.mist,
       body: Stack(
         children: [
-          // Animated gradient background
-          AnimatedBuilder(
-            animation: _bgAlign,
-            builder: (context, _) => Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: _bgAlign.value,
-                  end: Alignment.bottomRight,
-                  colors: const [
-                    Color(0xFF1E3A5F),
-                    Color(0xFF0D1117),
-                    Color(0xFF0D1117),
-                  ],
-                  stops: const [0.0, 0.6, 1.0],
-                ),
-              ),
-            ),
-          ),
-
-          // Radial glow
           Positioned(
-            top: -80,
-            right: -60,
+            top: -120,
+            right: -80,
             child: Container(
-              width: 300,
-              height: 300,
+              width: 360,
+              height: 360,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    ClinicTheme.azure.withValues(alpha: 0.25),
+                    ClinicTheme.azure.withValues(alpha: 0.18),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -140,
+            left: -100,
+            child: Container(
+              width: 320,
+              height: 320,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    ClinicTheme.mint.withValues(alpha: 0.16),
                     Colors.transparent,
                   ],
                 ),
@@ -137,196 +120,233 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          // Violet glow bottom
-          Positioned(
-            bottom: -100,
-            left: -80,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    ClinicTheme.violet.withValues(alpha: 0.15),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Content
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 40),
-
-                    // Logo
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.1),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 28),
+                      _BrandHeader(isLogin: _isLogin),
+                      const SizedBox(height: 24),
+                      _SegmentedToggle(
+                        isLogin: _isLogin,
+                        onChanged: (v) => setState(() => _isLogin = v),
+                      ),
+                      const SizedBox(height: 18),
+                      Container(
+                        padding: const EdgeInsets.all(22),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(ClinicTheme.radiusL),
+                          border: Border.all(color: ClinicTheme.line),
+                          boxShadow: [
+                            BoxShadow(
+                              color: ClinicTheme.azure.withValues(alpha: 0.06),
+                              blurRadius: 32,
+                              offset: const Offset(0, 14),
+                            ),
+                          ],
                         ),
-                      ),
-                      child: const Icon(
-                        LucideIcons.stethoscope,
-                        color: Colors.white,
-                        size: 36,
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Title
-                    Text(
-                      'Добро пожаловать',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(color: Colors.white),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _isLogin
-                          ? 'Войдите в свой аккаунт'
-                          : 'Создайте новый аккаунт',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(color: Colors.white70),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Glass card with form
-                    GlassContainer(
-                      padding: const EdgeInsets.all(24),
-                      child: Form(
-                        key: _formKey,
-                        child: AnimatedSize(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                          child: Column(
-                            children: [
-                              AnimatedCrossFade(
-                                duration: const Duration(milliseconds: 300),
-                                crossFadeState: _isLogin
-                                    ? CrossFadeState.showFirst
-                                    : CrossFadeState.showSecond,
-                                firstChild: const SizedBox.shrink(),
-                                secondChild: Column(
-                                  children: [
-                                    _buildField(
-                                      controller: _firstNameController,
-                                      hint: 'Имя',
-                                      icon: LucideIcons.user,
-                                      validator: _isLogin
-                                          ? null
-                                          : (v) => v == null || v.isEmpty
-                                              ? 'Введите имя'
-                                              : null,
-                                    ),
-                                    const SizedBox(height: 14),
-                                    _buildField(
-                                      controller: _lastNameController,
-                                      hint: 'Фамилия',
-                                      icon: LucideIcons.user,
-                                      validator: _isLogin
-                                          ? null
-                                          : (v) => v == null || v.isEmpty
-                                              ? 'Введите фамилию'
-                                              : null,
-                                    ),
-                                    const SizedBox(height: 14),
-                                  ],
-                                ),
-                              ),
-
-                              _buildField(
-                                controller: _emailController,
-                                hint: 'Email',
-                                icon: LucideIcons.mail,
-                                keyboardType: TextInputType.emailAddress,
-                                validator: (v) => v == null || v.isEmpty
-                                    ? 'Введите email'
-                                    : null,
-                              ),
-                              const SizedBox(height: 14),
-
-                              // Password
-                              _buildField(
-                                controller: _passwordController,
-                                hint: 'Пароль',
-                                icon: LucideIcons.lock,
-                                obscure: _obscurePassword,
-                                suffix: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? LucideIcons.eye
-                                        : LucideIcons.eyeOff,
-                                    color: Colors.white60,
-                                    size: 20,
+                        child: Form(
+                          key: _formKey,
+                          child: AnimatedSize(
+                            duration: const Duration(milliseconds: 280),
+                            curve: Curves.easeInOut,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (!_isLogin) ...[
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildField(
+                                          controller: _firstNameController,
+                                          label: 'Имя',
+                                          icon: LucideIcons.user,
+                                          validator: (v) =>
+                                              v == null || v.trim().isEmpty
+                                                  ? 'Введите имя'
+                                                  : null,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _buildField(
+                                          controller: _lastNameController,
+                                          label: 'Фамилия',
+                                          icon: LucideIcons.user,
+                                          validator: (v) =>
+                                              v == null || v.trim().isEmpty
+                                                  ? 'Введите фамилию'
+                                                  : null,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  onPressed: () => setState(
-                                    () =>
-                                        _obscurePassword = !_obscurePassword,
+                                  const SizedBox(height: 14),
+                                  _buildField(
+                                    controller: _phoneController,
+                                    label: 'Номер телефона',
+                                    icon: LucideIcons.phone,
+                                    keyboardType: TextInputType.phone,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9+\-\s()]')),
+                                    ],
+                                    validator: (v) {
+                                      final raw = v?.trim() ?? '';
+                                      if (raw.isEmpty) {
+                                        return 'Введите номер телефона';
+                                      }
+                                      final digits =
+                                          raw.replaceAll(RegExp(r'\D'), '');
+                                      if (digits.length < 10) {
+                                        return 'Некорректный номер';
+                                      }
+                                      return null;
+                                    },
                                   ),
+                                  const SizedBox(height: 14),
+                                ],
+                                _buildField(
+                                  controller: _emailController,
+                                  label: 'Email',
+                                  icon: LucideIcons.mail,
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: (v) {
+                                    final raw = v?.trim() ?? '';
+                                    if (raw.isEmpty) return 'Введите email';
+                                    if (!raw.contains('@') ||
+                                        !raw.contains('.')) {
+                                      return 'Некорректный email';
+                                    }
+                                    return null;
+                                  },
                                 ),
-                                validator: (v) => v == null || v.length < 6
-                                    ? 'Минимум 6 символов'
-                                    : null,
-                              ),
-
-                              const SizedBox(height: 24),
-
-                              // CTA
-                              _PrimaryCTA(
-                                label: _isLogin ? 'Войти' : 'Регистрация',
-                                isLoading: _isLoading,
-                                onPressed: _submit,
-                              ),
-                            ],
+                                const SizedBox(height: 14),
+                                _buildField(
+                                  controller: _passwordController,
+                                  label: 'Пароль',
+                                  icon: LucideIcons.lock,
+                                  obscure: _obscurePassword,
+                                  suffix: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? LucideIcons.eye
+                                          : LucideIcons.eyeOff,
+                                      color: ClinicTheme.slate,
+                                      size: 18,
+                                    ),
+                                    onPressed: () => setState(() =>
+                                        _obscurePassword = !_obscurePassword),
+                                  ),
+                                  validator: (v) {
+                                    final value = v ?? '';
+                                    if (value.isEmpty) {
+                                      return 'Введите пароль';
+                                    }
+                                    if (_isLogin) return null;
+                                    if (value.length < 6) {
+                                      return 'Минимум 6 символов';
+                                    }
+                                    if (!_passwordRegex.hasMatch(value)) {
+                                      return 'Нужна заглавная буква и спец. символ';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                if (!_isLogin) ...[
+                                  const SizedBox(height: 14),
+                                  _buildField(
+                                    controller: _confirmPasswordController,
+                                    label: 'Повторите пароль',
+                                    icon: LucideIcons.shieldCheck,
+                                    obscure: _obscureConfirm,
+                                    suffix: IconButton(
+                                      icon: Icon(
+                                        _obscureConfirm
+                                            ? LucideIcons.eye
+                                            : LucideIcons.eyeOff,
+                                        color: ClinicTheme.slate,
+                                        size: 18,
+                                      ),
+                                      onPressed: () => setState(() =>
+                                          _obscureConfirm = !_obscureConfirm),
+                                    ),
+                                    validator: (v) {
+                                      if (v == null || v.isEmpty) {
+                                        return 'Подтвердите пароль';
+                                      }
+                                      if (v != _passwordController.text) {
+                                        return 'Пароли не совпадают';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const _PasswordHints(),
+                                ],
+                                const SizedBox(height: 22),
+                                _PrimaryCTA(
+                                  label: _isLogin ? 'Войти' : 'Создать аккаунт',
+                                  icon: _isLogin
+                                      ? LucideIcons.arrowRight
+                                      : LucideIcons.userCheck,
+                                  isLoading: _isLoading,
+                                  onPressed: _submit,
+                                ),
+                                if (_isLogin) ...[
+                                  const SizedBox(height: 6),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const ForgotPasswordScreen(),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Забыли пароль?',
+                                        style: TextStyle(
+                                          color: ClinicTheme.azure,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Toggle login/register
-                    TextButton(
-                      onPressed: () => setState(() => _isLogin = !_isLogin),
-                      child: Text(
-                        _isLogin
-                            ? 'Нет аккаунта? Регистрация'
-                            : 'Уже есть аккаунт? Войти',
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    ),
-
-                    if (_isLogin)
-                      TextButton(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ForgotPasswordScreen(),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            LucideIcons.shieldCheck,
+                            size: 14,
+                            color: ClinicTheme.slate,
                           ),
-                        ),
-                        child: const Text(
-                          'Забыли пароль?',
-                          style: TextStyle(color: Colors.white38),
-                        ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Защищённое соединение',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: ClinicTheme.slate),
+                          ),
+                        ],
                       ),
-
-                    const SizedBox(height: 40),
-                  ],
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -338,49 +358,200 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _buildField({
     required TextEditingController controller,
-    required String hint,
+    required String label,
     required IconData icon,
     bool obscure = false,
     Widget? suffix,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscure,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       validator: validator,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: ClinicTheme.midnight, fontSize: 15),
       decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white38),
-        prefixIcon: Icon(icon, color: Colors.white60, size: 20),
+        labelText: label,
+        labelStyle: const TextStyle(color: ClinicTheme.slate, fontSize: 14),
+        floatingLabelStyle: const TextStyle(
+          color: ClinicTheme.azure,
+          fontWeight: FontWeight.w500,
+        ),
+        prefixIcon: Icon(icon, color: ClinicTheme.slate, size: 19),
         suffixIcon: suffix,
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.08),
+        fillColor: ClinicTheme.mist.withValues(alpha: 0.5),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.line),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.line),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: ClinicTheme.azure.withValues(alpha: 0.6),
-            width: 1,
-          ),
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.azure, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: ClinicTheme.coral.withValues(alpha: 0.6),
-            width: 1,
-          ),
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.coral),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.coral, width: 1.5),
         ),
         errorStyle: const TextStyle(color: ClinicTheme.coral),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
+          horizontal: 14,
+          vertical: 14,
         ),
+      ),
+    );
+  }
+}
+
+class _BrandHeader extends StatelessWidget {
+  const _BrandHeader({required this.isLogin});
+
+  final bool isLogin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 76,
+          height: 76,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: ClinicTheme.heroGradient,
+            boxShadow: [
+              BoxShadow(
+                color: ClinicTheme.azure.withValues(alpha: 0.35),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: const Icon(
+            LucideIcons.stethoscope,
+            color: Colors.white,
+            size: 36,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'RasulDent Clinic',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: ClinicTheme.midnight,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
+              ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          isLogin
+              ? 'Войдите, чтобы продолжить'
+              : 'Создайте аккаунт за минуту',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: ClinicTheme.slate,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SegmentedToggle extends StatelessWidget {
+  const _SegmentedToggle({required this.isLogin, required this.onChanged});
+
+  final bool isLogin;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(ClinicTheme.radiusM),
+        border: Border.all(color: ClinicTheme.line),
+      ),
+      child: Row(
+        children: [
+          _segment('Вход', isLogin, () => onChanged(true)),
+          _segment('Регистрация', !isLogin, () => onChanged(false)),
+        ],
+      ),
+    );
+  }
+
+  Widget _segment(String label, bool active, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          decoration: BoxDecoration(
+            gradient: active ? ClinicTheme.heroGradient : null,
+            borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: ClinicTheme.azure.withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: active ? Colors.white : ClinicTheme.slate,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PasswordHints extends StatelessWidget {
+  const _PasswordHints();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: ClinicTheme.azureSoft,
+        borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(LucideIcons.info, color: ClinicTheme.azure, size: 16),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Пароль: минимум 6 символов, одна заглавная буква и один спец. символ (!@#\$%…)',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: ClinicTheme.azure,
+                    height: 1.35,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -389,11 +560,13 @@ class _LoginScreenState extends State<LoginScreen>
 class _PrimaryCTA extends StatelessWidget {
   const _PrimaryCTA({
     required this.label,
+    required this.icon,
     required this.isLoading,
     required this.onPressed,
   });
 
   final String label;
+  final IconData icon;
   final bool isLoading;
   final VoidCallback onPressed;
 
@@ -401,16 +574,16 @@ class _PrimaryCTA extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 54,
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: ClinicTheme.heroGradient,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
           boxShadow: [
             BoxShadow(
-              color: ClinicTheme.azure.withValues(alpha: 0.3),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+              color: ClinicTheme.azure.withValues(alpha: 0.35),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -420,7 +593,7 @@ class _PrimaryCTA extends StatelessWidget {
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
             ),
           ),
           child: isLoading
@@ -432,12 +605,19 @@ class _PrimaryCTA extends StatelessWidget {
                     color: Colors.white,
                   ),
                 )
-              : Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: Colors.white, size: 18),
+                    const SizedBox(width: 10),
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ],
                 ),
         ),
       ),

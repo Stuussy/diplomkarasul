@@ -79,15 +79,6 @@ async function markAppointmentAttendance(req, res, nextStatus) {
       });
     }
 
-    if (new Date() < getAppointmentEndTime(appointment)) {
-      return res.status(400).json({
-        message:
-          nextStatus === 'completed'
-            ? 'Отметить завершение можно только после окончания приёма.'
-            : 'Отметить неявку можно только после окончания времени приёма.',
-      });
-    }
-
     if (nextStatus === 'completed') {
       appointment.status = 'completed';
       appointment.completedAt = new Date();

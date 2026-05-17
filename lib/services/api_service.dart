@@ -207,6 +207,24 @@ class ApiService {
     return Appointment.fromJson(data);
   }
 
+  Future<Appointment> completeAppointment(String appointmentId) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/appointments/$appointmentId/complete'),
+      headers: _headers(),
+    );
+    final data = _decode(response);
+    return Appointment.fromJson(data);
+  }
+
+  Future<Appointment> markAppointmentNoShow(String appointmentId) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/appointments/$appointmentId/no-show'),
+      headers: _headers(),
+    );
+    final data = _decode(response);
+    return Appointment.fromJson(data);
+  }
+
   Future<String> cancelAppointment(String appointmentId) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/appointments/$appointmentId/cancel'),
