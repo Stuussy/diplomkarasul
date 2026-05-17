@@ -470,7 +470,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child: const Icon(
-                                LucideIcons.clipboardPlus,
+                                LucideIcons.clipboardList,
                                 color: Colors.white,
                                 size: 22,
                               ),
@@ -534,7 +534,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
                                 ),
                                 const SizedBox(height: 18),
                                 _FieldLabel(
-                                  icon: LucideIcons.notebookPen,
+                                  icon: LucideIcons.pencil,
                                   label: 'Описание / рекомендации',
                                 ),
                                 const SizedBox(height: 6),
