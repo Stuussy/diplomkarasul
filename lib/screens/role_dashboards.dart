@@ -1489,6 +1489,10 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _specialtyInputController = TextEditingController();
+  final List<String> _specialties = [];
+  String? _assignClinicId;
   final _clinicNameController = TextEditingController();
   final _clinicAddressController = TextEditingController();
   final _clinicEmailController = TextEditingController();
@@ -1568,6 +1572,40 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
     await context.read<SessionProvider>().logout();
   }
 
+  void _addSpecialty() {
+    final raw = _specialtyInputController.text.trim();
+    if (raw.isEmpty) return;
+    if (_specialties.contains(raw)) return;
+    setState(() {
+      _specialties.add(raw);
+      _specialtyInputController.clear();
+    });
+  }
+
+  InputDecoration _fieldDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: Color(0xFF6E7681), fontSize: 14),
+      prefixIcon: Icon(icon, color: const Color(0xFF6E7681), size: 18),
+      filled: true,
+      fillColor: const Color(0xFFF0F3F6),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE1E4E8)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE1E4E8)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF2E7CF6), width: 1.5),
+      ),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    );
+  }
+
   Future<void> _createUser() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
@@ -1579,6 +1617,15 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
         role: _role,
+        phone: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
+        specialties: _role == 'doctor' && _specialties.isNotEmpty
+            ? List.of(_specialties)
+            : null,
+        clinics: (_role == 'doctor' || _role == 'admin') && _assignClinicId != null
+            ? [_assignClinicId!]
+            : null,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -1587,7 +1634,11 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
       _lastNameController.clear();
       _emailController.clear();
       _passwordController.clear();
+      _phoneController.clear();
+      _specialtyInputController.clear();
       setState(() {
+        _specialties.clear();
+        _assignClinicId = null;
         _usersFuture = _loadUsers();
       });
     } catch (error) {
@@ -1669,6 +1720,8 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
     _lastNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _phoneController.dispose();
+    _specialtyInputController.dispose();
     _clinicNameController.dispose();
     _clinicAddressController.dispose();
     _clinicEmailController.dispose();
@@ -1777,81 +1830,215 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
         padding: const EdgeInsets.all(16),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          const Text(
-            'Создать нового сотрудника',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE1E4E8)),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                              colors: [Color(0xFF2E7CF6), Color(0xFF5B9BFF)]),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(LucideIcons.userCheck,
+                            color: Colors.white, size: 18),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Добавить сотрудника',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          color: Color(0xFF0D1117),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _RoleChip(
+                        label: 'Врач',
+                        icon: LucideIcons.stethoscope,
+                        selected: _role == 'doctor',
+                        color: const Color(0xFF2E7CF6),
+                        onTap: () => setState(() => _role = 'doctor'),
+                      ),
+                      _RoleChip(
+                        label: 'Администратор',
+                        icon: LucideIcons.shieldCheck,
+                        selected: _role == 'admin',
+                        color: const Color(0xFF8B5CF6),
+                        onTap: () => setState(() => _role = 'admin'),
+                      ),
+                      _RoleChip(
+                        label: 'Поддержка',
+                        icon: LucideIcons.headphones,
+                        selected: _role == 'support_manager',
+                        color: const Color(0xFF1AAB8A),
+                        onTap: () => setState(() => _role = 'support_manager'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _firstNameController,
+                          decoration: _fieldDecoration('Имя', LucideIcons.user),
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Введите имя'
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _lastNameController,
+                          decoration: _fieldDecoration('Фамилия', LucideIcons.user),
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Введите фамилию'
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: _fieldDecoration('Email', LucideIcons.mail),
+                    validator: (v) =>
+                        v != null && v.contains('@') ? null : 'Введите email',
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration:
+                        _fieldDecoration('Телефон (необязательно)', LucideIcons.phone),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: _fieldDecoration('Пароль', LucideIcons.lock),
+                    validator: (v) => v != null && v.length >= 6
+                        ? null
+                        : 'Мин. 6 символов',
+                  ),
+                  if (_role == 'doctor') ...[
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Специальности',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF6E7681),
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: TextFormField(
-                            controller: _firstNameController,
-                            decoration: const InputDecoration(labelText: 'Имя'),
-                            validator: (value) =>
-                                value == null || value.isEmpty ? 'Введите имя' : null,
+                            controller: _specialtyInputController,
+                            decoration: _fieldDecoration(
+                                'Например: Терапевт', LucideIcons.tags),
+                            onFieldSubmitted: (_) => _addSpecialty(),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _lastNameController,
-                            decoration: const InputDecoration(labelText: 'Фамилия'),
-                            validator: (value) =>
-                                value == null || value.isEmpty ? 'Введите фамилию' : null,
-                          ),
+                        const SizedBox(width: 8),
+                        IconButton.filled(
+                          onPressed: _addSpecialty,
+                          icon: const Icon(LucideIcons.plus, size: 18),
+                          style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFF2E7CF6)),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(labelText: 'Email'),
-                      validator: (value) =>
-                          value != null && value.contains('@') ? null : 'Введите email',
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: const InputDecoration(labelText: 'Пароль'),
-                      obscureText: true,
-                      validator: (value) =>
-                          value != null && value.length >= 6 ? null : 'Мин. 6 символов',
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: _role,
-                      items: const [
-                        DropdownMenuItem(value: 'doctor', child: Text('Врач')),
-                        DropdownMenuItem(value: 'admin', child: Text('Администратор')),
-                        DropdownMenuItem(value: 'support_manager', child: Text('Менеджер поддержки')),
-                      ],
-                      onChanged: (value) => setState(() => _role = value ?? 'doctor'),
-                      decoration: const InputDecoration(labelText: 'Роль'),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isSubmitting ? null : _createUser,
-                        child: _isSubmitting
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Создать'),
+                    if (_specialties.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: _specialties
+                            .map((s) => InputChip(
+                                  label: Text(s),
+                                  onDeleted: () =>
+                                      setState(() => _specialties.remove(s)),
+                                  backgroundColor: const Color(0xFFE8F1FE),
+                                  labelStyle: const TextStyle(
+                                    color: Color(0xFF2E7CF6),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  side: BorderSide.none,
+                                ))
+                            .toList(),
                       ),
+                    ],
+                  ],
+                  if ((_role == 'doctor' || _role == 'admin') &&
+                      _clinics.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _assignClinicId,
+                      items: _clinics
+                          .map((c) => DropdownMenuItem(
+                                value: c.id,
+                                child: Text(c.name,
+                                    overflow: TextOverflow.ellipsis),
+                              ))
+                          .toList(),
+                      onChanged: (v) => setState(() => _assignClinicId = v),
+                      decoration:
+                          _fieldDecoration('Клиника', LucideIcons.building2),
                     ),
                   ],
-                ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: _isSubmitting ? null : _createUser,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E7CF6),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      icon: _isSubmitting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(LucideIcons.userCheck, size: 18),
+                      label: Text(
+                        _isSubmitting ? 'Создание…' : 'Создать сотрудника',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -2194,6 +2381,57 @@ Widget _buildUserSection(BuildContext context, String title, List<AppUser> users
     ),
   );
 }
+}
+
+class _RoleChip extends StatelessWidget {
+  const _RoleChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? color : color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? color : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 14, color: selected ? Colors.white : color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : color,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _UserStatusToggle extends StatefulWidget {
