@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import '../../providers/session_provider.dart';
 import '../../theme/clinic_theme.dart';
-import '../../widgets/glass_container.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -14,8 +13,7 @@ class ForgotPasswordScreen extends StatefulWidget {
   State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
-    with SingleTickerProviderStateMixin {
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
   final _codeController = TextEditingController();
   final _newPasswordController = TextEditingController();
@@ -27,25 +25,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   bool _obscurePassword = true;
   String _sentToEmail = '';
 
-  late AnimationController _bgAnimController;
-  late Animation<Alignment> _bgAlign;
-
-  @override
-  void initState() {
-    super.initState();
-    _bgAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat(reverse: true);
-    _bgAlign = AlignmentTween(
-      begin: const Alignment(-1.0, -1.0),
-      end: const Alignment(1.0, 0.5),
-    ).animate(CurvedAnimation(parent: _bgAnimController, curve: Curves.easeInOut));
-  }
-
   @override
   void dispose() {
-    _bgAnimController.dispose();
     _emailController.dispose();
     _codeController.dispose();
     _newPasswordController.dispose();
@@ -115,36 +96,37 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: ClinicTheme.mist,
       body: Stack(
         children: [
-          AnimatedBuilder(
-            animation: _bgAlign,
-            builder: (context, _) => Container(
+          Positioned(
+            top: -120,
+            right: -80,
+            child: Container(
+              width: 360,
+              height: 360,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: _bgAlign.value,
-                  end: Alignment.bottomRight,
-                  colors: const [
-                    Color(0xFF1E3A5F),
-                    Color(0xFF0D1117),
-                    Color(0xFF0D1117),
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    ClinicTheme.azure.withValues(alpha: 0.18),
+                    Colors.transparent,
                   ],
-                  stops: const [0.0, 0.6, 1.0],
                 ),
               ),
             ),
           ),
           Positioned(
-            top: -80,
-            right: -60,
+            bottom: -140,
+            left: -100,
             child: Container(
-              width: 260,
-              height: 260,
+              width: 320,
+              height: 320,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    ClinicTheme.azure.withValues(alpha: 0.2),
+                    ClinicTheme.mint.withValues(alpha: 0.16),
                     Colors.transparent,
                   ],
                 ),
@@ -159,7 +141,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: IconButton(
-                      icon: const Icon(LucideIcons.arrowLeft, color: Colors.white70),
+                      icon: const Icon(LucideIcons.arrowLeft, color: ClinicTheme.midnight),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
@@ -167,53 +149,67 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                 Expanded(
                   child: Center(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 72,
-                            height: 72,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withValues(alpha: 0.1),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 460),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 8),
+                            Container(
+                              width: 76,
+                              height: 76,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(22),
+                                gradient: ClinicTheme.heroGradient,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: ClinicTheme.azure.withValues(alpha: 0.35),
+                                    blurRadius: 22,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                LucideIcons.keyRound,
+                                color: Colors.white,
+                                size: 36,
+                              ),
                             ),
-                            child: const Icon(LucideIcons.keyRound, color: Colors.white, size: 32),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            'Восстановление пароля',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(color: Colors.white),
-                          ),
-                          const SizedBox(height: 8),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: Text(
-                              key: ValueKey(_codeSent),
-                              _codeSent
-                                  ? 'Код отправлен на $_sentToEmail'
-                                  : 'Введите email — мы вышлем 6-значный код',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(color: Colors.white70),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Восстановление пароля',
+                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                    color: ClinicTheme.midnight,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.5,
+                                  ),
                             ),
-                          ),
-                          const SizedBox(height: 32),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 400),
-                            transitionBuilder: (child, anim) =>
-                                FadeTransition(opacity: anim, child: child),
-                            child: _codeSent
-                                ? _buildStep2(key: const ValueKey('step2'))
-                                : _buildStep1(key: const ValueKey('step1')),
-                          ),
-                          const SizedBox(height: 40),
-                        ],
+                            const SizedBox(height: 6),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: Text(
+                                key: ValueKey(_codeSent),
+                                _codeSent
+                                    ? 'Код отправлен на $_sentToEmail'
+                                    : 'Введите email — мы вышлем 6-значный код',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: ClinicTheme.slate,
+                                    ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 400),
+                              transitionBuilder: (child, anim) =>
+                                  FadeTransition(opacity: anim, child: child),
+                              child: _codeSent
+                                  ? _buildStep2(key: const ValueKey('step2'))
+                                  : _buildStep1(key: const ValueKey('step1')),
+                            ),
+                            const SizedBox(height: 32),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -227,21 +223,34 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   }
 
   Widget _buildStep1({Key? key}) {
-    return GlassContainer(
+    return Container(
       key: key,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(ClinicTheme.radiusL),
+        border: Border.all(color: ClinicTheme.line),
+        boxShadow: [
+          BoxShadow(
+            color: ClinicTheme.azure.withValues(alpha: 0.06),
+            blurRadius: 32,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
       child: Form(
         key: _formKey1,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildField(
               controller: _emailController,
-              hint: 'Email',
+              label: 'Email',
               icon: LucideIcons.mail,
               keyboardType: TextInputType.emailAddress,
               validator: (v) => v == null || v.isEmpty ? 'Введите email' : null,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             _PrimaryButton(
               label: 'Отправить код',
               isLoading: _isLoading,
@@ -254,25 +263,29 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   }
 
   Widget _buildStep2({Key? key}) {
-    return GlassContainer(
+    return Container(
       key: key,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(ClinicTheme.radiusL),
+        border: Border.all(color: ClinicTheme.line),
+        boxShadow: [
+          BoxShadow(
+            color: ClinicTheme.azure.withValues(alpha: 0.06),
+            blurRadius: 32,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
       child: Form(
         key: _formKey2,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Код из письма',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(color: Colors.white60),
-            ),
-            const SizedBox(height: 8),
             _buildField(
               controller: _codeController,
-              hint: '6-значный код',
+              label: '6-значный код',
               icon: LucideIcons.hash,
               keyboardType: TextInputType.number,
               inputFormatters: [
@@ -282,25 +295,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
               validator: (v) =>
                   v == null || v.length != 6 ? 'Введите 6-значный код' : null,
             ),
-            const SizedBox(height: 20),
-            Text(
-              'Новый пароль',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(color: Colors.white60),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
             _buildField(
               controller: _newPasswordController,
-              hint: 'Новый пароль',
+              label: 'Новый пароль',
               icon: LucideIcons.lock,
               obscure: _obscurePassword,
               suffix: IconButton(
                 icon: Icon(
                   _obscurePassword ? LucideIcons.eye : LucideIcons.eyeOff,
-                  color: Colors.white60,
-                  size: 20,
+                  color: ClinicTheme.slate,
+                  size: 18,
                 ),
                 onPressed: () =>
                     setState(() => _obscurePassword = !_obscurePassword),
@@ -308,13 +313,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
               validator: (v) =>
                   v == null || v.length < 6 ? 'Минимум 6 символов' : null,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             _PrimaryButton(
               label: 'Сменить пароль',
               isLoading: _isLoading,
               onPressed: _resetPassword,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Center(
               child: TextButton(
                 onPressed: _isLoading
@@ -326,7 +331,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                         }),
                 child: const Text(
                   'Отправить код повторно',
-                  style: TextStyle(color: Colors.white54),
+                  style: TextStyle(
+                    color: ClinicTheme.azure,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ),
@@ -338,7 +346,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
 
   Widget _buildField({
     required TextEditingController controller,
-    required String hint,
+    required String label,
     required IconData icon,
     bool obscure = false,
     Widget? suffix,
@@ -352,34 +360,40 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       validator: validator,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: ClinicTheme.midnight, fontSize: 15),
       decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white38),
-        prefixIcon: Icon(icon, color: Colors.white60, size: 20),
+        labelText: label,
+        labelStyle: const TextStyle(color: ClinicTheme.slate, fontSize: 14),
+        floatingLabelStyle: const TextStyle(
+          color: ClinicTheme.azure,
+          fontWeight: FontWeight.w500,
+        ),
+        prefixIcon: Icon(icon, color: ClinicTheme.slate, size: 19),
         suffixIcon: suffix,
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.08),
+        fillColor: ClinicTheme.mist.withValues(alpha: 0.5),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.line),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.line),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: ClinicTheme.azure.withValues(alpha: 0.6),
-            width: 1,
-          ),
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.azure, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: ClinicTheme.coral.withValues(alpha: 0.6),
-            width: 1,
-          ),
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.coral),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+          borderSide: const BorderSide(color: ClinicTheme.coral, width: 1.5),
         ),
         errorStyle: const TextStyle(color: ClinicTheme.coral),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       ),
     );
   }
@@ -400,16 +414,16 @@ class _PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 54,
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: ClinicTheme.heroGradient,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
           boxShadow: [
             BoxShadow(
-              color: ClinicTheme.azure.withValues(alpha: 0.3),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+              color: ClinicTheme.azure.withValues(alpha: 0.35),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -418,20 +432,25 @@ class _PrimaryButton extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+            ),
           ),
           child: isLoading
               ? const SizedBox(
                   width: 22,
                   height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.white,
+                  ),
                 )
               : Text(
                   label,
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
         ),
       ),

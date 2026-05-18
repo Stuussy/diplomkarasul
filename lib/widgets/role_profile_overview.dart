@@ -103,9 +103,12 @@ class _ProfileHero extends StatelessWidget {
               children: [
                 Text(
                   user.fullName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
+                    height: 1.15,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -189,17 +192,23 @@ class _MetricsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: metrics.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.6,
-      ),
-      itemBuilder: (context, index) => _MetricCard(metric: metrics[index]),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = width >= 720 ? 4 : (width >= 480 ? 3 : 2);
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: metrics.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            mainAxisExtent: 118,
+          ),
+          itemBuilder: (context, index) => _MetricCard(metric: metrics[index]),
+        );
+      },
     );
   }
 }
@@ -213,39 +222,66 @@ class _MetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return DentCard(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            metric.value,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              metric.value,
+              maxLines: 1,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: ClinicTheme.midnight,
+                fontSize: 22,
+              ),
             ),
           ),
-          const SizedBox(height: 2),
-          Text(metric.label, style: theme.textTheme.bodySmall),
-          if (metric.caption != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              metric.caption!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: ClinicTheme.slate,
-                fontSize: 11,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                metric.label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: ClinicTheme.slate,
+                  fontWeight: FontWeight.w500,
+                  height: 1.25,
+                ),
               ),
-            ),
-          ],
-          if (metric.trend != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              metric.trend!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: ClinicTheme.mint,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+              if (metric.caption != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    metric.caption!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: ClinicTheme.slate,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              if (metric.trend != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    metric.trend!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: ClinicTheme.mint,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
     );
