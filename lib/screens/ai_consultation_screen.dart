@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../providers/session_provider.dart';
 import '../theme/clinic_theme.dart';
 import '../widgets/dent_card.dart';
-import '../widgets/glass_container.dart';
 
 class _ChatMessage {
   _ChatMessage({required this.text, required this.isUser});
@@ -205,13 +204,23 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
   }
 
   Widget _buildInput() {
-    return GlassContainer(
-      borderRadius: 0,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: const Border(top: BorderSide(color: ClinicTheme.line)),
+        boxShadow: [
+          BoxShadow(
+            color: ClinicTheme.midnight.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
       padding: EdgeInsets.fromLTRB(
-        16,
         12,
-        16,
-        12 + MediaQuery.of(context).padding.bottom,
+        10,
+        12,
+        10 + MediaQuery.of(context).padding.bottom,
       ),
       child: Row(
         children: [
@@ -222,27 +231,44 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
               minLines: 1,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _send(),
+              style: const TextStyle(color: ClinicTheme.midnight, fontSize: 15),
               decoration: InputDecoration(
                 hintText: 'Напишите вопрос…',
-                hintStyle: const TextStyle(color: Colors.white38),
+                hintStyle: const TextStyle(color: ClinicTheme.slate),
                 filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.08),
+                fillColor: ClinicTheme.mist,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.circular(22),
+                  borderSide: const BorderSide(color: ClinicTheme.line),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(22),
+                  borderSide: const BorderSide(color: ClinicTheme.line),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(22),
+                  borderSide: const BorderSide(color: ClinicTheme.azure, width: 1.5),
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
-              style: const TextStyle(color: Colors.white),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
               gradient: _isLoading ? null : ClinicTheme.heroGradient,
-              color: _isLoading ? Colors.white12 : null,
-              borderRadius: BorderRadius.circular(14),
+              color: _isLoading ? ClinicTheme.line : null,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: _isLoading
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: ClinicTheme.azure.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
             ),
             child: IconButton(
               onPressed: _isLoading ? null : () => _send(),
@@ -250,7 +276,7 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: ClinicTheme.slate),
                     )
                   : const Icon(LucideIcons.send, color: Colors.white, size: 20),
             ),

@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../models/appointment.dart';
+import '../models/review.dart';
 import '../providers/session_provider.dart';
 import '../theme/clinic_theme.dart';
 import '../widgets/dent_card.dart';
@@ -485,15 +486,18 @@ class _AppointmentCard extends StatelessWidget {
           ],
           if (!isUpcoming && appointment.status == 'completed') ...[
             const SizedBox(height: 14),
-            FilledButton.icon(
-              onPressed: onReview,
-              icon: const Icon(LucideIcons.star, size: 16),
-              label: const Text('Оставить отзыв'),
-              style: FilledButton.styleFrom(
-                backgroundColor: ClinicTheme.violetSoft,
-                foregroundColor: ClinicTheme.violet,
+            if (appointment.review != null)
+              _ReviewBlock(review: appointment.review!)
+            else
+              FilledButton.icon(
+                onPressed: onReview,
+                icon: const Icon(LucideIcons.star, size: 16),
+                label: const Text('Оставить отзыв'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: ClinicTheme.violetSoft,
+                  foregroundColor: ClinicTheme.violet,
+                ),
               ),
-            ),
           ],
         ],
       ),
@@ -506,5 +510,61 @@ class _AppointmentCard extends StatelessWidget {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
     return '$day.$month.${dt.year} • $h:$m';
+  }
+}
+
+class _ReviewBlock extends StatelessWidget {
+  const _ReviewBlock({required this.review});
+  final Review review;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: ClinicTheme.violetSoft,
+        borderRadius: BorderRadius.circular(ClinicTheme.radiusS),
+        border: Border.all(color: ClinicTheme.violet.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(LucideIcons.star, size: 14, color: ClinicTheme.violet),
+              const SizedBox(width: 6),
+              Text(
+                'Ваш отзыв',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: ClinicTheme.violet,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const Spacer(),
+              Row(
+                children: List.generate(5, (i) {
+                  final filled = i < review.rating;
+                  return Icon(
+                    filled ? Icons.star_rounded : Icons.star_border_rounded,
+                    size: 16,
+                    color: filled ? ClinicTheme.amber : ClinicTheme.line,
+                  );
+                }),
+              ),
+            ],
+          ),
+          if (review.comment != null && review.comment!.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              review.comment!,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: ClinicTheme.midnight,
+                    height: 1.35,
+                  ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
