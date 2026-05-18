@@ -2038,40 +2038,233 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
   }
 
 Widget _buildUserSection(BuildContext context, String title, List<AppUser> users) {
-  return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
-            if (users.isEmpty)
-              const Text('Пока нет данных.')
-            else
-              ...users.map(
-                (user) => ListTile(
-                  leading: CircleAvatar(child: Text(user.firstName[0].toUpperCase())),
-                  title: Text(user.fullName),
-                  subtitle: Text('${user.email} • ${user.isActive ? 'активен' : 'заблокирован'}'),
-                  trailing: TextButton(
-                    onPressed: () async {
-                      final api = context.read<SessionProvider>().apiService;
-                      await api.updateUserStatus(user.id, !user.isActive);
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            user.isActive ? 'Пользователь деактивирован' : 'Пользователь активирован',
-                          ),
-                        ),
-                      );
-                    },
-                    child: Text(user.isActive ? 'Деактивировать' : 'Активировать'),
+  final roleColors = <String, Color>{
+    'Врачи': const Color(0xFF2E7CF6),
+    'Администраторы': const Color(0xFF8B5CF6),
+    'Поддержка': const Color(0xFF1AAB8A),
+    'Пациенты': const Color(0xFFF5A524),
+  };
+  final roleIcons = <String, IconData>{
+    'Врачи': LucideIcons.stethoscope,
+    'Администраторы': LucideIcons.shieldCheck,
+    'Поддержка': LucideIcons.headphones,
+    'Пациенты': LucideIcons.user,
+  };
+  final color = roleColors[title] ?? const Color(0xFF6E7681);
+  final icon = roleIcons[title] ?? LucideIcons.users;
+
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFE1E4E8)),
+      boxShadow: [
+        BoxShadow(
+          color: color.withValues(alpha: 0.06),
+          blurRadius: 16,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 17),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: Color(0xFF0D1117),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${users.length}',
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
                   ),
                 ),
               ),
-          ],
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        if (users.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Icon(LucideIcons.inbox, size: 18, color: color.withValues(alpha: 0.5)),
+                const SizedBox(width: 10),
+                const Text(
+                  'Нет записей',
+                  style: TextStyle(color: Color(0xFF6E7681)),
+                ),
+              ],
+            ),
+          )
+        else
+          ...users.asMap().entries.map((entry) {
+            final i = entry.key;
+            final user = entry.value;
+            final isLast = i == users.length - 1;
+            final initial = user.firstName.isNotEmpty
+                ? user.firstName[0].toUpperCase()
+                : '?';
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: color.withValues(alpha: 0.12),
+                        child: Text(
+                          initial,
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user.fullName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                                color: Color(0xFF0D1117),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              user.email,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF6E7681),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _UserStatusToggle(user: user, color: color),
+                    ],
+                  ),
+                ),
+                if (!isLast)
+                  const Divider(height: 1, indent: 56),
+              ],
+            );
+          }),
+        const SizedBox(height: 4),
+      ],
+    ),
+  );
+}
+}
+
+class _UserStatusToggle extends StatefulWidget {
+  const _UserStatusToggle({required this.user, required this.color});
+  final AppUser user;
+  final Color color;
+
+  @override
+  State<_UserStatusToggle> createState() => _UserStatusToggleState();
+}
+
+class _UserStatusToggleState extends State<_UserStatusToggle> {
+  bool _loading = false;
+
+  Future<void> _toggle() async {
+    setState(() => _loading = true);
+    final api = context.read<SessionProvider>().apiService;
+    try {
+      await api.updateUserStatus(widget.user.id, !widget.user.isActive);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.user.isActive
+                ? '${widget.user.firstName} деактивирован'
+                : '${widget.user.firstName} активирован',
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = widget.user.isActive;
+    if (_loading) {
+      return const SizedBox(
+        width: 36,
+        height: 36,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    return GestureDetector(
+      onTap: _toggle,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive
+              ? const Color(0xFFFEE8E8)
+              : const Color(0xFFE6F7F1),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          isActive ? 'Откл.' : 'Вкл.',
+          style: TextStyle(
+            color: isActive
+                ? const Color(0xFFEF4444)
+                : const Color(0xFF1AAB8A),
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
         ),
       ),
     );
