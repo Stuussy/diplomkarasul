@@ -239,7 +239,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                   ],
 
                   // Service selection
-                  if (widget.doctor.specialties.length > 1) ...[
+                  if (widget.doctor.specialties.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     Text('Услуга', style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 10),

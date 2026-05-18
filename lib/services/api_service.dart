@@ -387,6 +387,8 @@ class ApiService {
     required String password,
     required String role,
     String? phone,
+    List<String>? specialties,
+    List<String>? clinics,
   }) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/users'),
@@ -398,6 +400,8 @@ class ApiService {
         'password': password,
         'role': role,
         'phone': phone,
+        if (specialties != null && specialties.isNotEmpty) 'specialties': specialties,
+        if (clinics != null && clinics.isNotEmpty) 'clinics': clinics,
       }),
     );
     final data = _decode(response);
