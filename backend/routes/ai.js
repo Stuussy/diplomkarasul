@@ -28,7 +28,7 @@ function geminiRequest(prompt, model) {
       ],
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 512,
+        maxOutputTokens: 1500,
       },
     });
 
