@@ -233,34 +233,20 @@ router.post('/forgot-password', [body('email').isEmail()], async (req, res) => {
       user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000);
       await user.save();
 
-      const subject = 'Код для сброса пароля';
-      const text = `Ваш код для сброса пароля: ${code}. Он действует 10 минут.`;
-      const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'onboarding@resend.dev';
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
 
-      if (process.env.RESEND_API_KEY) {
-        const resp = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ from, to: email, subject, text }),
-        });
-        if (!resp.ok) {
-          const err = await resp.text();
-          console.error('Resend error:', err);
-          throw new Error('Resend failed');
-        }
-      } else {
-        const transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-          },
-        });
-        await transporter.sendMail({ from, to: email, subject, text });
-      }
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: email,
+        subject: 'Код для сброса пароля',
+        text: `Ваш код для сброса пароля: ${code}. Он действует 10 минут.`,
+      });
     }
 
     res.json({ success: true, message: 'Если email найден, код отправлен.' });
