@@ -30,11 +30,14 @@ class ApiService {
   final String _baseUrl;
   String? _token;
 
+  static const _prodBaseUrl = 'https://diplomkarasul.onrender.com/api';
+
   static String _defaultBaseUrl() {
     const env = String.fromEnvironment('API_BASE_URL');
     if (env.isNotEmpty) return env;
     if (kIsWeb) return 'http://localhost:8050/api';
     if (Platform.isAndroid) return 'http://10.0.2.2:8050/api';
+    if (Platform.isIOS) return _prodBaseUrl;
     return 'http://localhost:8050/api';
   }
 
