@@ -165,9 +165,9 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
       bottomNavigationBar: Builder(
         builder: (context) {
           final safeBottom = MediaQuery.paddingOf(context).bottom;
-          final bottomPadding = safeBottom > 0 ? safeBottom : 12.0;
+          final bottomPadding = safeBottom > 0 ? safeBottom * 0.5 + 6 : 12.0;
           return Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding),
+            padding: EdgeInsets.fromLTRB(12, 0, 12, bottomPadding),
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(28),
