@@ -410,7 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 }
                 return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 110 + MediaQuery.of(context).padding.bottom),
                   sliver: SliverList.separated(
                     itemBuilder: (context, index) {
                       final doctor = doctors[index];

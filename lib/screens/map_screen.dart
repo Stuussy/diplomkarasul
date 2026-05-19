@@ -229,7 +229,7 @@ class _MapScreenState extends State<MapScreen> {
     }
     return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      padding: EdgeInsets.fromLTRB(20, 8, 20, 110 + MediaQuery.of(context).padding.bottom),
       itemCount: doctors.length,
       separatorBuilder: (_, __) => const SizedBox(height: 14),
       itemBuilder: (context, index) {

@@ -256,7 +256,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 return RefreshIndicator(
                   onRefresh: _refresh,
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                    padding: EdgeInsets.fromLTRB(20, 8, 20, 110 + MediaQuery.of(context).padding.bottom),
                     itemCount: list.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 14),
                     itemBuilder: (context, index) {
