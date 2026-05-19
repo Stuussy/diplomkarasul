@@ -451,7 +451,12 @@ router.post('/:id/cancel', auth(['patient', 'admin', 'superadmin']), async (req,
 
   const now = new Date();
   if (req.user.role === 'patient' && appointment.cancelBefore && now > appointment.cancelBefore) {
-    if (!appointment.fineIssued) {
+    const claimed = await Appointment.findOneAndUpdate(
+      { _id: appointment._id, fineIssued: { $ne: true } },
+      { $set: { fineIssued: true } },
+      { new: true },
+    );
+    if (claimed) {
       await Fine.create({
         patient: appointment.patient,
         appointment: appointment._id,
@@ -459,8 +464,6 @@ router.post('/:id/cancel', auth(['patient', 'admin', 'superadmin']), async (req,
         reason: 'Отмена позднее чем за 2 часа',
         issuedBy: req.user.id,
       });
-      appointment.fineIssued = true;
-      await appointment.save();
     }
     return res
       .status(403)
