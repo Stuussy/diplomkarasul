@@ -30,7 +30,7 @@ class _FilterSheetState extends State<FilterSheet> {
           ),
           child: ListView(
             controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 32 + MediaQuery.of(context).padding.bottom),
             children: [
               // Handle
               Center(
