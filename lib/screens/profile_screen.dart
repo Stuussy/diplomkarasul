@@ -161,7 +161,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+          padding: EdgeInsets.fromLTRB(20, 16, 20, 110 + MediaQuery.of(context).padding.bottom),
           children: [
             // Hero card
             DentCard(

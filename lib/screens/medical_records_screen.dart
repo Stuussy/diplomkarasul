@@ -228,6 +228,7 @@ class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: ClinicTheme.snow,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
