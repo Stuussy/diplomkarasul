@@ -15,6 +15,8 @@ const apiRoutes = require('./routes/api');
 const app = express();
 const PORT = process.env.PORT || 8050;
 
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet());
 const corsOrigins = (process.env.CORS_ORIGINS || '')
