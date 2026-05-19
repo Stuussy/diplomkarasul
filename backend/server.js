@@ -32,35 +32,37 @@ app.use(
 );
 app.use(express.json()); // Позволяет парсить JSON в теле запроса
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
+const rateLimitDefaults = {
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false, trustProxy: false },
+};
+
+const limiter = rateLimit({
+  ...rateLimitDefaults,
+  windowMs: 15 * 60 * 1000,
+  max: 200,
 });
 app.use('/api', limiter);
 
 const authLimiter = rateLimit({
+  ...rateLimitDefaults,
   windowMs: 15 * 60 * 1000,
   max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 app.use('/api/auth', authLimiter);
 
 const supportLimiter = rateLimit({
+  ...rateLimitDefaults,
   windowMs: 15 * 60 * 1000,
   max: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 app.use('/api/support', supportLimiter);
 
 const appointmentsLimiter = rateLimit({
+  ...rateLimitDefaults,
   windowMs: 15 * 60 * 1000,
   max: 80,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 app.use('/api/appointments', appointmentsLimiter);
 

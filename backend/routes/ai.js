@@ -6,7 +6,7 @@ const auth = require('../middleware/auth');
 const router = express.Router();
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-2.5-flash'];
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 
 const SYSTEM_PROMPT = `Ты — стоматологический ИИ-ассистент клиники Dental AI. Твоя задача:
 1. Помогать пациентам разобраться с симптомами и беспокойствами, связанными с зубами и полостью рта.
