@@ -100,7 +100,6 @@ router.post('/consult', auth(), async (req, res) => {
   console.error('All Gemini models failed. Last error:', lastError?.message);
   res.status(502).json({
     message: 'ИИ временно недоступен. Попробуйте позже.',
-    detail: lastError?.message,
   });
 });
 

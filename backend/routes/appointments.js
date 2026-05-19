@@ -129,6 +129,7 @@ router.post('/', auth(['patient']), createValidators, async (req, res) => {
   }
 
   let reservedSlotId = null;
+  let slot = null;
 
   try {
     const { doctorId, clinicId, service, startTime, durationMinutes = 30, slotId, notes } = req.body;
@@ -435,6 +436,17 @@ router.post('/:id/cancel', auth(['patient', 'admin', 'superadmin']), async (req,
 
   if (req.user.role === 'patient' && appointment.patient.toString() !== req.user.id) {
     return res.status(403).json({ message: 'Можно отменять только свои записи.' });
+  }
+  if (req.user.role === 'admin') {
+    const clinic = await Clinic.findById(appointment.clinic);
+    const adminClinicIds = await getAdminClinicIds(req.user.id);
+    const hasAccess =
+      clinic &&
+      (clinic.admin?.toString() === req.user.id ||
+        adminClinicIds.includes(clinic._id.toString()));
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Нет доступа к клинике.' });
+    }
   }
 
   const now = new Date();
