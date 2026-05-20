@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../models/fine.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
 import '../theme/clinic_theme.dart';
@@ -38,7 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _finesFuture = _loadFines());
+    setState(() { _finesFuture = _loadFines(); });
   }
 
   Future<void> _logout() async {
@@ -310,7 +311,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Text('Штрафы', style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 12),
                     ...fines.map((fine) {
-                      final isPaid = fine['status'] == 'paid';
+                      final isPaid = (fine as Fine).isPaid;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: DentCard(
@@ -338,11 +339,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${fine['amount']} ₸',
+                                      '${fine.amount.toStringAsFixed(0)} ₸',
                                       style: Theme.of(context).textTheme.titleMedium,
                                     ),
                                     Text(
-                                      fine['reason'] ?? 'Штраф',
+                                      fine.reason.isNotEmpty ? fine.reason : 'Штраф',
                                       style: Theme.of(context).textTheme.bodySmall,
                                     ),
                                   ],

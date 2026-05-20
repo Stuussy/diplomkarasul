@@ -68,6 +68,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     try {
       await api.confirmAppointmentByQr(result);
       HapticFeedback.mediumImpact();
+      await _refresh();
+      if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: const Text('Запись подтверждена! ✓'),
@@ -76,7 +78,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
-      _refresh();
     } catch (e) {
       HapticFeedback.heavyImpact();
       messenger.showSnackBar(SnackBar(content: Text(e.toString())));
