@@ -234,22 +234,14 @@ class ApiService {
     return Appointment.fromJson(data);
   }
 
-  Future<String> cancelAppointment(String appointmentId) async {
+  /// Cancels an appointment. Returns `true` if a late-cancel fine was issued.
+  Future<bool> cancelAppointment(String appointmentId) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/appointments/$appointmentId/cancel'),
       headers: _headers(),
     );
-
-    if (response.statusCode == 403) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      throw ApiException(
-        data['message'] ?? 'Отмена недоступна',
-        statusCode: 403,
-      );
-    }
-
     final data = _decode(response);
-    return data['status'] ?? 'cancelled';
+    return data is Map<String, dynamic> && data['fineIssued'] == true;
   }
 
   Future<List<Clinic>> fetchClinics({

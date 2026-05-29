@@ -36,8 +36,33 @@ class _FinesScreenState extends State<FinesScreen> {
 
   Future<void> _refresh() async {
     final future = _load();
-    setState(() => _future = future);
+    setState(() { _future = future; });
     await future;
+  }
+
+  Future<void> _payAllFines(List<Fine> unpaid, double total) async {
+    final paid = await KaspiPaymentSheet.show(context, total);
+    if (paid != true || !mounted) return;
+
+    final api = context.read<SessionProvider>().apiService;
+    final messenger = ScaffoldMessenger.of(context);
+    final s = context.sRead;
+    try {
+      for (final fine in unpaid) {
+        await api.payFine(fine.id);
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(s.kaspiPaidSuccess),
+          backgroundColor: ClinicTheme.mint,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      await _refresh();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+    }
   }
 
   Future<void> _payFineViaKaspi(Fine fine) async {
@@ -128,7 +153,12 @@ class _FinesScreenState extends State<FinesScreen> {
               padding: EdgeInsets.fromLTRB(
                   20, 16, 20, 24 + MediaQuery.of(context).padding.bottom),
               children: [
-                if (unpaidTotal > 0) _buildTotalBanner(s, unpaidTotal),
+                if (unpaidTotal > 0)
+                  _buildTotalBanner(
+                    s,
+                    unpaidTotal,
+                    fines.where((f) => !f.isPaid).toList(),
+                  ),
                 ...fines.map((fine) => Padding(
                       padding: const EdgeInsets.only(bottom: 14),
                       child: _buildFineCard(s, fine),
@@ -141,7 +171,7 @@ class _FinesScreenState extends State<FinesScreen> {
     );
   }
 
-  Widget _buildTotalBanner(AppStrings s, double total) {
+  Widget _buildTotalBanner(AppStrings s, double total, List<Fine> unpaid) {
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
       padding: const EdgeInsets.all(18),
@@ -149,27 +179,50 @@ class _FinesScreenState extends State<FinesScreen> {
         color: ClinicTheme.coralSoft,
         borderRadius: BorderRadius.circular(ClinicTheme.radiusL),
       ),
-      child: Row(
+      child: Column(
         children: [
-          const Icon(LucideIcons.wallet, color: ClinicTheme.coral),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              s.finesUnpaidTotal,
-              style: const TextStyle(
-                color: ClinicTheme.coral,
-                fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              const Icon(LucideIcons.wallet, color: ClinicTheme.coral),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  s.finesUnpaidTotal,
+                  style: const TextStyle(
+                    color: ClinicTheme.coral,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                '${total.toStringAsFixed(0)} ₸',
+                style: const TextStyle(
+                  color: ClinicTheme.coral,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 20,
+                ),
+              ),
+            ],
+          ),
+          if (unpaid.length > 1) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _payAllFines(unpaid, total),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFF14635),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(LucideIcons.creditCard, size: 18),
+                label: Text('${s.finesPayAll} · ${total.toStringAsFixed(0)} ₸'),
               ),
             ),
-          ),
-          Text(
-            '${total.toStringAsFixed(0)} ₸',
-            style: const TextStyle(
-              color: ClinicTheme.coral,
-              fontWeight: FontWeight.w800,
-              fontSize: 20,
-            ),
-          ),
+          ],
         ],
       ),
     );

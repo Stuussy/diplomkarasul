@@ -145,6 +145,7 @@ abstract class AppStrings {
   String get appointmentsCancelTitle;
   String get appointmentsCancelContent;
   String get appointmentsCancelDone;
+  String get appointmentsCancelFine;
   String get appointmentsConfirmQr;
   String get appointmentsReview;
   String get appointmentsLeaveReview;
@@ -191,6 +192,7 @@ abstract class AppStrings {
   String get fineIssuedOn;
   String get finePaidOn;
   String get finesUnpaidTotal;
+  String get finesPayAll;
   String get profileChangePassword;
   String get profileCurrentPassword;
   String get profileNewPassword;
@@ -478,6 +480,7 @@ class RuStrings extends AppStrings {
   @override String get appointmentsCancelTitle => 'Отменить запись?';
   @override String get appointmentsCancelContent => 'Вы хотите отменить запись?';
   @override String get appointmentsCancelDone => 'Запись отменена';
+  @override String get appointmentsCancelFine => 'Запись отменена. Начислен штраф 3000 ₸';
   @override String get appointmentsConfirmQr => 'Подтвердить через QR';
   @override String get appointmentsReview => 'Оставить отзыв';
   @override String get appointmentsLeaveReview => 'Отзыв';
@@ -524,6 +527,7 @@ class RuStrings extends AppStrings {
   @override String get fineIssuedOn => 'Начислен';
   @override String get finePaidOn => 'Оплачен';
   @override String get finesUnpaidTotal => 'К оплате';
+  @override String get finesPayAll => 'Оплатить все';
   @override String get profileChangePassword => 'Сменить пароль';
   @override String get profileCurrentPassword => 'Текущий пароль';
   @override String get profileNewPassword => 'Новый пароль';
@@ -811,6 +815,7 @@ class KkStrings extends AppStrings {
   @override String get appointmentsCancelTitle => 'Жазбаны болдырмау?';
   @override String get appointmentsCancelContent => 'Жазбаны болдырмағыңыз келе ме?';
   @override String get appointmentsCancelDone => 'Жазба болдырылмады';
+  @override String get appointmentsCancelFine => 'Жазба болдырылмады. 3000 ₸ айыппұл есептелді';
   @override String get appointmentsConfirmQr => 'QR арқылы растау';
   @override String get appointmentsReview => 'Пікір қалдыру';
   @override String get appointmentsLeaveReview => 'Пікір';
@@ -857,6 +862,7 @@ class KkStrings extends AppStrings {
   @override String get fineIssuedOn => 'Есептелді';
   @override String get finePaidOn => 'Төленді';
   @override String get finesUnpaidTotal => 'Төлеуге';
+  @override String get finesPayAll => 'Барлығын төлеу';
   @override String get profileChangePassword => 'Құпия сөзді өзгерту';
   @override String get profileCurrentPassword => 'Ағымдағы құпия сөз';
   @override String get profileNewPassword => 'Жаңа құпия сөз';

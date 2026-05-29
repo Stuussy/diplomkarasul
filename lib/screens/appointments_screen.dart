@@ -112,13 +112,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     final api = context.read<SessionProvider>().apiService;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await api.cancelAppointment(appointment.id);
+      final fineIssued = await api.cancelAppointment(appointment.id);
       HapticFeedback.mediumImpact();
       await _refresh();
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: Text(s.appointmentsCancelDone),
+          content: Text(
+              fineIssued ? s.appointmentsCancelFine : s.appointmentsCancelDone),
           backgroundColor: ClinicTheme.coral,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
