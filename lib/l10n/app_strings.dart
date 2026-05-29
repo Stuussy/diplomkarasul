@@ -186,6 +186,11 @@ abstract class AppStrings {
   String get profileFinePayKaspi;
   String get profileFineAmount;
   String get profileFineReason;
+  String get finesEmpty;
+  String get fineForAppointment;
+  String get fineIssuedOn;
+  String get finePaidOn;
+  String get finesUnpaidTotal;
   String get profileChangePassword;
   String get profileCurrentPassword;
   String get profileNewPassword;
@@ -514,6 +519,11 @@ class RuStrings extends AppStrings {
   @override String get profileFinePayKaspi => 'Оплатить через Kaspi';
   @override String get profileFineAmount => 'Сумма';
   @override String get profileFineReason => 'Причина';
+  @override String get finesEmpty => 'У вас нет штрафов';
+  @override String get fineForAppointment => 'За запись';
+  @override String get fineIssuedOn => 'Начислен';
+  @override String get finePaidOn => 'Оплачен';
+  @override String get finesUnpaidTotal => 'К оплате';
   @override String get profileChangePassword => 'Сменить пароль';
   @override String get profileCurrentPassword => 'Текущий пароль';
   @override String get profileNewPassword => 'Новый пароль';
@@ -842,6 +852,11 @@ class KkStrings extends AppStrings {
   @override String get profileFinePayKaspi => 'Kaspi арқылы төлеу';
   @override String get profileFineAmount => 'Сома';
   @override String get profileFineReason => 'Себеп';
+  @override String get finesEmpty => 'Сізде айыппұл жоқ';
+  @override String get fineForAppointment => 'Жазба үшін';
+  @override String get fineIssuedOn => 'Есептелді';
+  @override String get finePaidOn => 'Төленді';
+  @override String get finesUnpaidTotal => 'Төлеуге';
   @override String get profileChangePassword => 'Құпия сөзді өзгерту';
   @override String get profileCurrentPassword => 'Ағымдағы құпия сөз';
   @override String get profileNewPassword => 'Жаңа құпия сөз';

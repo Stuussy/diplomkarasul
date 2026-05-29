@@ -10,9 +10,7 @@ import '../providers/session_provider.dart';
 import '../theme/clinic_theme.dart';
 import '../widgets/dent_card.dart';
 import '../widgets/dent_badge.dart';
-import '../widgets/dent_shimmer.dart';
-import '../widgets/kaspi_payment_sheet.dart';
-import '../widgets/patient_ui.dart';
+import 'fines_screen.dart';
 import 'medical_records_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -42,29 +40,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _refresh() async {
     setState(() { _finesFuture = _loadFines(); });
-  }
-
-  Future<void> _payFineViaKaspi(Fine fine) async {
-    final paid = await KaspiPaymentSheet.show(context, fine.amount);
-    if (paid != true || !mounted) return;
-
-    final api = context.read<SessionProvider>().apiService;
-    final messenger = ScaffoldMessenger.of(context);
-    final s = context.sRead;
-    try {
-      await api.payFine(fine.id);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(s.kaspiPaidSuccess),
-          backgroundColor: ClinicTheme.mint,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-      await _refresh();
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.toString())));
-    }
   }
 
   Future<void> _logout() async {
@@ -322,92 +297,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // Fines
+            // Fines — entry button to the dedicated screen
             const SizedBox(height: 24),
             FutureBuilder<List<dynamic>>(
               future: _finesFuture,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const DentShimmerCard(height: 80);
-                }
                 final fines = snapshot.data ?? [];
-                if (fines.isEmpty) return const SizedBox.shrink();
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(s.profileFines, style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 12),
-                    ...fines.map((fine) {
-                      final isPaid = (fine as Fine).isPaid;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: DentCard(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: isPaid
-                                          ? ClinicTheme.mintSoft
-                                          : ClinicTheme.coralSoft,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      isPaid ? LucideIcons.checkCircle : LucideIcons.alertCircle,
-                                      color: isPaid ? ClinicTheme.mint : ClinicTheme.coral,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '${fine.amount.toStringAsFixed(0)} ₸',
-                                          style: Theme.of(context).textTheme.titleMedium,
-                                        ),
-                                        Text(
-                                          fine.reason.isNotEmpty ? fine.reason : s.profileFines,
-                                          style: Theme.of(context).textTheme.bodySmall,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  DentBadge(
-                                    label: isPaid ? s.profileFinePaid : s.profileFineUnpaid,
-                                    variant: isPaid ? DentBadgeVariant.success : DentBadgeVariant.error,
-                                  ),
-                                ],
-                              ),
-                              if (!isPaid) ...[
-                                const SizedBox(height: 12),
-                                FilledButton.icon(
-                                  onPressed: () => _payFineViaKaspi(fine),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFFF14635),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  icon: const Icon(LucideIcons.creditCard, size: 18),
-                                  label: Text(s.profileFinePayKaspi),
-                                ),
-                              ],
-                            ],
+                final unpaid = fines.where((f) => !(f as Fine).isPaid).length;
+                return DentCard(
+                  padding: EdgeInsets.zero,
+                  child: ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    leading: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: unpaid > 0
+                            ? ClinicTheme.coralSoft
+                            : ClinicTheme.mintSoft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        unpaid > 0
+                            ? LucideIcons.alertCircle
+                            : LucideIcons.shieldCheck,
+                        color: unpaid > 0 ? ClinicTheme.coral : ClinicTheme.mint,
+                        size: 22,
+                      ),
+                    ),
+                    title: Text(s.profileFines,
+                        style: Theme.of(context).textTheme.titleMedium),
+                    subtitle: Text(
+                      unpaid > 0 ? '$unpaid · ${s.profileFineUnpaid}' : s.profileFinePaid,
+                      style: TextStyle(
+                        color: unpaid > 0 ? ClinicTheme.coral : ClinicTheme.slate,
+                      ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (unpaid > 0)
+                          DentBadge(
+                            label: '$unpaid',
+                            variant: DentBadgeVariant.error,
                           ),
-                        ),
+                        const SizedBox(width: 8),
+                        const Icon(LucideIcons.chevronRight,
+                            color: ClinicTheme.slate),
+                      ],
+                    ),
+                    onTap: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const FinesScreen()),
                       );
-                    }),
-                  ],
+                      if (mounted) _refresh();
+                    },
+                  ),
                 );
               },
             ),
