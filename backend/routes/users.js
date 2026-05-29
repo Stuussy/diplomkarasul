@@ -91,7 +91,7 @@ router.get('/doctors', auth(), async (req, res) => {
       filter.clinics = { $in: admin?.clinics || [] };
     }
     const doctors = await User.find(filter)
-      .select('firstName lastName email phone specialties clinics')
+      .select('firstName lastName email phone specialties clinics reviews rating experienceYears bio')
       .populate('clinics', 'name address contacts');
     res.json(doctors);
   } catch (error) {

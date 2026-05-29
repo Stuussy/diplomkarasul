@@ -283,6 +283,15 @@ class ApiService {
     _decode(response);
   }
 
+  Future<Map<String, dynamic>> seedSlots({required String untilDate}) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/admin/seed-slots'),
+      headers: _headers(),
+      body: jsonEncode({'untilDate': untilDate}),
+    );
+    return _decode(response) as Map<String, dynamic>;
+  }
+
   Future<SupportMessage> sendSupportMessage(
     String content, {
     required String category,

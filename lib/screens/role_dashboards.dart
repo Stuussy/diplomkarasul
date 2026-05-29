@@ -11,6 +11,9 @@ import '../models/support_message.dart';
 import '../models/slot.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
+import '../theme/clinic_theme.dart';
+import '../widgets/dent_badge.dart';
+import '../widgets/dent_card.dart';
 import '../widgets/role_profile_overview.dart';
 import 'medical_records_screen.dart';
 
@@ -318,6 +321,7 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   late Future<RoleProfileSummary> _profileFuture;
   late Future<List<AppUser>> _doctorsFuture;
+  late Future<List<Appointment>> _appointmentsFuture;
   List<Clinic> _clinics = [];
   String? _selectedClinicId;
   Future<List<Slot>>? _slotsFuture;
@@ -325,6 +329,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   DateTime? _slotDate;
   TimeOfDay? _slotStart;
   TimeOfDay? _slotEnd;
+  bool _seedingSlots = false;
+  DateTime _seedUntil = DateTime(2026, 6, 10);
 
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -336,7 +342,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     7,
     (index) => _WorkingHourEntry(day: index, open: '09:00', close: '18:00'),
   );
-
   final _serviceNameController = TextEditingController();
   final _servicePriceController = TextEditingController();
   final _serviceDurationController = TextEditingController(text: '30');
@@ -346,6 +351,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     super.initState();
     _profileFuture = _loadProfile();
     _doctorsFuture = _loadDoctors();
+    _appointmentsFuture = _loadAppointments();
     _loadClinics();
   }
 
@@ -357,23 +363,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _addressController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
-    for (final entry in _workingHours) {
-      entry.dispose();
-    }
+    for (final entry in _workingHours) entry.dispose();
     _serviceNameController.dispose();
     _servicePriceController.dispose();
     _serviceDurationController.dispose();
     super.dispose();
   }
 
-  Future<RoleProfileSummary> _loadProfile() {
+  Future<RoleProfileSummary> _loadProfile() =>
+      context.read<SessionProvider>().apiService.fetchRoleProfileSummary();
+
+  Future<List<Appointment>> _loadAppointments() {
     final api = context.read<SessionProvider>().apiService;
-    return api.fetchRoleProfileSummary();
+    final now = DateTime.now();
+    return api.fetchAppointments(from: now.subtract(const Duration(days: 1)), to: now.add(const Duration(days: 30)));
   }
 
   Future<void> _loadClinics() async {
-    final api = context.read<SessionProvider>().apiService;
-    final clinics = await api.fetchClinics();
+    final clinics = await context.read<SessionProvider>().apiService.fetchClinics();
     if (!mounted) return;
     setState(() {
       _clinics = clinics;
@@ -385,8 +392,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Future<List<AppUser>> _loadDoctors() async {
-    final api = context.read<SessionProvider>().apiService;
-    final doctors = await api.fetchDoctors();
+    final doctors = await context.read<SessionProvider>().apiService.fetchDoctors();
     if (_selectedDoctorId == null && doctors.isNotEmpty) {
       _selectedDoctorId = doctors.first.id;
       _slotsFuture = _loadSlots();
@@ -394,25 +400,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return doctors;
   }
 
-  Future<List<Slot>> _loadSlots() {
-    final api = context.read<SessionProvider>().apiService;
-    return api.fetchSlots(doctorId: _selectedDoctorId, status: null);
-  }
+  Future<List<Slot>> _loadSlots() =>
+      context.read<SessionProvider>().apiService.fetchSlots(doctorId: _selectedDoctorId, status: null);
 
   Future<void> _refresh() async {
     setState(() {
       _profileFuture = _loadProfile();
       _doctorsFuture = _loadDoctors();
-      if (_selectedDoctorId != null) {
-        _slotsFuture = _loadSlots();
-      }
+      _appointmentsFuture = _loadAppointments();
+      if (_selectedDoctorId != null) _slotsFuture = _loadSlots();
     });
     await _loadClinics();
   }
 
-  Future<void> _logout() async {
-    await context.read<SessionProvider>().logout();
-  }
+  Future<void> _logout() => context.read<SessionProvider>().logout();
 
   void _fillClinicForm(Clinic clinic) {
     _nameController.text = clinic.name;
@@ -423,29 +424,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _emailController.text = clinic.contacts?.email ?? '';
     if (clinic.workingHours.isNotEmpty) {
       for (final entry in _workingHours) {
-        final slot = clinic.workingHours.firstWhere(
+        final wh = clinic.workingHours.firstWhere(
           (item) => item.day == entry.day,
           orElse: () => ClinicWorkingHour(day: entry.day, open: '09:00', close: '18:00', isClosed: false),
         );
-        entry.openController.text = slot.open ?? '09:00';
-        entry.closeController.text = slot.close ?? '18:00';
-        entry.isClosed = slot.isClosed;
+        entry.openController.text = wh.open ?? '09:00';
+        entry.closeController.text = wh.close ?? '18:00';
+        entry.isClosed = wh.isClosed;
       }
     }
   }
 
-  List<Map<String, dynamic>> _buildWorkingHoursPayload() {
-    return _workingHours
-        .map(
-          (entry) => {
-            'day': entry.day,
-            'open': entry.openController.text.trim(),
-            'close': entry.closeController.text.trim(),
-            'isClosed': entry.isClosed,
-          },
-        )
-        .toList();
-  }
+  List<Map<String, dynamic>> _buildWorkingHoursPayload() => _workingHours
+      .map((e) => {'day': e.day, 'open': e.openController.text.trim(), 'close': e.closeController.text.trim(), 'isClosed': e.isClosed})
+      .toList();
 
   Future<void> _saveClinic({String? status}) async {
     final api = context.read<SessionProvider>().apiService;
@@ -454,35 +446,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
       'description': _descriptionController.text.trim(),
       'city': _cityController.text.trim(),
       'address': _addressController.text.trim(),
-      'contacts': {
-        'phone': _phoneController.text.trim(),
-        'email': _emailController.text.trim(),
-      },
+      'contacts': {'phone': _phoneController.text.trim(), 'email': _emailController.text.trim()},
       'workingHours': _buildWorkingHoursPayload(),
       if (status != null) 'status': status,
     };
-
     try {
       if (_selectedClinicId == null) {
         final clinic = await api.createClinic(payload);
         if (!mounted) return;
-        setState(() {
-          _clinics = [..._clinics, clinic];
-          _selectedClinicId = clinic.id;
-        });
+        setState(() { _clinics = [..._clinics, clinic]; _selectedClinicId = clinic.id; });
       } else {
         await api.updateClinic(_selectedClinicId!, payload);
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Данные клиники сохранены.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(_successSnack('Данные клиники сохранены'));
       _loadClinics();
-    } catch (error) {
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка сохранения: $error')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(_errorSnack('$e'));
     }
   }
 
@@ -500,158 +481,133 @@ class _AdminDashboardState extends State<AdminDashboard> {
       _serviceDurationController.text = '30';
       await _loadClinics();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Услуга добавлена.')),
-      );
-    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(_successSnack('Услуга добавлена'));
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка добавления услуги: $error')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(_errorSnack('$e'));
     }
   }
 
   Future<void> _assignDoctor(String doctorId) async {
     if (_selectedClinicId == null) return;
-    final api = context.read<SessionProvider>().apiService;
     try {
-      await api.addClinicDoctor(_selectedClinicId!, doctorId);
+      await context.read<SessionProvider>().apiService.addClinicDoctor(_selectedClinicId!, doctorId);
       await _loadClinics();
-    } catch (error) {
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не удалось назначить врача: $error')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(_errorSnack('$e'));
     }
   }
 
   Future<void> _removeDoctor(String doctorId) async {
     if (_selectedClinicId == null) return;
-    final api = context.read<SessionProvider>().apiService;
     try {
-      await api.removeClinicDoctor(_selectedClinicId!, doctorId);
+      await context.read<SessionProvider>().apiService.removeClinicDoctor(_selectedClinicId!, doctorId);
       await _loadClinics();
-    } catch (error) {
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не удалось убрать врача: $error')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(_errorSnack('$e'));
     }
   }
 
   Future<void> _pickSlotDate() async {
     final now = DateTime.now();
+    final result = await showDatePicker(context: context, initialDate: now, firstDate: now, lastDate: now.add(const Duration(days: 60)));
+    if (result != null) setState(() => _slotDate = result);
+  }
+
+  Future<void> _pickSeedUntil() async {
+    final now = DateTime.now();
     final result = await showDatePicker(
       context: context,
-      initialDate: now,
+      initialDate: _seedUntil,
       firstDate: now,
-      lastDate: now.add(const Duration(days: 60)),
+      lastDate: now.add(const Duration(days: 180)),
     );
-    if (result != null) {
-      setState(() => _slotDate = result);
-    }
+    if (result != null) setState(() => _seedUntil = result);
   }
 
-  Future<TimeOfDay?> _show24hTimePicker(TimeOfDay initial) {
-    return showTimePicker(
-      context: context,
-      initialTime: initial,
-      builder: (context, child) {
-        final media = MediaQuery.of(context);
-        return MediaQuery(
-          data: media.copyWith(alwaysUse24HourFormat: true),
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-    );
-  }
+  Future<TimeOfDay?> _show24hTimePicker(TimeOfDay initial) => showTimePicker(
+    context: context,
+    initialTime: initial,
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+      child: child ?? const SizedBox.shrink(),
+    ),
+  );
 
   Future<void> _pickStartTime() async {
-    final result = await _show24hTimePicker(const TimeOfDay(hour: 9, minute: 0));
-    if (result != null) setState(() => _slotStart = result);
+    final r = await _show24hTimePicker(const TimeOfDay(hour: 9, minute: 0));
+    if (r != null) setState(() => _slotStart = r);
   }
 
   Future<void> _pickEndTime() async {
-    final result = await _show24hTimePicker(const TimeOfDay(hour: 9, minute: 30));
-    if (result != null) setState(() => _slotEnd = result);
+    final r = await _show24hTimePicker(const TimeOfDay(hour: 9, minute: 45));
+    if (r != null) setState(() => _slotEnd = r);
   }
 
   Future<void> _createSlot() async {
-    if (_selectedDoctorId == null ||
-        _selectedClinicId == null ||
-        _slotDate == null ||
-        _slotStart == null ||
-        _slotEnd == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Заполните все поля расписания')));
+    if (_selectedDoctorId == null || _selectedClinicId == null || _slotDate == null || _slotStart == null || _slotEnd == null) {
+      ScaffoldMessenger.of(context).showSnackBar(_errorSnack('Заполните все поля'));
       return;
     }
-
-    final start = DateTime(
-      _slotDate!.year,
-      _slotDate!.month,
-      _slotDate!.day,
-      _slotStart!.hour,
-      _slotStart!.minute,
-    );
-    final end = DateTime(
-      _slotDate!.year,
-      _slotDate!.month,
-      _slotDate!.day,
-      _slotEnd!.hour,
-      _slotEnd!.minute,
-    );
-
-    if (end.isBefore(start)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Время окончания должно быть позже начала')),
-      );
-      return;
-    }
-
-    final api = context.read<SessionProvider>().apiService;
+    final start = DateTime(_slotDate!.year, _slotDate!.month, _slotDate!.day, _slotStart!.hour, _slotStart!.minute);
+    final end = DateTime(_slotDate!.year, _slotDate!.month, _slotDate!.day, _slotEnd!.hour, _slotEnd!.minute);
+    if (end.isBefore(start)) { ScaffoldMessenger.of(context).showSnackBar(_errorSnack('Конец раньше начала')); return; }
     try {
-      await api.createSlot(
-        doctorId: _selectedDoctorId!,
-        clinicId: _selectedClinicId!,
-        startTime: start,
-        endTime: end,
-      );
+      await context.read<SessionProvider>().apiService.createSlot(doctorId: _selectedDoctorId!, clinicId: _selectedClinicId!, startTime: start, endTime: end);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Слот создан')));
-      setState(() {
-        _slotsFuture = _loadSlots();
-      });
+      ScaffoldMessenger.of(context).showSnackBar(_successSnack('Слот создан'));
+      setState(() => _slotsFuture = _loadSlots());
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Ошибка создания слота: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(_errorSnack('$e'));
     }
   }
 
   Future<void> _deleteSlot(String slotId) async {
-    final api = context.read<SessionProvider>().apiService;
     try {
-      await api.deleteSlot(slotId);
+      await context.read<SessionProvider>().apiService.deleteSlot(slotId);
       if (!mounted) return;
-      setState(() {
-        _slotsFuture = _loadSlots();
-      });
+      setState(() => _slotsFuture = _loadSlots());
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не удалось удалить слот: $e')),
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(_errorSnack('$e'));
     }
   }
 
-  Clinic? get _selectedClinic {
-    if (_selectedClinicId == null) return null;
-    return _clinics.firstWhere(
-      (clinic) => clinic.id == _selectedClinicId,
-      orElse: () => _clinics.first,
-    );
+  Future<void> _seedSlots() async {
+    setState(() => _seedingSlots = true);
+    final dateStr = '${_seedUntil.year}-${_seedUntil.month.toString().padLeft(2,'0')}-${_seedUntil.day.toString().padLeft(2,'0')}';
+    try {
+      final result = await context.read<SessionProvider>().apiService.seedSlots(untilDate: dateStr);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(_successSnack(result['message'] as String? ?? 'Слоты созданы'));
+      setState(() => _slotsFuture = _loadSlots());
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(_errorSnack('$e'));
+    } finally {
+      if (mounted) setState(() => _seedingSlots = false);
+    }
   }
+
+  Clinic? get _selectedClinic => _selectedClinicId == null ? null
+      : _clinics.firstWhere((c) => c.id == _selectedClinicId, orElse: () => _clinics.first);
+
+  SnackBar _successSnack(String msg) => SnackBar(
+    content: Text(msg),
+    backgroundColor: ClinicTheme.mint,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  );
+
+  SnackBar _errorSnack(String msg) => SnackBar(
+    content: Text(msg),
+    backgroundColor: ClinicTheme.coral,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -659,20 +615,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
+        backgroundColor: ClinicTheme.mist,
         appBar: AppBar(
+          backgroundColor: ClinicTheme.snow,
+          foregroundColor: ClinicTheme.midnight,
+          elevation: 0,
           title: Text(s.dashAdminTitle),
           actions: [
-            IconButton(
-              onPressed: _refresh,
-              icon: const Icon(LucideIcons.refreshCcw, size: 20),
-            ),
+            IconButton(onPressed: _refresh, icon: const Icon(LucideIcons.refreshCcw, size: 20)),
             PopupMenuButton<String>(
               onSelected: (value) {
-                if (value == 'logout') {
-                  _logout();
-                } else if (value == 'change_password') {
-                  showChangePasswordDialog(context);
-                }
+                if (value == 'logout') _logout();
+                else if (value == 'change_password') showChangePasswordDialog(context);
               },
               itemBuilder: (context) => [
                 PopupMenuItem(value: 'change_password', child: Text(s.profileChangePassword)),
@@ -681,42 +635,103 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           ],
           bottom: TabBar(
+            labelColor: ClinicTheme.azure,
+            unselectedLabelColor: ClinicTheme.slate,
+            indicatorColor: ClinicTheme.azure,
             tabs: [
-              Tab(icon: const Icon(LucideIcons.userCircle, size: 20), text: s.dashAdminStats),
+              Tab(icon: const Icon(LucideIcons.layoutDashboard, size: 20), text: 'Обзор'),
               Tab(icon: const Icon(LucideIcons.building2, size: 20), text: 'Клиника'),
-              Tab(icon: const Icon(LucideIcons.calendarClock, size: 20), text: s.dashDoctorSchedule),
+              Tab(icon: const Icon(LucideIcons.calendarClock, size: 20), text: 'Слоты'),
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            _buildAdminOverviewTab(),
-            _buildClinicManagementTab(),
-            _buildAdminSchedulingTab(),
-          ],
-        ),
+        body: TabBarView(children: [_buildOverviewTab(), _buildClinicTab(), _buildScheduleTab()]),
       ),
     );
   }
 
-  Widget _buildAdminOverviewTab() {
+  // ──────────────────────────── OVERVIEW TAB ────────────────────────────
+
+  Widget _buildOverviewTab() {
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           FutureBuilder<RoleProfileSummary>(
             future: _profileFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return _buildLoadingCard('Собираем информацию профиля');
-              } else if (snapshot.hasError) {
-                return _buildErrorCard('Ошибка профиля: ${snapshot.error}');
-              } else if (!snapshot.hasData) {
-                return _buildErrorCard('Нет данных профиля');
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) return _shimmer(80);
+              if (!snap.hasData) return const SizedBox.shrink();
+              return RoleProfileOverview(summary: snap.data!);
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // Stats row
+          FutureBuilder<List<Appointment>>(
+            future: _appointmentsFuture,
+            builder: (context, snap) {
+              final appointments = snap.data ?? [];
+              final today = DateTime.now();
+              final todayCount = appointments.where((a) {
+                return a.startTime.year == today.year &&
+                    a.startTime.month == today.month &&
+                    a.startTime.day == today.day &&
+                    (a.status == 'scheduled' || a.status == 'confirmed');
+              }).length;
+              final activeCount = appointments.where((a) => a.status == 'scheduled' || a.status == 'confirmed').length;
+              if (snap.connectionState == ConnectionState.waiting) return _shimmer(72);
+              return Row(
+                children: [
+                  Expanded(child: _statCard('Сегодня', '$todayCount', LucideIcons.calendarCheck, ClinicTheme.azure, ClinicTheme.azureSoft)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _statCard('Активных', '$activeCount', LucideIcons.clock, ClinicTheme.amber, ClinicTheme.amberSoft)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _statCard('Врачей', '${_clinics.isEmpty ? "—" : _clinics.fold(0, (s, c) => s + c.doctors.length)}', LucideIcons.stethoscope, ClinicTheme.mint, ClinicTheme.mintSoft)),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // Upcoming appointments
+          FutureBuilder<List<Appointment>>(
+            future: _appointmentsFuture,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) return _shimmer(200);
+              final all = snap.data ?? [];
+              final upcoming = all
+                  .where((a) => a.status == 'scheduled' || a.status == 'confirmed')
+                  .toList()
+                ..sort((a, b) => a.startTime.compareTo(b.startTime));
+              if (upcoming.isEmpty) {
+                return DentCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      const Icon(LucideIcons.calendarX, size: 36, color: ClinicTheme.slate),
+                      const SizedBox(height: 8),
+                      Text('Нет предстоящих записей', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: ClinicTheme.slate)),
+                    ],
+                  ),
+                );
               }
-              return RoleProfileOverview(summary: snapshot.data!);
+              return DentCard(
+                padding: const EdgeInsets.all(0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      child: Text('Ближайшие записи', style: Theme.of(context).textTheme.titleMedium),
+                    ),
+                    const SizedBox(height: 8),
+                    ...upcoming.take(8).map((a) => _appointmentRow(a)),
+                  ],
+                ),
+              );
             },
           ),
         ],
@@ -724,365 +739,432 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildClinicManagementTab() {
+  Widget _statCard(String label, String value, IconData icon, Color color, Color bgColor) {
+    return DentCard(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      child: Column(
+        children: [
+          Container(
+            width: 38, height: 38,
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+            child: Icon(icon, size: 18, color: color),
+          ),
+          const SizedBox(height: 8),
+          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(fontSize: 11, color: ClinicTheme.slate)),
+        ],
+      ),
+    );
+  }
+
+  Widget _appointmentRow(Appointment a) {
+    final isPending = a.status == 'scheduled';
+    final time = '${a.startTime.hour.toString().padLeft(2,'0')}:${a.startTime.minute.toString().padLeft(2,'0')}';
+    final date = '${a.startTime.day.toString().padLeft(2,'0')}.${a.startTime.month.toString().padLeft(2,'0')}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(
+              color: isPending ? ClinicTheme.azureSoft : ClinicTheme.mintSoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(isPending ? LucideIcons.clock : LucideIcons.checkCircle,
+                size: 18, color: isPending ? ClinicTheme.azure : ClinicTheme.mint),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(a.patient?.fullName ?? 'Пациент', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                Text('${a.service} • ${a.doctor?.fullName ?? ''}', style: const TextStyle(fontSize: 12, color: ClinicTheme.slate)),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(time, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: ClinicTheme.midnight)),
+              Text(date, style: const TextStyle(fontSize: 11, color: ClinicTheme.slate)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ──────────────────────────── CLINIC TAB ────────────────────────────
+
+  Widget _buildClinicTab() {
     final selectedClinic = _selectedClinic;
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          if (_clinics.isNotEmpty)
-            DropdownButtonFormField<String>(
-              initialValue: _selectedClinicId,
-              items: _clinics
-                  .map((clinic) => DropdownMenuItem(
-                        value: clinic.id,
-                        child: Text(clinic.name),
-                      ))
-                  .toList(),
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() {
-                  _selectedClinicId = value;
-                  final clinic = _clinics.firstWhere((item) => item.id == value);
-                  _fillClinicForm(clinic);
-                });
-              },
-              decoration: InputDecoration(
-                labelText: context.s.dashAdminClinics,
-                border: const OutlineInputBorder(),
+          // Clinic picker
+          if (_clinics.length > 1)
+            DentCard(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedClinicId,
+                  isExpanded: true,
+                  icon: const Icon(LucideIcons.chevronDown, size: 18),
+                  items: _clinics.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                  onChanged: (v) {
+                    if (v == null) return;
+                    setState(() { _selectedClinicId = v; _fillClinicForm(_clinics.firstWhere((c) => c.id == v)); });
+                  },
+                ),
               ),
-            )
-          else
-            const Text('Клиника еще не создана. Заполните форму ниже.'),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'Название клиники',
-              border: OutlineInputBorder(),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _descriptionController,
-            minLines: 2,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Описание',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _cityController,
-            decoration: const InputDecoration(
-              labelText: 'Город',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _addressController,
-            decoration: const InputDecoration(
-              labelText: 'Адрес',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _phoneController,
-            decoration: const InputDecoration(
-              labelText: 'Телефон',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _emailController,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'График по дням',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 12),
-          ..._workingHours.map(
-            (entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+          if (_clinics.length > 1) const SizedBox(height: 12),
+
+          // Status badge
+          if (selectedClinic != null)
+            DentCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  SizedBox(
-                    width: 80,
-                    child: Text(
-                      _dayLabel(entry.day),
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: entry.openController,
-                      enabled: !entry.isClosed,
-                      decoration: const InputDecoration(
-                        labelText: 'Открытие',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: entry.closeController,
-                      enabled: !entry.isClosed,
-                      decoration: const InputDecoration(
-                        labelText: 'Закрытие',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    children: [
-                      const Text('Выходной', style: TextStyle(fontSize: 12)),
-                      Switch(
-                        value: entry.isClosed,
-                        onChanged: (value) {
-                          setState(() => entry.isClosed = value);
-                        },
-                      ),
-                    ],
+                  const Icon(LucideIcons.building2, color: ClinicTheme.azure, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(selectedClinic.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+                  DentBadge(
+                    label: selectedClinic.status == 'active' ? 'Активна' : selectedClinic.status == 'inactive' ? 'Неактивна' : 'Черновик',
+                    variant: selectedClinic.status == 'active' ? DentBadgeVariant.success : DentBadgeVariant.error,
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
+          if (selectedClinic != null) const SizedBox(height: 12),
+
+          // Info form
+          _sectionCard(
+            title: 'Основная информация',
+            icon: LucideIcons.info,
             children: [
-              ElevatedButton(
-                onPressed: () => _saveClinic(),
-                child: Text(context.s.save),
-              ),
-              if (selectedClinic != null)
-                ElevatedButton(
-                  onPressed: () => _saveClinic(status: 'active'),
-                  child: Text(context.s.dashSuperActivate),
-                ),
-              if (selectedClinic != null)
-                OutlinedButton(
-                  onPressed: () => _saveClinic(status: 'inactive'),
-                  child: const Text('Сделать неактивной'),
-                ),
+              _field(_nameController, 'Название клиники', LucideIcons.building2),
+              _field(_descriptionController, 'Описание', LucideIcons.fileText, minLines: 2, maxLines: 3),
+              _field(_cityController, 'Город', LucideIcons.mapPin),
+              _field(_addressController, 'Адрес', LucideIcons.navigation),
+              _field(_phoneController, 'Телефон', LucideIcons.phone, type: TextInputType.phone),
+              _field(_emailController, 'Email', LucideIcons.mail, type: TextInputType.emailAddress),
             ],
           ),
-          const SizedBox(height: 24),
-          const Text(
-            'Услуги',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          const SizedBox(height: 12),
+
+          // Schedule
+          _sectionCard(
+            title: 'Режим работы',
+            icon: LucideIcons.clock,
+            children: [
+              ..._workingHours.map((entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    SizedBox(width: 30, child: Text(_dayLabel(entry.day), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                    const SizedBox(width: 8),
+                    Expanded(child: TextField(controller: entry.openController, enabled: !entry.isClosed, style: const TextStyle(fontSize: 13), decoration: _inputDec('Откр.'))),
+                    const SizedBox(width: 8),
+                    Expanded(child: TextField(controller: entry.closeController, enabled: !entry.isClosed, style: const TextStyle(fontSize: 13), decoration: _inputDec('Закр.'))),
+                    const SizedBox(width: 4),
+                    Switch.adaptive(
+                      value: entry.isClosed,
+                      onChanged: (v) => setState(() => entry.isClosed = v),
+                      activeColor: ClinicTheme.coral,
+                    ),
+                  ],
+                ),
+              )),
+            ],
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _serviceNameController,
-            decoration: const InputDecoration(
-              labelText: 'Название услуги',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 8),
+
+          // Action buttons
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _servicePriceController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Цена',
-                    border: OutlineInputBorder(),
-                  ),
+                child: FilledButton.icon(
+                  onPressed: () => _saveClinic(),
+                  icon: const Icon(LucideIcons.save, size: 16),
+                  label: const Text('Сохранить'),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _serviceDurationController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Длительность (мин)',
-                    border: OutlineInputBorder(),
+              if (selectedClinic != null) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _saveClinic(status: selectedClinic.status == 'active' ? 'inactive' : 'active'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: selectedClinic.status == 'active' ? ClinicTheme.coral : ClinicTheme.mint,
+                      side: BorderSide(color: selectedClinic.status == 'active' ? ClinicTheme.coral : ClinicTheme.mint),
+                    ),
+                    child: Text(selectedClinic.status == 'active' ? 'Деактивировать' : 'Активировать'),
                   ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Services
+          _sectionCard(
+            title: 'Услуги',
+            icon: LucideIcons.stethoscope,
+            children: [
+              if (selectedClinic != null && selectedClinic.services.isNotEmpty) ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: selectedClinic.services.map((svc) => Chip(
+                    label: Text('${svc.name} • ${svc.price} ₸', style: const TextStyle(fontSize: 12)),
+                    backgroundColor: ClinicTheme.azureSoft,
+                    side: BorderSide.none,
+                  )).toList(),
+                ),
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+              ],
+              _field(_serviceNameController, 'Название услуги', LucideIcons.plus),
+              Row(children: [
+                Expanded(child: TextField(controller: _servicePriceController, keyboardType: TextInputType.number, style: const TextStyle(fontSize: 13), decoration: _inputDec('Цена ₸'))),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(controller: _serviceDurationController, keyboardType: TextInputType.number, style: const TextStyle(fontSize: 13), decoration: _inputDec('Мин'))),
+              ]),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _addService,
+                  icon: const Icon(LucideIcons.plus, size: 16),
+                  label: const Text('Добавить услугу'),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: _addService,
-            child: const Text('Добавить услугу'),
-          ),
           const SizedBox(height: 12),
-          if (selectedClinic != null && selectedClinic.services.isNotEmpty)
-            Column(
-              children: selectedClinic.services
-                  .map(
-                    (service) => ListTile(
-                      title: Text(service.name),
-                      subtitle: Text('${service.price} тг • ${service.durationMinutes} мин'),
-                    ),
-                  )
-                  .toList(),
-            )
-          else
-            const Text('Услуг пока нет.'),
-          const SizedBox(height: 24),
-          Text(
-            context.s.dashAdminDoctors,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+
+          // Doctors
+          _sectionCard(
+            title: 'Врачи клиники',
+            icon: LucideIcons.users,
+            children: [
+              if (selectedClinic == null)
+                const Text('Сначала создайте клинику', style: TextStyle(color: ClinicTheme.slate))
+              else
+                FutureBuilder<List<AppUser>>(
+                  future: _doctorsFuture,
+                  builder: (context, snap) {
+                    if (!snap.hasData) return const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()));
+                    final doctors = snap.data ?? [];
+                    if (doctors.isEmpty) return const Text('Нет врачей', style: TextStyle(color: ClinicTheme.slate));
+                    return Column(
+                      children: doctors.map((doc) {
+                        final assigned = selectedClinic.doctors.contains(doc.id);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 38, height: 38,
+                                decoration: BoxDecoration(
+                                  color: assigned ? ClinicTheme.mintSoft : ClinicTheme.mist,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(child: Text(doc.firstName.isNotEmpty ? doc.firstName[0].toUpperCase() : '?',
+                                    style: TextStyle(fontWeight: FontWeight.w700, color: assigned ? ClinicTheme.mint : ClinicTheme.slate))),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text(doc.fullName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                  Text(doc.specialties.join(', '), style: const TextStyle(fontSize: 11, color: ClinicTheme.slate)),
+                                ]),
+                              ),
+                              TextButton(
+                                onPressed: assigned ? () => _removeDoctor(doc.id) : () => _assignDoctor(doc.id),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: assigned ? ClinicTheme.coral : ClinicTheme.azure,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                ),
+                                child: Text(assigned ? 'Убрать' : 'Добавить', style: const TextStyle(fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+            ],
           ),
-          const SizedBox(height: 12),
-          if (selectedClinic == null)
-            const Text('Сначала создайте клинику, чтобы назначать врачей.')
-          else
-            FutureBuilder<List<AppUser>>(
-              future: _doctorsFuture,
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final doctors = snapshot.data ?? [];
-                if (doctors.isEmpty) {
-                  return const Text('Нет доступных врачей.');
-                }
-                return Column(
-                  children: doctors
-                      .map((doctor) => ListTile(
-                            title: Text(doctor.fullName),
-                            subtitle: Text(doctor.specialties.join(', ')),
-                            trailing: selectedClinic.doctors.contains(doctor.id)
-                                ? TextButton(
-                                    onPressed: () => _removeDoctor(doctor.id),
-                                    child: Text(context.s.dashAdminRemoveDoctor),
-                                  )
-                                : TextButton(
-                                    onPressed: () => _assignDoctor(doctor.id),
-                                    child: Text(context.s.dashAdminAddDoctor),
-                                  ),
-                          ))
-                      .toList(),
-                );
-              },
-            ),
         ],
       ),
     );
   }
 
-  Widget _buildAdminSchedulingTab() {
+  // ──────────────────────────── SCHEDULE TAB ────────────────────────────
+
+  Widget _buildScheduleTab() {
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
+          // Bulk slot generator
+          _sectionCard(
+            title: 'Автогенерация слотов',
+            icon: LucideIcons.zap,
+            children: [
+              Text(
+                'Создаёт слоты для всех врачей (Пн–Пт, 09–17 ч, по 45 мин)',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickSeedUntil,
+                    icon: const Icon(LucideIcons.calendar, size: 16),
+                    label: Text('До: ${_seedUntil.day.toString().padLeft(2,'0')}.${_seedUntil.month.toString().padLeft(2,'0')}.${_seedUntil.year}'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _seedingSlots ? null : _seedSlots,
+                    icon: _seedingSlots
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(LucideIcons.zap, size: 16),
+                    label: Text(_seedingSlots ? 'Создаём...' : 'Создать'),
+                  ),
+                ),
+              ]),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Doctor selector
           FutureBuilder<List<AppUser>>(
             future: _doctorsFuture,
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return _buildLoadingCard('Загружаем врачей');
-              }
-              final doctors = snapshot.data ?? [];
-              if (doctors.isEmpty) {
-                return _buildErrorCard('Врачи не найдены');
-              }
-              return DropdownButtonFormField<String>(
-                initialValue: _selectedDoctorId,
-                items: doctors
-                    .map((doctor) => DropdownMenuItem(
-                          value: doctor.id,
-                          child: Text(doctor.fullName),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedDoctorId = value;
-                    _slotsFuture = _loadSlots();
-                  });
-                },
-                decoration: const InputDecoration(
-                  labelText: 'Врач',
-                  border: OutlineInputBorder(),
+            builder: (context, snap) {
+              if (!snap.hasData) return _shimmer(56);
+              final doctors = snap.data ?? [];
+              if (doctors.isEmpty) return const SizedBox.shrink();
+              return DentCard(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedDoctorId,
+                    isExpanded: true,
+                    icon: const Icon(LucideIcons.chevronDown, size: 18),
+                    hint: const Text('Выбрать врача'),
+                    items: doctors.map((d) => DropdownMenuItem(value: d.id, child: Text(d.fullName))).toList(),
+                    onChanged: (v) => setState(() { _selectedDoctorId = v; _slotsFuture = _loadSlots(); }),
+                  ),
                 ),
               );
             },
           ),
           const SizedBox(height: 12),
-          Row(
+
+          // Manual slot creator
+          _sectionCard(
+            title: 'Добавить один слот',
+            icon: LucideIcons.plusCircle,
             children: [
-              Expanded(
-                child: OutlinedButton(
+              Row(children: [
+                Expanded(child: OutlinedButton.icon(
                   onPressed: _pickSlotDate,
-                  child: Text(_slotDate == null
-                      ? 'Выбрать дату'
-                      : '${_slotDate!.day}.${_slotDate!.month}.${_slotDate!.year}'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
+                  icon: const Icon(LucideIcons.calendar, size: 14),
+                  label: Text(_slotDate == null ? 'Дата' : '${_slotDate!.day.toString().padLeft(2,'0')}.${_slotDate!.month.toString().padLeft(2,'0')}', style: const TextStyle(fontSize: 13)),
+                )),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton(
                   onPressed: _pickStartTime,
-                  child: Text(_slotStart == null
-                      ? 'Начало'
-                      : '${_slotStart!.hour.toString().padLeft(2, '0')}:${_slotStart!.minute.toString().padLeft(2, '0')}'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
+                  child: Text(_slotStart == null ? 'Начало' : '${_slotStart!.hour.toString().padLeft(2,'0')}:${_slotStart!.minute.toString().padLeft(2,'0')}', style: const TextStyle(fontSize: 13)),
+                )),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton(
                   onPressed: _pickEndTime,
-                  child: Text(_slotEnd == null
-                      ? 'Конец'
-                      : '${_slotEnd!.hour.toString().padLeft(2, '0')}:${_slotEnd!.minute.toString().padLeft(2, '0')}'),
-                ),
-              ),
+                  child: Text(_slotEnd == null ? 'Конец' : '${_slotEnd!.hour.toString().padLeft(2,'0')}:${_slotEnd!.minute.toString().padLeft(2,'0')}', style: const TextStyle(fontSize: 13)),
+                )),
+              ]),
+              const SizedBox(height: 8),
+              SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: _createSlot, icon: const Icon(LucideIcons.plus, size: 16), label: const Text('Создать слот'))),
             ],
           ),
           const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: _createSlot,
-            child: const Text('Создать слот'),
-          ),
-          const SizedBox(height: 16),
+
+          // Slot list
           FutureBuilder<List<Slot>>(
             future: _slotsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return _buildLoadingCard('Загружаем слоты');
-              }
-              final slots = snapshot.data ?? [];
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) return _shimmer(200);
+              final slots = (snap.data ?? [])
+                  .where((s) => s.startTime.isAfter(DateTime.now()))
+                  .toList()
+                ..sort((a, b) => a.startTime.compareTo(b.startTime));
               if (slots.isEmpty) {
-                return _buildErrorCard('Слоты не найдены');
+                return DentCard(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(children: [
+                    const Icon(LucideIcons.calendarX, size: 36, color: ClinicTheme.slate),
+                    const SizedBox(height: 8),
+                    Text('Слоты не найдены', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: ClinicTheme.slate)),
+                  ]),
+                );
+              }
+              final grouped = <String, List<Slot>>{};
+              for (final slot in slots) {
+                final key = '${slot.startTime.day.toString().padLeft(2,'0')}.${slot.startTime.month.toString().padLeft(2,'0')}.${slot.startTime.year}';
+                grouped.putIfAbsent(key, () => []).add(slot);
               }
               return Column(
-                children: slots
-                    .map(
-                      (slot) => ListTile(
-                        title: Text('${_formatDate(slot.startTime)} - ${_formatTime(slot.endTime)}'),
-                        subtitle: Text(slot.status),
-                        trailing: slot.status == 'available'
-                            ? IconButton(
-                                icon: const Icon(LucideIcons.trash2, size: 20),
-                                onPressed: () => _deleteSlot(slot.id),
-                              )
-                            : null,
+                children: grouped.entries.map((entry) => DentCard(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+                        child: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w700, color: ClinicTheme.azure, fontSize: 13)),
                       ),
-                    )
-                    .toList(),
+                      const Divider(height: 1),
+                      ...entry.value.map((slot) => ListTile(
+                        dense: true,
+                        leading: Container(
+                          width: 34, height: 34,
+                          decoration: BoxDecoration(
+                            color: slot.status == 'available' ? ClinicTheme.mintSoft : ClinicTheme.coralSoft,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            slot.status == 'available' ? LucideIcons.clock : LucideIcons.lock,
+                            size: 16, color: slot.status == 'available' ? ClinicTheme.mint : ClinicTheme.coral,
+                          ),
+                        ),
+                        title: Text(
+                          '${slot.startTime.hour.toString().padLeft(2,'0')}:${slot.startTime.minute.toString().padLeft(2,'0')} – ${slot.endTime.hour.toString().padLeft(2,'0')}:${slot.endTime.minute.toString().padLeft(2,'0')}',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(slot.status == 'available' ? 'Свободен' : 'Занят', style: TextStyle(fontSize: 11, color: slot.status == 'available' ? ClinicTheme.mint : ClinicTheme.coral)),
+                        trailing: slot.status == 'available'
+                            ? IconButton(icon: const Icon(LucideIcons.trash2, size: 18, color: ClinicTheme.coral), onPressed: () => _deleteSlot(slot.id))
+                            : null,
+                      )),
+                    ],
+                  ),
+                )).toList(),
               );
             },
           ),
@@ -1091,64 +1173,75 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildLoadingCard(String text) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            const SizedBox(
-              height: 16,
-              width: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            const SizedBox(width: 12),
-            Text(text),
-          ],
-        ),
+  // ──────────────────────────── HELPERS ────────────────────────────
+
+  Widget _sectionCard({required String title, required IconData icon, required List<Widget> children}) {
+    return DentCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(icon, size: 16, color: ClinicTheme.azure),
+            const SizedBox(width: 8),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: ClinicTheme.midnight)),
+          ]),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          ...children,
+        ],
       ),
     );
   }
 
-  Widget _buildErrorCard(String text) {
-    return Card(
-      color: const Color(0xFFFEE8E8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(text),
+  Widget _field(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    TextInputType? type,
+    int minLines = 1,
+    int maxLines = 1,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: controller,
+        keyboardType: type,
+        minLines: minLines,
+        maxLines: maxLines,
+        style: const TextStyle(fontSize: 14),
+        decoration: _inputDec(label, icon: icon),
       ),
     );
   }
 
-  String _formatDate(DateTime date) {
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    return '$day.$month.${date.year}';
+  InputDecoration _inputDec(String label, {IconData? icon}) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: ClinicTheme.slate, fontSize: 13),
+      prefixIcon: icon != null ? Icon(icon, size: 16, color: ClinicTheme.slate) : null,
+      filled: true,
+      fillColor: ClinicTheme.mist,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE1E4E8))),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE1E4E8))),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: ClinicTheme.azure, width: 1.5)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
   }
 
-  String _formatTime(DateTime date) {
-    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-  }
+  Widget _shimmer(double height) => Container(
+    height: height,
+    margin: const EdgeInsets.only(bottom: 4),
+    decoration: BoxDecoration(color: ClinicTheme.mist, borderRadius: BorderRadius.circular(14)),
+  );
+
+  String _formatDate(DateTime date) =>
+      '${date.day.toString().padLeft(2,'0')}.${date.month.toString().padLeft(2,'0')}.${date.year}';
 
   String _dayLabel(int day) {
-    switch (day) {
-      case 0:
-        return 'Вс';
-      case 1:
-        return 'Пн';
-      case 2:
-        return 'Вт';
-      case 3:
-        return 'Ср';
-      case 4:
-        return 'Чт';
-      case 5:
-        return 'Пт';
-      case 6:
-        return 'Сб';
-      default:
-        return '—';
-    }
+    const labels = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+    return day >= 0 && day < labels.length ? labels[day] : '—';
   }
 }
 
