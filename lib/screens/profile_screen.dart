@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_strings.dart';
 import '../models/fine.dart';
@@ -12,6 +10,7 @@ import '../theme/clinic_theme.dart';
 import '../widgets/dent_card.dart';
 import '../widgets/dent_badge.dart';
 import '../widgets/dent_shimmer.dart';
+import '../widgets/kaspi_payment_sheet.dart';
 import '../widgets/patient_ui.dart';
 import 'medical_records_screen.dart';
 
@@ -45,68 +44,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _payFineViaKaspi(Fine fine) async {
-    final s = context.s;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(s.kaspiTitle),
-        content: Text(
-          'Сейчас откроется Kaspi для оплаты ${fine.amount.toStringAsFixed(0)} ₸.\n\nПосле успешной оплаты вернитесь в приложение и подтвердите.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(s.cancel),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF14635)),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(s.kaspiOpen),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    final uri = Uri.parse('https://kaspi.kz/pay/dentalai?amount=${fine.amount.toStringAsFixed(0)}');
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {
-      // ignore: app may not be installed
-    }
-
-    if (!mounted) return;
-    final s2 = context.s;
-    final paid = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(s2.kaspiConfirmTitle),
-        content: Text(s2.kaspiConfirmContent),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(s2.kaspiConfirmNo),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(s2.kaspiConfirmYes),
-          ),
-        ],
-      ),
-    );
+    final paid = await KaspiPaymentSheet.show(context, fine.amount);
     if (paid != true || !mounted) return;
 
     final api = context.read<SessionProvider>().apiService;
     final messenger = ScaffoldMessenger.of(context);
-    final s3 = context.s;
+    final s = context.s;
     try {
       await api.payFine(fine.id);
-      HapticFeedback.mediumImpact();
       messenger.showSnackBar(
         SnackBar(
-          content: Text(s3.kaspiPaidSuccess),
+          content: Text(s.kaspiPaidSuccess),
           backgroundColor: ClinicTheme.mint,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

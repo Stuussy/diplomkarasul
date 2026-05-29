@@ -144,6 +144,7 @@ abstract class AppStrings {
   String get appointmentsCancel;
   String get appointmentsCancelTitle;
   String get appointmentsCancelContent;
+  String get appointmentsCancelDone;
   String get appointmentsConfirmQr;
   String get appointmentsReview;
   String get appointmentsLeaveReview;
@@ -471,6 +472,7 @@ class RuStrings extends AppStrings {
   @override String get appointmentsCancel => 'Отменить запись';
   @override String get appointmentsCancelTitle => 'Отменить запись?';
   @override String get appointmentsCancelContent => 'Вы хотите отменить запись?';
+  @override String get appointmentsCancelDone => 'Запись отменена';
   @override String get appointmentsConfirmQr => 'Подтвердить через QR';
   @override String get appointmentsReview => 'Оставить отзыв';
   @override String get appointmentsLeaveReview => 'Отзыв';
@@ -798,6 +800,7 @@ class KkStrings extends AppStrings {
   @override String get appointmentsCancel => 'Жазбаны болдырмау';
   @override String get appointmentsCancelTitle => 'Жазбаны болдырмау?';
   @override String get appointmentsCancelContent => 'Жазбаны болдырмағыңыз келе ме?';
+  @override String get appointmentsCancelDone => 'Жазба болдырылмады';
   @override String get appointmentsConfirmQr => 'QR арқылы растау';
   @override String get appointmentsReview => 'Пікір қалдыру';
   @override String get appointmentsLeaveReview => 'Пікір';

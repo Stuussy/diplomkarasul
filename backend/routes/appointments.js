@@ -454,7 +454,16 @@ router.post('/:id/cancel', auth(['patient', 'admin', 'superadmin']), async (req,
   }
 
   const now = new Date();
-  if (req.user.role === 'patient' && appointment.cancelBefore && now > appointment.cancelBefore) {
+  // Late-cancel fine applies only while the appointment is still upcoming:
+  // we are inside the [cancelBefore, startTime) window. A slot whose start
+  // time has already passed can be cancelled freely (no point fining a
+  // no-longer-upcoming appointment).
+  if (
+    req.user.role === 'patient' &&
+    appointment.cancelBefore &&
+    now > appointment.cancelBefore &&
+    now < appointment.startTime
+  ) {
     const claimed = await Appointment.findOneAndUpdate(
       { _id: appointment._id, fineIssued: { $ne: true } },
       { $set: { fineIssued: true } },

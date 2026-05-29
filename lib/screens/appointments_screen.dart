@@ -7,6 +7,7 @@ import '../l10n/app_strings.dart';
 import '../models/appointment.dart';
 import '../models/review.dart';
 import '../providers/session_provider.dart';
+import '../services/api_service.dart';
 import '../theme/clinic_theme.dart';
 import '../widgets/dent_card.dart';
 import '../widgets/dent_badge.dart';
@@ -109,13 +110,24 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     if (confirmed != true || !mounted) return;
 
     final api = context.read<SessionProvider>().apiService;
+    final messenger = ScaffoldMessenger.of(context);
     try {
       await api.cancelAppointment(appointment.id);
-      _refresh();
+      HapticFeedback.mediumImpact();
+      await _refresh();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(s.appointmentsCancelDone),
+          backgroundColor: ClinicTheme.coral,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
+      HapticFeedback.heavyImpact();
+      final message = e is ApiException ? e.message : e.toString();
+      messenger.showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
