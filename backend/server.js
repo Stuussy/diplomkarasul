@@ -35,7 +35,7 @@ app.use(express.json()); // Позволяет парсить JSON в теле �
 const rateLimitDefaults = {
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false, trustProxy: false },
+  validate: false,
 };
 
 const limiter = rateLimit({

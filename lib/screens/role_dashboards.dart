@@ -106,20 +106,18 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        backgroundColor: ClinicTheme.mist,
         appBar: AppBar(
+          backgroundColor: ClinicTheme.snow,
+          foregroundColor: ClinicTheme.midnight,
+          elevation: 0,
           title: Text(s.dashDoctorTitle),
           actions: [
-            IconButton(
-              onPressed: _refresh,
-              icon: const Icon(LucideIcons.refreshCcw, size: 20),
-            ),
+            IconButton(onPressed: _refresh, icon: const Icon(LucideIcons.refreshCcw, size: 20)),
             PopupMenuButton<String>(
               onSelected: (value) {
-                if (value == 'logout') {
-                  _logout();
-                } else if (value == 'change_password') {
-                  showChangePasswordDialog(context);
-                }
+                if (value == 'logout') _logout();
+                else if (value == 'change_password') showChangePasswordDialog(context);
               },
               itemBuilder: (context) => [
                 PopupMenuItem(value: 'change_password', child: Text(s.profileChangePassword)),
@@ -128,18 +126,16 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             ),
           ],
           bottom: TabBar(
+            labelColor: ClinicTheme.azure,
+            unselectedLabelColor: ClinicTheme.slate,
+            indicatorColor: ClinicTheme.azure,
             tabs: [
-              Tab(icon: const Icon(LucideIcons.layoutDashboard, size: 20), text: s.dashAdminStats),
+              Tab(icon: const Icon(LucideIcons.layoutDashboard, size: 20), text: 'Обзор'),
               Tab(icon: const Icon(LucideIcons.calendarCheck, size: 20), text: s.navAppointments),
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            _buildDoctorOverviewTab(),
-            _buildDoctorAppointmentsTab(),
-          ],
-        ),
+        body: TabBarView(children: [_buildDoctorOverviewTab(), _buildDoctorAppointmentsTab()]),
       ),
     );
   }
@@ -148,20 +144,78 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           FutureBuilder<RoleProfileSummary>(
             future: _profileFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return _buildLoadingCard(context.s.loading);
-              } else if (snapshot.hasError) {
-                return _buildErrorCard('Ошибка профиля: ${snapshot.error}');
-              } else if (!snapshot.hasData) {
-                return _buildErrorCard('Нет данных профиля');
+                return _doctorShimmer(80);
               }
+              if (!snapshot.hasData) return const SizedBox.shrink();
               return RoleProfileOverview(summary: snapshot.data!);
+            },
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<List<Appointment>>(
+            future: _appointmentsFuture,
+            builder: (context, snap) {
+              final all = snap.data ?? [];
+              final today = DateTime.now();
+              final todayAppts = all.where((a) =>
+                a.startTime.year == today.year &&
+                a.startTime.month == today.month &&
+                a.startTime.day == today.day).toList()
+                ..sort((a, b) => a.startTime.compareTo(b.startTime));
+              final activeCount = all.where((a) => a.status == 'scheduled' || a.status == 'confirmed').length;
+              final doneCount = all.where((a) => a.status == 'completed').length;
+              if (snap.connectionState == ConnectionState.waiting) return _doctorShimmer(72);
+              return Row(children: [
+                _doctorStatCard('Сегодня', '${todayAppts.length}', LucideIcons.calendarCheck, ClinicTheme.azure, ClinicTheme.azureSoft),
+                const SizedBox(width: 10),
+                _doctorStatCard('Активных', '$activeCount', LucideIcons.clock, ClinicTheme.amber, ClinicTheme.amberSoft),
+                const SizedBox(width: 10),
+                _doctorStatCard('Завершено', '$doneCount', LucideIcons.checkCircle, ClinicTheme.mint, ClinicTheme.mintSoft),
+              ]);
+            },
+          ),
+          const SizedBox(height: 16),
+          // Today's schedule
+          FutureBuilder<List<Appointment>>(
+            future: _appointmentsFuture,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) return _doctorShimmer(160);
+              final today = DateTime.now();
+              final todayAppts = (snap.data ?? []).where((a) =>
+                a.startTime.year == today.year &&
+                a.startTime.month == today.month &&
+                a.startTime.day == today.day).toList()
+                ..sort((a, b) => a.startTime.compareTo(b.startTime));
+              if (todayAppts.isEmpty) {
+                return DentCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(children: [
+                    const Icon(LucideIcons.calendarX, size: 36, color: ClinicTheme.slate),
+                    const SizedBox(height: 8),
+                    Text('Приёмов сегодня нет', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: ClinicTheme.slate)),
+                  ]),
+                );
+              }
+              return DentCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      child: Text('Расписание на сегодня', style: Theme.of(context).textTheme.titleMedium),
+                    ),
+                    const SizedBox(height: 8),
+                    ...todayAppts.map((a) => _doctorApptRow(a, compact: true)),
+                  ],
+                ),
+              );
             },
           ),
         ],
@@ -172,115 +226,111 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   Widget _buildDoctorAppointmentsTab() {
     return RefreshIndicator(
       onRefresh: _refresh,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          FutureBuilder<List<Appointment>>(
-            future: _appointmentsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return _buildLoadingCard('Загружаем приемы');
-              } else if (snapshot.hasError) {
-                return _buildErrorCard('Ошибка загрузки приемов: ${snapshot.error}');
-              }
-              final appointments = snapshot.data ?? [];
-              if (appointments.isEmpty) {
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.s.dashDoctorSchedule,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(context.s.dashDoctorNoAppointments),
-                      ],
-                    ),
+      child: FutureBuilder<List<Appointment>>(
+        future: _appointmentsFuture,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return ListView(padding: const EdgeInsets.all(16), children: [
+              _doctorShimmer(90), const SizedBox(height: 12),
+              _doctorShimmer(90), const SizedBox(height: 12),
+              _doctorShimmer(90),
+            ]);
+          }
+          final appointments = (snap.data ?? [])
+            ..sort((a, b) => a.startTime.compareTo(b.startTime));
+          if (appointments.isEmpty) {
+            return ListView(padding: const EdgeInsets.all(24), children: [
+              const SizedBox(height: 60),
+              const Icon(LucideIcons.calendarX, size: 48, color: ClinicTheme.slate),
+              const SizedBox(height: 16),
+              Center(child: Text(context.s.dashDoctorNoAppointments, style: const TextStyle(color: ClinicTheme.slate, fontSize: 16))),
+            ]);
+          }
+          // Group by date
+          final grouped = <String, List<Appointment>>{};
+          for (final a in appointments) {
+            final key = '${a.startTime.day.toString().padLeft(2,'0')}.${a.startTime.month.toString().padLeft(2,'0')}.${a.startTime.year}';
+            grouped.putIfAbsent(key, () => []).add(a);
+          }
+          return ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            children: grouped.entries.map((e) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: DentCard(
+                padding: EdgeInsets.zero,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                    child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w700, color: ClinicTheme.azure, fontSize: 13)),
                   ),
-                );
-              }
-
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.s.dashDoctorSchedule,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const SizedBox(height: 4),
-                      ...appointments.map(
-                        (appointment) {
-                          final isActive = appointment.status == 'scheduled' ||
-                              appointment.status == 'confirmed';
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(
-                              appointment.status == 'completed'
-                                  ? LucideIcons.checkCheck
-                                  : appointment.status == 'confirmed'
-                                      ? LucideIcons.checkCircle
-                                      : LucideIcons.clock,
-                              color: appointment.status == 'completed'
-                                  ? const Color(0xFF1AAB8A)
-                                  : appointment.status == 'confirmed'
-                                      ? const Color(0xFF1AAB8A)
-                                      : const Color(0xFF2E7CF6),
-                            ),
-                            title: Text(
-                                '${appointment.patient?.fullName ?? 'Пациент'} • ${appointment.service}'),
-                            subtitle: Text(
-                                '${_formatDate(appointment.startTime)} · ${appointment.status}'),
-                            trailing: Wrap(
-                              spacing: 4,
-                              children: [
-                                if (isActive)
-                                  IconButton(
-                                    tooltip: 'Завершить приём',
-                                    onPressed: () => _completeAppointment(appointment),
-                                    icon: const Icon(LucideIcons.checkCheck,
-                                        size: 20, color: Color(0xFF1AAB8A)),
-                                  ),
-                                IconButton(
-                                  tooltip: 'Медкарта',
-                                  onPressed: appointment.patient == null
-                                      ? null
-                                      : () {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) => MedicalRecordsScreen(
-                                                patientId: appointment.patient!.id,
-                                                title:
-                                                    'Карта: ${appointment.patient!.fullName}',
-                                                allowCreate: true,
-                                                allowEdit: true,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                  icon: const Icon(LucideIcons.folderHeart, size: 20),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
+                  const Divider(height: 1),
+                  ...e.value.map((a) => _doctorApptRow(a)),
+                ]),
+              ),
+            )).toList(),
+          );
+        },
       ),
     );
   }
+
+  Widget _doctorApptRow(Appointment a, {bool compact = false}) {
+    final isActive = a.status == 'scheduled' || a.status == 'confirmed';
+    final isCompleted = a.status == 'completed';
+    final color = isCompleted ? ClinicTheme.mint : isActive ? ClinicTheme.azure : ClinicTheme.slate;
+    final bgColor = isCompleted ? ClinicTheme.mintSoft : isActive ? ClinicTheme.azureSoft : ClinicTheme.mist;
+    final icon = isCompleted ? LucideIcons.checkCheck : a.status == 'confirmed' ? LucideIcons.checkCircle : LucideIcons.clock;
+    final time = '${a.startTime.hour.toString().padLeft(2,'0')}:${a.startTime.minute.toString().padLeft(2,'0')}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(children: [
+        Container(
+          width: 42, height: 42,
+          decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 14, color: color),
+            Text(time, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+          ]),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(a.patient?.fullName ?? 'Пациент', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: ClinicTheme.midnight), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(a.service, style: const TextStyle(fontSize: 12, color: ClinicTheme.slate), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ])),
+        if (isActive) ...[
+          IconButton(
+            tooltip: 'Завершить',
+            onPressed: () => _completeAppointment(a),
+            icon: const Icon(LucideIcons.checkCheck, size: 20, color: ClinicTheme.mint),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          ),
+        ],
+        IconButton(
+          tooltip: 'Медкарта',
+          onPressed: a.patient == null ? null : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MedicalRecordsScreen(patientId: a.patient!.id, title: 'Карта: ${a.patient!.fullName}', allowCreate: true, allowEdit: true))),
+          icon: const Icon(LucideIcons.folderHeart, size: 20, color: ClinicTheme.slate),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        ),
+      ]),
+    );
+  }
+
+  Widget _doctorStatCard(String label, String value, IconData icon, Color color, Color bg) {
+    return Expanded(child: DentCard(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      child: Column(children: [
+        Container(width: 36, height: 36, decoration: BoxDecoration(color: bg, shape: BoxShape.circle), child: Icon(icon, size: 17, color: color)),
+        const SizedBox(height: 6),
+        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
+        Text(label, style: const TextStyle(fontSize: 11, color: ClinicTheme.slate)),
+      ]),
+    ));
+  }
+
+  Widget _doctorShimmer(double h) => Container(height: h, margin: const EdgeInsets.only(bottom: 4), decoration: BoxDecoration(color: ClinicTheme.mist, borderRadius: BorderRadius.circular(14)));
 
   String _formatDate(DateTime date) {
     final day = date.day.toString().padLeft(2, '0');
@@ -1833,28 +1883,35 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
+        backgroundColor: ClinicTheme.mist,
         appBar: AppBar(
+          backgroundColor: ClinicTheme.snow,
+          foregroundColor: ClinicTheme.midnight,
+          elevation: 0,
           title: Text(s.dashSuperTitle),
-        actions: [
-          IconButton(
-            onPressed: _refresh,
-            icon: const Icon(LucideIcons.refreshCcw, size: 20),
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'logout') {
-                _logout();
-              } else if (value == 'change_password') {
-                showChangePasswordDialog(context);
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(value: 'change_password', child: Text(s.profileChangePassword)),
-              PopupMenuItem(value: 'logout', child: Text(s.logout)),
-            ],
-          ),
-        ],
+          actions: [
+            IconButton(
+              onPressed: _refresh,
+              icon: const Icon(LucideIcons.refreshCcw, size: 20),
+            ),
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'logout') {
+                  _logout();
+                } else if (value == 'change_password') {
+                  showChangePasswordDialog(context);
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(value: 'change_password', child: Text(s.profileChangePassword)),
+                PopupMenuItem(value: 'logout', child: Text(s.logout)),
+              ],
+            ),
+          ],
           bottom: TabBar(
+            labelColor: ClinicTheme.azure,
+            unselectedLabelColor: ClinicTheme.slate,
+            indicatorColor: ClinicTheme.azure,
             tabs: [
               Tab(icon: const Icon(LucideIcons.layoutDashboard, size: 20), text: s.dashAdminStats),
               Tab(icon: const Icon(LucideIcons.users, size: 20), text: 'Сотрудники'),
@@ -1877,19 +1934,16 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           FutureBuilder<RoleProfileSummary>(
             future: _profileFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return _buildLoadingCard('Обновляем профиль');
-              } else if (snapshot.hasError) {
-                return _buildErrorCard('Ошибка профиля: ${snapshot.error}');
-              } else if (!snapshot.hasData) {
-                return _buildErrorCard('Нет данных профиля');
+                return _directorShimmer(80);
               }
+              if (!snapshot.hasData) return const SizedBox.shrink();
               return RoleProfileOverview(summary: snapshot.data!);
             },
           ),
@@ -1898,22 +1952,58 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
             future: _statsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return _buildLoadingCard('Собираем статистику');
-              } else if (snapshot.hasError) {
-                return _buildErrorCard('Ошибка статистики: ${snapshot.error}');
+                return _directorShimmer(72);
               }
               final stats = snapshot.data ?? {};
               return Row(
                 children: [
-                  _StatCard(label: 'Врачи', value: stats['doctors']?.toString() ?? '0'),
-                  const SizedBox(width: 12),
-                  _StatCard(label: 'Пациенты', value: stats['patients']?.toString() ?? '0'),
-                  const SizedBox(width: 12),
-                  _StatCard(
-                    label: 'Записей',
-                    value: stats['appointments']?.toString() ?? '0',
-                  ),
+                  _directorStatCard('Врачи', stats['doctors']?.toString() ?? '0', LucideIcons.stethoscope, ClinicTheme.azure, ClinicTheme.azureSoft),
+                  const SizedBox(width: 10),
+                  _directorStatCard('Пациенты', stats['patients']?.toString() ?? '0', LucideIcons.user, ClinicTheme.amber, ClinicTheme.amberSoft),
+                  const SizedBox(width: 10),
+                  _directorStatCard('Записей', stats['appointments']?.toString() ?? '0', LucideIcons.calendarCheck, ClinicTheme.mint, ClinicTheme.mintSoft),
                 ],
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<Map<String, List<AppUser>>>(
+            future: _usersFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) return _directorShimmer(120);
+              final data = snapshot.data ?? {};
+              final admins = data['admin'] ?? [];
+              final support = data['support_manager'] ?? [];
+              if (admins.isEmpty && support.isEmpty) return const SizedBox.shrink();
+              return DentCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      child: Text('Сотрудники', style: Theme.of(context).textTheme.titleMedium),
+                    ),
+                    const SizedBox(height: 8),
+                    ...[...admins, ...support].take(5).map((u) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(children: [
+                        Container(
+                          width: 36, height: 36,
+                          decoration: BoxDecoration(color: ClinicTheme.azureSoft, shape: BoxShape.circle),
+                          child: Center(child: Text(u.firstName.isNotEmpty ? u.firstName[0].toUpperCase() : '?',
+                            style: const TextStyle(fontWeight: FontWeight.w700, color: ClinicTheme.azure, fontSize: 15))),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(u.fullName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: ClinicTheme.midnight)),
+                          Text(u.email, style: const TextStyle(fontSize: 12, color: ClinicTheme.slate)),
+                        ])),
+                      ]),
+                    )),
+                    const SizedBox(height: 4),
+                  ],
+                ),
               );
             },
           ),
@@ -2176,153 +2266,203 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Данные клиники',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_clinics.isNotEmpty)
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedClinicId,
-                      items: _clinics
-                          .map(
-                            (clinic) => DropdownMenuItem(
-                              value: clinic.id,
-                              child: Text(clinic.name),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() {
-                          _selectedClinicId = value;
-                          final clinic =
-                              _clinics.firstWhere((item) => item.id == value);
-                          _clinicNameController.text = clinic.name;
-                          _clinicAddressController.text = clinic.address ?? '';
-                          _clinicEmailController.text = clinic.contacts?.email ?? '';
-                          _clinicPhoneController.text = clinic.contacts?.phone ?? '';
-                          _clinicStatus = clinic.status;
-                          _clinicQrPayload = clinic.qrPayload;
-                          _clinicQrUpdatedAt = clinic.qrUpdatedAt;
-                        });
-                      },
-                      decoration: const InputDecoration(
-                        labelText: 'Клиника',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _clinicStatus,
-                    items: const [
-                      DropdownMenuItem(value: 'draft', child: Text('Draft')),
-                      DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                      DropdownMenuItem(value: 'active', child: Text('Active')),
-                      DropdownMenuItem(value: 'blocked', child: Text('Blocked')),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => _clinicStatus = value);
-                    },
-                    decoration: const InputDecoration(
-                      labelText: 'Статус',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _clinicNameController,
-                    decoration: const InputDecoration(labelText: 'Название'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _clinicAddressController,
-                    decoration: const InputDecoration(labelText: 'Адрес'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _clinicEmailController,
-                    decoration: const InputDecoration(labelText: 'Email поддержки'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _clinicPhoneController,
-                    decoration: const InputDecoration(labelText: 'Телефон поддержки'),
-                  ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _clinicSaving ? null : _saveClinic,
-                    child: _clinicSaving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Сохранить'),
-                  ),
+          // Clinic picker
+          if (_clinics.length > 1) ...[
+            DentCard(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedClinicId,
+                  isExpanded: true,
+                  icon: const Icon(LucideIcons.chevronDown, size: 18),
+                  items: _clinics.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _selectedClinicId = value;
+                      final clinic = _clinics.firstWhere((item) => item.id == value);
+                      _clinicNameController.text = clinic.name;
+                      _clinicAddressController.text = clinic.address ?? '';
+                      _clinicEmailController.text = clinic.contacts?.email ?? '';
+                      _clinicPhoneController.text = clinic.contacts?.phone ?? '';
+                      _clinicStatus = clinic.status;
+                      _clinicQrPayload = clinic.qrPayload;
+                      _clinicQrUpdatedAt = clinic.qrUpdatedAt;
+                    });
+                  },
                 ),
-                const SizedBox(height: 24),
-                if (_clinicQrPayload != null)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'QR для подтверждения визита',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-                      Center(
-                        child: QrImageView(
-                          data: _clinicQrPayload!,
-                          size: 200,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (_clinicQrUpdatedAt != null)
-                        Text(
-                          'Обновлено: ${_clinicQrUpdatedAt!.day.toString().padLeft(2, '0')}.'
-                          '${_clinicQrUpdatedAt!.month.toString().padLeft(2, '0')} '
-                          '${_clinicQrUpdatedAt!.hour.toString().padLeft(2, '0')}:'
-                          '${_clinicQrUpdatedAt!.minute.toString().padLeft(2, '0')}',
-                          style: const TextStyle(color: Color(0xFF6E7681)),
-                        ),
-                    ],
-                  ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _qrRefreshing ? null : _generateClinicQr,
-                    icon: _qrRefreshing
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(LucideIcons.qrCode, size: 20),
-                    label: const Text('Обновить QR-код подтверждения'),
-                  ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Status badge
+          if (_clinics.isNotEmpty) ...[
+            DentCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(children: [
+                const Icon(LucideIcons.building2, color: ClinicTheme.azure, size: 20),
+                const SizedBox(width: 12),
+                Expanded(child: Text(_clinicNameController.text.isEmpty ? 'Клиника' : _clinicNameController.text,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+                DentBadge(
+                  label: _clinicStatus == 'active' ? 'Активна' : _clinicStatus == 'inactive' ? 'Неактивна' : _clinicStatus == 'blocked' ? 'Заблокирована' : 'Черновик',
+                  variant: _clinicStatus == 'active' ? DentBadgeVariant.success : DentBadgeVariant.error,
                 ),
-              ],
+              ]),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Info form
+          _directorSectionCard(
+            title: 'Основная информация',
+            icon: LucideIcons.info,
+            children: [
+              _directorField(_clinicNameController, 'Название клиники', LucideIcons.building2),
+              _directorField(_clinicAddressController, 'Адрес', LucideIcons.navigation),
+              _directorField(_clinicEmailController, 'Email поддержки', LucideIcons.mail, type: TextInputType.emailAddress),
+              _directorField(_clinicPhoneController, 'Телефон поддержки', LucideIcons.phone, type: TextInputType.phone),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: DropdownButtonFormField<String>(
+                  value: _clinicStatus,
+                  decoration: _directorInputDec('Статус', icon: LucideIcons.shieldCheck),
+                  items: const [
+                    DropdownMenuItem(value: 'draft', child: Text('Черновик')),
+                    DropdownMenuItem(value: 'inactive', child: Text('Неактивна')),
+                    DropdownMenuItem(value: 'active', child: Text('Активна')),
+                    DropdownMenuItem(value: 'blocked', child: Text('Заблокирована')),
+                  ],
+                  onChanged: (value) { if (value != null) setState(() => _clinicStatus = value); },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Save button
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _clinicSaving ? null : _saveClinic,
+              icon: _clinicSaving
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(LucideIcons.save, size: 16),
+              label: Text(_clinicSaving ? 'Сохранение...' : 'Сохранить'),
             ),
           ),
-        ),
+          const SizedBox(height: 16),
+
+          // QR code section
+          _directorSectionCard(
+            title: 'QR-код подтверждения',
+            icon: LucideIcons.qrCode,
+            children: [
+              if (_clinicQrPayload != null) ...[
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: ClinicTheme.snow, borderRadius: BorderRadius.circular(16), border: Border.all(color: ClinicTheme.mist)),
+                    child: QrImageView(data: _clinicQrPayload!, size: 180),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (_clinicQrUpdatedAt != null)
+                  Center(child: Text(
+                    'Обновлено: ${_clinicQrUpdatedAt!.day.toString().padLeft(2,'0')}.${_clinicQrUpdatedAt!.month.toString().padLeft(2,'0')} ${_clinicQrUpdatedAt!.hour.toString().padLeft(2,'0')}:${_clinicQrUpdatedAt!.minute.toString().padLeft(2,'0')}',
+                    style: const TextStyle(fontSize: 12, color: ClinicTheme.slate),
+                  )),
+                const SizedBox(height: 12),
+              ] else
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text('QR-код не создан', style: const TextStyle(color: ClinicTheme.slate)),
+                ),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _qrRefreshing ? null : _generateClinicQr,
+                  icon: _qrRefreshing
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(LucideIcons.qrCode, size: 16),
+                  label: const Text('Обновить QR-код'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
+
+  Widget _directorStatCard(String label, String value, IconData icon, Color color, Color bg) {
+    return Expanded(child: DentCard(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      child: Column(children: [
+        Container(width: 36, height: 36, decoration: BoxDecoration(color: bg, shape: BoxShape.circle), child: Icon(icon, size: 17, color: color)),
+        const SizedBox(height: 6),
+        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
+        Text(label, style: const TextStyle(fontSize: 11, color: ClinicTheme.slate)),
+      ]),
+    ));
+  }
+
+  Widget _directorSectionCard({required String title, required IconData icon, required List<Widget> children}) {
+    return DentCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(icon, size: 16, color: ClinicTheme.azure),
+            const SizedBox(width: 8),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: ClinicTheme.midnight)),
+          ]),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _directorField(TextEditingController controller, String label, IconData icon, {TextInputType? type}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: controller,
+        keyboardType: type,
+        style: const TextStyle(fontSize: 14),
+        decoration: _directorInputDec(label, icon: icon),
+      ),
+    );
+  }
+
+  InputDecoration _directorInputDec(String label, {IconData? icon}) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: ClinicTheme.slate, fontSize: 13),
+      prefixIcon: icon != null ? Icon(icon, size: 16, color: ClinicTheme.slate) : null,
+      filled: true,
+      fillColor: ClinicTheme.mist,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE1E4E8))),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE1E4E8))),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: ClinicTheme.azure, width: 1.5)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+  }
+
+  Widget _directorShimmer(double height) => Container(
+    height: height,
+    margin: const EdgeInsets.only(bottom: 4),
+    decoration: BoxDecoration(color: ClinicTheme.mist, borderRadius: BorderRadius.circular(14)),
+  );
+}
 
 Widget _buildUserSection(BuildContext context, String title, List<AppUser> users) {
   final roleColors = <String, Color>{
@@ -2480,7 +2620,6 @@ Widget _buildUserSection(BuildContext context, String title, List<AppUser> users
       ],
     ),
   );
-}
 }
 
 class _RoleChip extends StatelessWidget {
