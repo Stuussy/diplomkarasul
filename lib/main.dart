@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'navigation_container.dart';
+import 'providers/locale_provider.dart';
 import 'providers/session_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'services/api_service.dart';
@@ -20,16 +22,31 @@ class DentalApp extends StatelessWidget {
     final apiService = ApiService();
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => LocaleProvider()),
         Provider<ApiService>.value(value: apiService),
         ChangeNotifierProvider(
           create: (_) => SessionProvider(apiService),
         ),
       ],
-      child: MaterialApp(
-        title: 'Dental AI',
-        theme: ClinicTheme.light(),
-        home: const _AuthGate(),
-        debugShowCheckedModeBanner: false,
+      child: Consumer<LocaleProvider>(
+        builder: (context, localeProvider, _) {
+          return MaterialApp(
+            title: 'Dental AI',
+            theme: ClinicTheme.light(),
+            locale: localeProvider.locale,
+            supportedLocales: const [
+              Locale('ru'),
+              Locale('kk'),
+            ],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const _AuthGate(),
+            debugShowCheckedModeBanner: false,
+          );
+        },
       ),
     );
   }

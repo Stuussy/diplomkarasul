@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/appointment.dart';
 import '../models/clinic.dart';
 import '../models/profile_summary.dart';
@@ -56,24 +57,25 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     final messenger = ScaffoldMessenger.of(context);
     final api = context.read<SessionProvider>().apiService;
     final patientName = appointment.patient?.fullName ?? 'пациент';
+    final s = context.sRead;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Завершить приём?'),
+          title: Text(s.dashDoctorComplete),
           content: Text(
             'Приём «$patientName» (${appointment.service}) будет помечен как завершённый.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Отмена'),
+              child: Text(s.cancel),
             ),
             FilledButton.icon(
               onPressed: () => Navigator.of(dialogContext).pop(true),
               icon: const Icon(LucideIcons.checkCheck, size: 16),
-              label: const Text('Завершить'),
+              label: Text(s.dashDoctorComplete),
             ),
           ],
         );
@@ -83,7 +85,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     try {
       await api.completeAppointment(appointment.id);
       if (!mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('Приём завершён ✓')));
+      messenger.showSnackBar(SnackBar(content: Text(s.success)));
       await _refresh();
     } catch (e) {
       if (!mounted) return;
@@ -97,11 +99,12 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Рабочее место врача'),
+          title: Text(s.dashDoctorTitle),
           actions: [
             IconButton(
               onPressed: _refresh,
@@ -115,16 +118,16 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                   showChangePasswordDialog(context);
                 }
               },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'change_password', child: Text('Сменить пароль')),
-                PopupMenuItem(value: 'logout', child: Text('Выйти из аккаунта')),
+              itemBuilder: (context) => [
+                PopupMenuItem(value: 'change_password', child: Text(s.profileChangePassword)),
+                PopupMenuItem(value: 'logout', child: Text(s.logout)),
               ],
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(icon: Icon(LucideIcons.layoutDashboard, size: 20), text: 'Обзор'),
-              Tab(icon: Icon(LucideIcons.calendarCheck, size: 20), text: 'Записи'),
+              Tab(icon: const Icon(LucideIcons.layoutDashboard, size: 20), text: s.dashAdminStats),
+              Tab(icon: const Icon(LucideIcons.calendarCheck, size: 20), text: s.navAppointments),
             ],
           ),
         ),
@@ -149,7 +152,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             future: _profileFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return _buildLoadingCard('Загружаем профиль');
+                return _buildLoadingCard(context.s.loading);
               } else if (snapshot.hasError) {
                 return _buildErrorCard('Ошибка профиля: ${snapshot.error}');
               } else if (!snapshot.hasData) {
@@ -185,13 +188,13 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
-                          'Ближайшие приемы',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          context.s.dashDoctorSchedule,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         ),
-                        SizedBox(height: 8),
-                        Text('Нет записей на выбранный период.'),
+                        const SizedBox(height: 8),
+                        Text(context.s.dashDoctorNoAppointments),
                       ],
                     ),
                   ),
@@ -204,9 +207,9 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Ближайшие приемы',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      Text(
+                        context.s.dashDoctorSchedule,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       const SizedBox(height: 4),
                       ...appointments.map(
@@ -652,11 +655,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Панель администратора клиники'),
+          title: Text(s.dashAdminTitle),
           actions: [
             IconButton(
               onPressed: _refresh,
@@ -670,17 +674,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   showChangePasswordDialog(context);
                 }
               },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'change_password', child: Text('Сменить пароль')),
-                PopupMenuItem(value: 'logout', child: Text('Выйти из аккаунта')),
+              itemBuilder: (context) => [
+                PopupMenuItem(value: 'change_password', child: Text(s.profileChangePassword)),
+                PopupMenuItem(value: 'logout', child: Text(s.logout)),
               ],
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(icon: Icon(LucideIcons.userCircle, size: 20), text: 'Обзор'),
-              Tab(icon: Icon(LucideIcons.building2, size: 20), text: 'Клиника'),
-              Tab(icon: Icon(LucideIcons.calendarClock, size: 20), text: 'Расписание'),
+              Tab(icon: const Icon(LucideIcons.userCircle, size: 20), text: s.dashAdminStats),
+              Tab(icon: const Icon(LucideIcons.building2, size: 20), text: 'Клиника'),
+              Tab(icon: const Icon(LucideIcons.calendarClock, size: 20), text: s.dashDoctorSchedule),
             ],
           ),
         ),
@@ -745,9 +749,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   _fillClinicForm(clinic);
                 });
               },
-              decoration: const InputDecoration(
-                labelText: 'Выберите клинику',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.s.dashAdminClinics,
+                border: const OutlineInputBorder(),
               ),
             )
           else
@@ -864,12 +868,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
             children: [
               ElevatedButton(
                 onPressed: () => _saveClinic(),
-                child: const Text('Сохранить черновик'),
+                child: Text(context.s.save),
               ),
               if (selectedClinic != null)
                 ElevatedButton(
                   onPressed: () => _saveClinic(status: 'active'),
-                  child: const Text('Активировать'),
+                  child: Text(context.s.dashSuperActivate),
                 ),
               if (selectedClinic != null)
                 OutlinedButton(
@@ -937,9 +941,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
           else
             const Text('Услуг пока нет.'),
           const SizedBox(height: 24),
-          const Text(
-            'Специалисты',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          Text(
+            context.s.dashAdminDoctors,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           if (selectedClinic == null)
@@ -963,11 +967,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             trailing: selectedClinic.doctors.contains(doctor.id)
                                 ? TextButton(
                                     onPressed: () => _removeDoctor(doctor.id),
-                                    child: const Text('Убрать'),
+                                    child: Text(context.s.dashAdminRemoveDoctor),
                                   )
                                 : TextButton(
                                     onPressed: () => _assignDoctor(doctor.id),
-                                    child: const Text('Назначить'),
+                                    child: Text(context.s.dashAdminAddDoctor),
                                   ),
                           ))
                       .toList(),
@@ -1221,10 +1225,11 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return Scaffold(
       backgroundColor: const Color(0xFFF0F3F6),
       appBar: AppBar(
-        title: const Text('Обращения'),
+        title: Text(s.dashSupportTitle),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF0D1117),
         elevation: 0,
@@ -1246,9 +1251,9 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
                 showChangePasswordDialog(context);
               }
             },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'change_password', child: Text('Сменить пароль')),
-              PopupMenuItem(value: 'logout', child: Text('Выйти из аккаунта')),
+            itemBuilder: (context) => [
+              PopupMenuItem(value: 'change_password', child: Text(s.profileChangePassword)),
+              PopupMenuItem(value: 'logout', child: Text(s.logout)),
             ],
           ),
         ],
@@ -1262,11 +1267,11 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  for (final entry in const [
-                    ('all', 'Все'),
-                    ('open', 'Открытые'),
+                  for (final entry in [
+                    ('all', s.filterAll),
+                    ('open', s.dashSupportOpen),
                     ('in_progress', 'В работе'),
-                    ('resolved', 'Решённые'),
+                    ('resolved', s.dashSupportClosed),
                   ])
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
@@ -1731,11 +1736,12 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Панель superadmin'),
+          title: Text(s.dashSuperTitle),
         actions: [
           IconButton(
             onPressed: _refresh,
@@ -1749,17 +1755,17 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
                 showChangePasswordDialog(context);
               }
             },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'change_password', child: Text('Сменить пароль')),
-              PopupMenuItem(value: 'logout', child: Text('Выйти из аккаунта')),
+            itemBuilder: (context) => [
+              PopupMenuItem(value: 'change_password', child: Text(s.profileChangePassword)),
+              PopupMenuItem(value: 'logout', child: Text(s.logout)),
             ],
           ),
         ],
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(icon: Icon(LucideIcons.layoutDashboard, size: 20), text: 'Обзор'),
-              Tab(icon: Icon(LucideIcons.users, size: 20), text: 'Сотрудники'),
-              Tab(icon: Icon(LucideIcons.building2, size: 20), text: 'Клиника'),
+              Tab(icon: const Icon(LucideIcons.layoutDashboard, size: 20), text: s.dashAdminStats),
+              Tab(icon: const Icon(LucideIcons.users, size: 20), text: 'Сотрудники'),
+              Tab(icon: const Icon(LucideIcons.building2, size: 20), text: 'Клиника'),
             ],
           ),
         ),
@@ -1824,6 +1830,7 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
   }
 
   Widget _buildDirectorStaffTab() {
+    final s = context.s;
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
@@ -1872,21 +1879,21 @@ class _DirectorDashboardState extends State<DirectorDashboard> {
                     runSpacing: 8,
                     children: [
                       _RoleChip(
-                        label: 'Врач',
+                        label: s.roleDoctor,
                         icon: LucideIcons.stethoscope,
                         selected: _role == 'doctor',
                         color: const Color(0xFF2E7CF6),
                         onTap: () => setState(() => _role = 'doctor'),
                       ),
                       _RoleChip(
-                        label: 'Администратор',
+                        label: s.roleAdmin,
                         icon: LucideIcons.shieldCheck,
                         selected: _role == 'admin',
                         color: const Color(0xFF8B5CF6),
                         onTap: () => setState(() => _role = 'admin'),
                       ),
                       _RoleChip(
-                        label: 'Поддержка',
+                        label: s.roleSupportManager,
                         icon: LucideIcons.headphones,
                         selected: _role == 'support_manager',
                         color: const Color(0xFF1AAB8A),
@@ -2897,6 +2904,7 @@ Future<void> showChangePasswordDialog(BuildContext context) async {
     context: context,
     builder: (dialogContext) {
       return StatefulBuilder(builder: (context, setState) {
+        final s = context.sRead;
         Future<void> submit() async {
           if (isSubmitting) return;
           if (!formKey.currentState!.validate()) return;
@@ -2922,7 +2930,7 @@ Future<void> showChangePasswordDialog(BuildContext context) async {
         }
 
         return AlertDialog(
-          title: const Text('Сменить пароль'),
+          title: Text(s.profileChangePassword),
           content: Form(
             key: formKey,
             child: Column(
@@ -2931,14 +2939,14 @@ Future<void> showChangePasswordDialog(BuildContext context) async {
                 TextFormField(
                   controller: currentController,
                   obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Текущий пароль'),
+                  decoration: InputDecoration(labelText: s.profileCurrentPassword),
                   validator: (value) => value == null || value.isEmpty ? 'Введите пароль' : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: newController,
                   obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Новый пароль'),
+                  decoration: InputDecoration(labelText: s.profileNewPassword),
                   validator: (value) =>
                       value != null && value.length >= 6 ? null : 'Мин. 6 символов',
                 ),
@@ -2948,7 +2956,7 @@ Future<void> showChangePasswordDialog(BuildContext context) async {
           actions: [
             TextButton(
               onPressed: isSubmitting ? null : () => Navigator.of(context).pop(),
-              child: const Text('Отмена'),
+              child: Text(s.cancel),
             ),
             ElevatedButton(
               onPressed: isSubmitting ? null : submit,
@@ -2958,7 +2966,7 @@ Future<void> showChangePasswordDialog(BuildContext context) async {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Сохранить'),
+                  : Text(s.save),
             ),
           ],
         );

@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import '../l10n/app_strings.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';

@@ -386,13 +386,17 @@ router.post('/qr-confirm', auth(['patient']), async (req, res) => {
   }
 
   const now = Date.now();
-  if (now - issuedAt > 1000 * 60 * 60 * 24) {
+  if (now - issuedAt > 1000 * 60 * 5) {
     return res.status(400).json({ message: 'QR-код устарел. Попросите новый.' });
   }
 
   const clinic = await Clinic.findById(clinicId);
   if (!clinic) {
     return res.status(404).json({ message: 'Клиника не найдена.' });
+  }
+
+  if (!clinic.qr || clinic.qr.payload !== payload) {
+    return res.status(400).json({ message: 'QR-код недействителен. Попросите новый.' });
   }
 
   const windowStart = dayjs().subtract(1, 'day').toDate();

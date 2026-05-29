@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/fine.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
@@ -42,21 +44,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() { _finesFuture = _loadFines(); });
   }
 
-  Future<void> _logout() async {
+  Future<void> _payFineViaKaspi(Fine fine) async {
+    final s = context.s;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Выйти из аккаунта?'),
-        content: const Text('Вы уверены, что хотите выйти?'),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(s.kaspiTitle),
+        content: Text(
+          'Сейчас откроется Kaspi для оплаты ${fine.amount.toStringAsFixed(0)} ₸.\n\nПосле успешной оплаты вернитесь в приложение и подтвердите.',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(s.cancel),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF14635)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(s.kaspiOpen),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final uri = Uri.parse('https://kaspi.kz/pay/dentalai?amount=${fine.amount.toStringAsFixed(0)}');
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // ignore: app may not be installed
+    }
+
+    if (!mounted) return;
+    final s2 = context.s;
+    final paid = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(s2.kaspiConfirmTitle),
+        content: Text(s2.kaspiConfirmContent),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(s2.kaspiConfirmNo),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(s2.kaspiConfirmYes),
+          ),
+        ],
+      ),
+    );
+    if (paid != true || !mounted) return;
+
+    final api = context.read<SessionProvider>().apiService;
+    final messenger = ScaffoldMessenger.of(context);
+    final s3 = context.s;
+    try {
+      await api.payFine(fine.id);
+      HapticFeedback.mediumImpact();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(s3.kaspiPaidSuccess),
+          backgroundColor: ClinicTheme.mint,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      await _refresh();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  Future<void> _logout() async {
+    final s = context.s;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.logoutConfirmTitle),
+        content: Text(s.logoutConfirmContent),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(s.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: ClinicTheme.coral),
-            child: const Text('Выйти'),
+            child: Text(s.logoutButton),
           ),
         ],
       ),
@@ -81,11 +158,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final oldController = TextEditingController();
     final newController = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    final s = context.s;
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Сменить пароль'),
+      builder: (ctx) => AlertDialog(
+        title: Text(s.profileChangePassword),
         content: Form(
           key: formKey,
           child: Column(
@@ -94,32 +172,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
               TextFormField(
                 controller: oldController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Текущий пароль'),
-                validator: (v) => v == null || v.isEmpty ? 'Обязательное поле' : null,
+                decoration: InputDecoration(labelText: s.profileCurrentPassword),
+                validator: (v) => v == null || v.isEmpty ? s.required : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: newController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Новый пароль'),
+                decoration: InputDecoration(labelText: s.profileNewPassword),
                 validator: (v) =>
-                    v == null || v.length < 6 ? 'Минимум 6 символов' : null,
+                    v == null || v.length < 6 ? s.passwordMin : null,
               ),
             ],
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(s.cancel),
           ),
           FilledButton(
             onPressed: () {
               if (formKey.currentState!.validate()) {
-                Navigator.pop(context, true);
+                Navigator.pop(ctx, true);
               }
             },
-            child: const Text('Сохранить'),
+            child: Text(s.save),
           ),
         ],
       ),
@@ -154,6 +232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     final user = context.watch<SessionProvider>().user;
     if (user == null) return const SizedBox.shrink();
 
@@ -272,7 +351,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   if (user.role == 'patient')
                     _ActionRow(
                       icon: LucideIcons.folderHeart,
-                      label: 'Медицинская карта',
+                      label: s.profileMedicalRecords,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const MedicalRecordsScreen()),
                       ),
@@ -280,7 +359,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   if (user.role == 'patient') const Divider(height: 0, indent: 60),
                   _ActionRow(
                     icon: LucideIcons.lock,
-                    label: 'Сменить пароль',
+                    label: s.profileChangePassword,
                     onTap: _changePassword,
                   ),
                   const Divider(height: 0, indent: 60),
@@ -308,7 +387,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Штрафы', style: Theme.of(context).textTheme.titleMedium),
+                    Text(s.profileFines, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 12),
                     ...fines.map((fine) {
                       final isPaid = (fine as Fine).isPaid;
@@ -316,43 +395,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: DentCard(
                           padding: const EdgeInsets.all(16),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: isPaid
-                                      ? ClinicTheme.mintSoft
-                                      : ClinicTheme.coralSoft,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  isPaid ? LucideIcons.checkCircle : LucideIcons.alertCircle,
-                                  color: isPaid ? ClinicTheme.mint : ClinicTheme.coral,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${fine.amount.toStringAsFixed(0)} ₸',
-                                      style: Theme.of(context).textTheme.titleMedium,
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: isPaid
+                                          ? ClinicTheme.mintSoft
+                                          : ClinicTheme.coralSoft,
+                                      shape: BoxShape.circle,
                                     ),
-                                    Text(
-                                      fine.reason.isNotEmpty ? fine.reason : 'Штраф',
-                                      style: Theme.of(context).textTheme.bodySmall,
+                                    child: Icon(
+                                      isPaid ? LucideIcons.checkCircle : LucideIcons.alertCircle,
+                                      color: isPaid ? ClinicTheme.mint : ClinicTheme.coral,
+                                      size: 20,
                                     ),
-                                  ],
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${fine.amount.toStringAsFixed(0)} ₸',
+                                          style: Theme.of(context).textTheme.titleMedium,
+                                        ),
+                                        Text(
+                                          fine.reason.isNotEmpty ? fine.reason : s.profileFines,
+                                          style: Theme.of(context).textTheme.bodySmall,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  DentBadge(
+                                    label: isPaid ? s.profileFinePaid : s.profileFineUnpaid,
+                                    variant: isPaid ? DentBadgeVariant.success : DentBadgeVariant.error,
+                                  ),
+                                ],
+                              ),
+                              if (!isPaid) ...[
+                                const SizedBox(height: 12),
+                                FilledButton.icon(
+                                  onPressed: () => _payFineViaKaspi(fine),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFFF14635),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  icon: const Icon(LucideIcons.creditCard, size: 18),
+                                  label: Text(s.profileFinePayKaspi),
                                 ),
-                              ),
-                              DentBadge(
-                                label: isPaid ? 'Оплачен' : 'Не оплачен',
-                                variant: isPaid ? DentBadgeVariant.success : DentBadgeVariant.error,
-                              ),
+                              ],
                             ],
                           ),
                         ),
@@ -450,6 +550,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     return Container(
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
@@ -483,7 +584,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Редактировать профиль',
+                s.profileEdit,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: ClinicTheme.midnight,
@@ -549,8 +650,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                         width: 20, height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                       )
-                    : const Text('Сохранить',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
+                    : Text(s.save,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
               ),
             ),
           ),

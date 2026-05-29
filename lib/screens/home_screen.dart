@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/appointment.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
@@ -121,6 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     final user = context.watch<SessionProvider>().user;
     final greeting = _greeting();
 
@@ -191,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         controller: _searchController,
                         onChanged: (v) => setState(() => _searchQuery = v),
                         decoration: InputDecoration(
-                          hintText: 'Найти врача или специализацию',
+                          hintText: s.homeSearchDoctors,
                           prefixIcon: const Icon(LucideIcons.search, size: 20, color: ClinicTheme.slate),
                           suffixIcon: GestureDetector(
                             onTap: _openFilter,
@@ -259,12 +261,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Запишитесь на приём',
+                                        s.homeNoAppointmentTitle,
                                         style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Выберите врача и удобное время',
+                                        s.homeNoAppointmentSubtitle,
                                         style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70),
                                       ),
                                     ],
@@ -286,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const Icon(LucideIcons.calendarCheck, color: Colors.white70, size: 16),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'Ближайший визит',
+                                    s.homeNextVisitLabel,
                                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                                       color: Colors.white70,
                                       letterSpacing: 0,
@@ -340,7 +342,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     border: selected ? null : Border.all(color: ClinicTheme.mist),
                                   ),
                                   child: Text(
-                                    spec,
+                                    spec == 'Все' ? s.filterAll : spec,
                                     style: TextStyle(
                                       color: selected ? Colors.white : ClinicTheme.midnight,
                                       fontWeight: FontWeight.w600,
@@ -356,9 +358,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
 
                     const SizedBox(height: 24),
-                    const SectionHeader(
-                      title: 'Лучшие врачи',
-                      subtitle: 'Выберите специалиста',
+                    SectionHeader(
+                      title: s.homeSectionBestDoctors,
+                      subtitle: s.homeSectionSubtitle,
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -400,7 +402,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(20),
                       child: PatientEmptyState(
-                        title: 'Нет доступных врачей',
+                        title: s.homeNoDoctors,
                         message: _searchQuery.isNotEmpty
                             ? 'Попробуйте другой запрос'
                             : 'Скоро добавим новых специалистов',
@@ -483,9 +485,10 @@ class _DoctorTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     final specialty = doctor.specialties.isNotEmpty
         ? doctor.specialties.join(', ')
-        : 'Специализация уточняется';
+        : s.homeSpecialties;
 
     return DentCard(
       onTap: onTap,
@@ -561,7 +564,7 @@ class _DoctorTile extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                child: const Text('Записаться'),
+                child: Text(s.homeBook),
               ),
             ],
           ),

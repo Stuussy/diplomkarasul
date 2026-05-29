@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/app_notification.dart';
 import '../providers/session_provider.dart';
 import '../theme/clinic_theme.dart';
@@ -76,15 +77,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return Scaffold(
       backgroundColor: ClinicTheme.mist,
       appBar: AppBar(
-        title: const Text('Уведомления'),
+        title: Text(s.notificationsTitle),
         actions: [
           TextButton.icon(
             onPressed: _markAllRead,
             icon: const Icon(LucideIcons.checkCheck, size: 16),
-            label: const Text('Все'),
+            label: Text(s.filterAll),
           ),
         ],
       ),
@@ -115,7 +117,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         Icon(LucideIcons.bellOff, size: 48, color: ClinicTheme.slate),
                         const SizedBox(height: 12),
                         Text(
-                          'Пока нет уведомлений',
+                          s.notificationsEmpty,
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ],

@@ -31,13 +31,19 @@ class ApiService {
   String? _token;
 
   static const _prodBaseUrl = 'https://diplomkarasul.onrender.com/api';
+  // Set SIMULATOR=true when running on Xcode Simulator:
+  // flutter run --dart-define=SIMULATOR=true
+  static const _isSimulator = bool.fromEnvironment('SIMULATOR', defaultValue: false);
 
   static String _defaultBaseUrl() {
     const env = String.fromEnvironment('API_BASE_URL');
     if (env.isNotEmpty) return env;
     if (kIsWeb) return 'http://localhost:8050/api';
     if (Platform.isAndroid) return 'http://10.0.2.2:8050/api';
-    if (Platform.isIOS) return _prodBaseUrl;
+    if (Platform.isIOS) {
+      // iOS Simulator uses localhost; real device uses prod
+      return _isSimulator ? 'http://localhost:8050/api' : _prodBaseUrl;
+    }
     return 'http://localhost:8050/api';
   }
 
@@ -275,6 +281,15 @@ class ApiService {
     );
     final data = _decode(response) as List<dynamic>;
     return data.map((json) => Fine.fromJson(json)).toList();
+  }
+
+  Future<Fine> payFine(String fineId) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/fines/$fineId/pay'),
+      headers: _headers(),
+    );
+    final data = _decode(response) as Map<String, dynamic>;
+    return Fine.fromJson(data);
   }
 
   Future<SupportMessage> sendSupportMessage(

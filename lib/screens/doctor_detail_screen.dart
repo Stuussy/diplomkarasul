@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/review.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
@@ -17,9 +18,10 @@ class DoctorDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     final specialty = doctor.specialties.isNotEmpty
         ? doctor.specialties.join(', ')
-        : 'Специализация уточняется';
+        : s.homeSpecialties;
     final role = context.read<SessionProvider>().user?.role ?? 'patient';
     final isPatient = role == 'patient';
 
@@ -106,17 +108,17 @@ class DoctorDetailScreen extends StatelessWidget {
                       children: [
                         _StatColumn(
                           value: doctor.rating.toStringAsFixed(1),
-                          label: 'Рейтинг',
+                          label: s.doctorRating,
                         ),
                         _divider(),
                         _StatColumn(
                           value: '${doctor.reviews}',
-                          label: 'Отзывов',
+                          label: s.doctorReviews,
                         ),
                         _divider(),
                         _StatColumn(
                           value: doctor.specialties.length.toString(),
-                          label: 'Услуг',
+                          label: s.doctorServices,
                         ),
                       ],
                     ),
@@ -126,7 +128,7 @@ class DoctorDetailScreen extends StatelessWidget {
 
                   // Services
                   if (doctor.specialties.isNotEmpty) ...[
-                    Text('Услуги', style: Theme.of(context).textTheme.titleMedium),
+                    Text(s.doctorServices, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
@@ -179,7 +181,7 @@ class DoctorDetailScreen extends StatelessWidget {
                               ),
                             ),
                             icon: const Icon(LucideIcons.calendarPlus, size: 18),
-                            label: const Text('Записаться'),
+                            label: Text(s.doctorBook),
                           ),
                         ],
                       ),
@@ -188,7 +190,7 @@ class DoctorDetailScreen extends StatelessWidget {
                   if (isPatient) const SizedBox(height: 24),
 
                   // Reviews
-                  Text('Отзывы', style: Theme.of(context).textTheme.titleMedium),
+                  Text(s.doctorReviews, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 12),
 
                   _DoctorReviewsSection(doctor: doctor),
@@ -286,6 +288,7 @@ class _DoctorReviewsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     final api = context.read<SessionProvider>().apiService;
     return FutureBuilder<List<Review>>(
       future: api.fetchDoctorReviews(doctor.id),
@@ -313,7 +316,7 @@ class _DoctorReviewsSection extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           doctor.reviews == 0
-                              ? "Пока нет отзывов"
+                              ? s.doctorNoReviews
                               : "${doctor.reviews} ${_pluralReviews(doctor.reviews)}",
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
@@ -354,7 +357,7 @@ class _ReviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = review.patient?.fullName ?? "Пациент";
+    final name = review.patient?.fullName ?? context.s.rolePatient;
     final initial = name.isNotEmpty ? name.substring(0, 1).toUpperCase() : "?";
     final dt = review.createdAt;
     final dateStr = "${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}";

@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../providers/session_provider.dart';
 import '../../theme/clinic_theme.dart';
+import '../../widgets/language_toggle.dart';
 import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -81,6 +83,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return Scaffold(
       backgroundColor: ClinicTheme.mist,
       body: Stack(
@@ -128,7 +131,12 @@ class _LoginScreenState extends State<LoginScreen>
                   constraints: const BoxConstraints(maxWidth: 460),
                   child: Column(
                     children: [
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 12),
+                      const Align(
+                        alignment: Alignment.centerRight,
+                        child: LanguageToggle(),
+                      ),
+                      const SizedBox(height: 16),
                       _BrandHeader(isLogin: _isLogin),
                       const SizedBox(height: 24),
                       _SegmentedToggle(
@@ -164,11 +172,11 @@ class _LoginScreenState extends State<LoginScreen>
                                       Expanded(
                                         child: _buildField(
                                           controller: _firstNameController,
-                                          label: 'Имя',
+                                          label: s.firstName,
                                           icon: LucideIcons.user,
                                           validator: (v) =>
                                               v == null || v.trim().isEmpty
-                                                  ? 'Введите имя'
+                                                  ? s.enterFirstName
                                                   : null,
                                         ),
                                       ),
@@ -176,11 +184,11 @@ class _LoginScreenState extends State<LoginScreen>
                                       Expanded(
                                         child: _buildField(
                                           controller: _lastNameController,
-                                          label: 'Фамилия',
+                                          label: s.lastName,
                                           icon: LucideIcons.user,
                                           validator: (v) =>
                                               v == null || v.trim().isEmpty
-                                                  ? 'Введите фамилию'
+                                                  ? s.enterLastName
                                                   : null,
                                         ),
                                       ),
@@ -189,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   const SizedBox(height: 14),
                                   _buildField(
                                     controller: _phoneController,
-                                    label: 'Номер телефона',
+                                    label: s.phone,
                                     icon: LucideIcons.phone,
                                     keyboardType: TextInputType.phone,
                                     inputFormatters: [
@@ -213,15 +221,15 @@ class _LoginScreenState extends State<LoginScreen>
                                 ],
                                 _buildField(
                                   controller: _emailController,
-                                  label: 'Email',
+                                  label: s.email,
                                   icon: LucideIcons.mail,
                                   keyboardType: TextInputType.emailAddress,
                                   validator: (v) {
                                     final raw = v?.trim() ?? '';
-                                    if (raw.isEmpty) return 'Введите email';
+                                    if (raw.isEmpty) return s.enterEmail;
                                     if (!raw.contains('@') ||
                                         !raw.contains('.')) {
-                                      return 'Некорректный email';
+                                      return s.emailInvalid;
                                     }
                                     return null;
                                   },
@@ -229,7 +237,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 const SizedBox(height: 14),
                                 _buildField(
                                   controller: _passwordController,
-                                  label: 'Пароль',
+                                  label: s.password,
                                   icon: LucideIcons.lock,
                                   obscure: _obscurePassword,
                                   suffix: IconButton(
@@ -246,11 +254,11 @@ class _LoginScreenState extends State<LoginScreen>
                                   validator: (v) {
                                     final value = v ?? '';
                                     if (value.isEmpty) {
-                                      return 'Введите пароль';
+                                      return s.enterPassword;
                                     }
                                     if (_isLogin) return null;
                                     if (value.length < 6) {
-                                      return 'Минимум 6 символов';
+                                      return s.passwordMin;
                                     }
                                     if (!_passwordRegex.hasMatch(value)) {
                                       return 'Нужна заглавная буква и спец. символ';
@@ -291,7 +299,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ],
                                 const SizedBox(height: 22),
                                 _PrimaryCTA(
-                                  label: _isLogin ? 'Войти' : 'Создать аккаунт',
+                                  label: _isLogin ? s.loginButton : s.registerButton,
                                   icon: _isLogin
                                       ? LucideIcons.arrowRight
                                       : LucideIcons.userCheck,
@@ -310,9 +318,9 @@ class _LoginScreenState extends State<LoginScreen>
                                               const ForgotPasswordScreen(),
                                         ),
                                       ),
-                                      child: const Text(
-                                        'Забыли пароль?',
-                                        style: TextStyle(
+                                      child: Text(
+                                        s.forgotPassword,
+                                        style: const TextStyle(
                                           color: ClinicTheme.azure,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -474,6 +482,7 @@ class _SegmentedToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -483,8 +492,8 @@ class _SegmentedToggle extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _segment('Вход', isLogin, () => onChanged(true)),
-          _segment('Регистрация', !isLogin, () => onChanged(false)),
+          _segment(s.login, isLogin, () => onChanged(true)),
+          _segment(s.register, !isLogin, () => onChanged(false)),
         ],
       ),
     );
