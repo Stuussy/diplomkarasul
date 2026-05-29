@@ -50,7 +50,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final api = context.read<SessionProvider>().apiService;
     final messenger = ScaffoldMessenger.of(context);
-    final s = context.s;
+    final s = context.sRead;
     try {
       await api.payFine(fine.id);
       messenger.showSnackBar(
@@ -68,7 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
-    final s = context.s;
+    final s = context.sRead;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -107,7 +107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final oldController = TextEditingController();
     final newController = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    final s = context.s;
+    final s = context.sRead;
 
     final result = await showDialog<bool>(
       context: context,

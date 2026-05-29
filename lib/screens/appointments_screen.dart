@@ -70,7 +70,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
     final api = context.read<SessionProvider>().apiService;
     final messenger = ScaffoldMessenger.of(context);
-    final s = context.s;
+    final s = context.sRead;
     try {
       await api.confirmAppointmentByQr(result);
       HapticFeedback.mediumImpact();
@@ -91,7 +91,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 
   Future<void> _cancelAppointment(Appointment appointment) async {
-    final s = context.s;
+    final s = context.sRead;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
