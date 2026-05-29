@@ -48,8 +48,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     final api = context.read<SessionProvider>().apiService;
     final now = DateTime.now();
     return api.fetchAppointments(
-      from: now.subtract(const Duration(days: 365)),
-      to: now.add(const Duration(days: 90)),
+      from: now.subtract(const Duration(days: 730)),
+      to: now.add(const Duration(days: 730)),
     );
   }
 
@@ -215,15 +215,16 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   return Center(child: Text('Ошибка: ${snapshot.error}'));
                 }
 
-                final now = DateTime.now();
                 final all = snapshot.data ?? [];
+                // Any scheduled/confirmed appointment is "upcoming" until the
+                // doctor marks it completed/no_show. We do not hide it based on
+                // client time, otherwise freshly booked slots on a past time
+                // would silently disappear from this tab.
                 final active = all.where((a) =>
-                    (a.status == 'scheduled' || a.status == 'confirmed') &&
-                    a.startTime.isAfter(now.subtract(const Duration(hours: 2)))).toList()
+                    a.status == 'scheduled' || a.status == 'confirmed').toList()
                   ..sort((a, b) => a.startTime.compareTo(b.startTime));
                 final completed = all.where((a) =>
                     a.status == 'completed' ||
-                    (a.status == 'confirmed' && a.startTime.isBefore(now.subtract(const Duration(hours: 2)))) ||
                     a.status == 'no_show').toList()
                   ..sort((a, b) => b.startTime.compareTo(a.startTime));
                 final cancelled = all.where((a) => a.status == 'cancelled').toList()
