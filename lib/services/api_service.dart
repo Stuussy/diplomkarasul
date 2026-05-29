@@ -275,13 +275,12 @@ class ApiService {
     return data.map((json) => Fine.fromJson(json)).toList();
   }
 
-  Future<Fine> payFine(String fineId) async {
+  Future<void> payFine(String fineId) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/fines/$fineId/pay'),
       headers: _headers(),
     );
-    final data = _decode(response) as Map<String, dynamic>;
-    return Fine.fromJson(data);
+    _decode(response);
   }
 
   Future<SupportMessage> sendSupportMessage(

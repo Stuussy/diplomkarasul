@@ -47,10 +47,19 @@ class _FinesScreenState extends State<FinesScreen> {
     final api = context.read<SessionProvider>().apiService;
     final messenger = ScaffoldMessenger.of(context);
     final s = context.sRead;
+    bool success = false;
+    String? errorMsg;
     try {
       for (final fine in unpaid) {
         await api.payFine(fine.id);
       }
+      success = true;
+    } catch (e) {
+      errorMsg = e.toString();
+    }
+
+    if (!mounted) return;
+    if (success) {
       messenger.showSnackBar(
         SnackBar(
           content: Text(s.kaspiPaidSuccess),
@@ -60,8 +69,8 @@ class _FinesScreenState extends State<FinesScreen> {
         ),
       );
       await _refresh();
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+    } else {
+      messenger.showSnackBar(SnackBar(content: Text(errorMsg ?? 'Ошибка')));
     }
   }
 
@@ -72,8 +81,17 @@ class _FinesScreenState extends State<FinesScreen> {
     final api = context.read<SessionProvider>().apiService;
     final messenger = ScaffoldMessenger.of(context);
     final s = context.sRead;
+    bool success = false;
+    String? errorMsg;
     try {
       await api.payFine(fine.id);
+      success = true;
+    } catch (e) {
+      errorMsg = e.toString();
+    }
+
+    if (!mounted) return;
+    if (success) {
       messenger.showSnackBar(
         SnackBar(
           content: Text(s.kaspiPaidSuccess),
@@ -83,8 +101,8 @@ class _FinesScreenState extends State<FinesScreen> {
         ),
       );
       await _refresh();
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+    } else {
+      messenger.showSnackBar(SnackBar(content: Text(errorMsg ?? 'Ошибка')));
     }
   }
 

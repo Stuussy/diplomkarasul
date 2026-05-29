@@ -822,4 +822,18 @@ router.delete('/slots/:id', auth(['admin', 'superadmin']), async (req, res) => {
   res.json({ success: true });
 });
 
+// Superadmin: cancel all past scheduled/confirmed appointments
+router.post('/admin/cancel-past', auth(['superadmin']), async (req, res) => {
+  try {
+    const cutoff = req.body.before ? new Date(req.body.before) : new Date();
+    const result = await Appointment.updateMany(
+      { startTime: { $lt: cutoff }, status: { $in: ['scheduled', 'confirmed'] } },
+      { $set: { status: 'cancelled' } },
+    );
+    res.json({ cancelled: result.modifiedCount });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;

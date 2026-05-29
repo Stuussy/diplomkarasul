@@ -72,7 +72,22 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // --- Подключение к MongoDB ---
 const MONGO_URI = process.env.MONGO_URI;
 mongoose.connect(MONGO_URI)
-  .then(() => console.log('Успешное подключение к MongoDB'))
+  .then(async () => {
+    console.log('Успешное подключение к MongoDB');
+    // Cancel all past scheduled/confirmed appointments on startup
+    try {
+      const Appointment = require('./models/Appointment');
+      const result = await Appointment.updateMany(
+        { startTime: { $lt: new Date() }, status: { $in: ['scheduled', 'confirmed'] } },
+        { $set: { status: 'cancelled' } },
+      );
+      if (result.modifiedCount > 0) {
+        console.log(`Автоотмена: ${result.modifiedCount} просроченных записей отменено`);
+      }
+    } catch (err) {
+      console.error('Ошибка автоотмены просроченных записей:', err);
+    }
+  })
   .catch(err => console.error('Ошибка подключения к MongoDB:', err));
 
 // --- Маршруты ---

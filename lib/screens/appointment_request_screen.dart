@@ -297,7 +297,9 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                       if (snapshot.hasError) {
                         return Center(child: Text('Ошибка: ${snapshot.error}'));
                       }
-                      final slots = snapshot.data ?? [];
+                      final allSlots = snapshot.data ?? [];
+                      final now = DateTime.now();
+                      final slots = allSlots.where((s) => !s.startTime.isBefore(now)).toList();
                       if (slots.isEmpty) {
                         return Container(
                           padding: const EdgeInsets.all(24),
@@ -317,7 +319,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                         );
                       }
 
-                      // Group by date
+                      // Group by date (slots are already filtered to future-only above)
                       final grouped = <String, List<Slot>>{};
                       for (final slot in slots) {
                         final dayKey = '${slot.startTime.year}-${slot.startTime.month.toString().padLeft(2, '0')}-${slot.startTime.day.toString().padLeft(2, '0')}';
