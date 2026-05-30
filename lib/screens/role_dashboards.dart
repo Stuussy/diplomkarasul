@@ -785,7 +785,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       await context.read<SessionProvider>().apiService.createSlot(doctorId: _selectedDoctorId!, clinicId: _selectedClinicId!, startTime: start, endTime: end);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(_successSnack('Слот создан'));
-      setState(() => _slotsFuture = _loadSlots());
+      setState(() { _slotsFuture = _loadSlots(); });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(_errorSnack('$e'));
@@ -796,7 +796,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     try {
       await context.read<SessionProvider>().apiService.deleteSlot(slotId);
       if (!mounted) return;
-      setState(() => _slotsFuture = _loadSlots());
+      setState(() { _slotsFuture = _loadSlots(); });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(_errorSnack('$e'));
@@ -810,7 +810,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final result = await context.read<SessionProvider>().apiService.seedSlots(untilDate: dateStr);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(_successSnack(result['message'] as String? ?? 'Слоты созданы'));
-      setState(() => _slotsFuture = _loadSlots());
+      setState(() { _slotsFuture = _loadSlots(); });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(_errorSnack('$e'));
@@ -1607,7 +1607,7 @@ class _SupportManagerDashboardState extends State<SupportManagerDashboard> {
 
   Future<void> _refresh() async {
     final future = _loadMessages();
-    setState(() => _messagesFuture = future);
+    setState(() { _messagesFuture = future; });
     await future;
   }
 
