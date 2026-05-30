@@ -316,7 +316,7 @@ router.get('/', auth(), async (req, res) => {
 
   const appointments = await Appointment.find(query)
     .populate('doctor', 'firstName lastName specialties')
-    .populate('patient', 'firstName lastName phone')
+    .populate('patient', 'firstName lastName phone email')
     .populate('clinic')
     .populate('review', 'rating comment createdAt');
   res.json(appointments);

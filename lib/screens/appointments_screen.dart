@@ -9,6 +9,7 @@ import '../models/review.dart';
 import '../providers/session_provider.dart';
 import '../services/api_service.dart';
 import '../theme/clinic_theme.dart';
+import '../widgets/appointment_calendar.dart';
 import '../widgets/dent_card.dart';
 import '../widgets/dent_badge.dart';
 import '../widgets/dent_shimmer.dart';
@@ -25,6 +26,7 @@ class AppointmentsScreen extends StatefulWidget {
 class _AppointmentsScreenState extends State<AppointmentsScreen> {
   late Future<List<Appointment>> _futureAppointments;
   int _tabIndex = 0;
+  bool _calendarView = false;
   int _trackedBookingVersion = -1;
 
   @override
@@ -197,13 +199,27 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-            child: _SegmentedControl(
-              index: _tabIndex,
-              labels: [s.appointmentsUpcoming, s.appointmentsCompleted, s.appointmentsCancelled],
-              onChanged: (i) {
-                HapticFeedback.selectionClick();
-                setState(() => _tabIndex = i);
-              },
+            child: Row(
+              children: [
+                Expanded(
+                  child: _SegmentedControl(
+                    index: _tabIndex,
+                    labels: [s.appointmentsUpcoming, s.appointmentsCompleted, s.appointmentsCancelled],
+                    onChanged: (i) {
+                      HapticFeedback.selectionClick();
+                      setState(() => _tabIndex = i);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _ViewToggleButton(
+                  calendarView: _calendarView,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _calendarView = !_calendarView);
+                  },
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -248,6 +264,24 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   1 => completed,
                   _ => cancelled,
                 };
+
+                if (_calendarView) {
+                  return RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: AppointmentCalendar(
+                      appointments: list,
+                      emptyDayTitle: 'На этот день записей нет',
+                      emptyDayIcon: LucideIcons.calendarX,
+                      itemBuilder: (context, apt) => _AppointmentCard(
+                        appointment: apt,
+                        isUpcoming: _tabIndex == 0,
+                        onConfirmQr: () => _confirmViaQr(apt),
+                        onCancel: () => _cancelAppointment(apt),
+                        onReview: () => _submitReview(apt),
+                      ),
+                    ),
+                  );
+                }
 
                 if (list.isEmpty) {
                   final emptyTitle = switch (_tabIndex) {
@@ -297,6 +331,41 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ViewToggleButton extends StatelessWidget {
+  const _ViewToggleButton({required this.calendarView, required this.onTap});
+
+  final bool calendarView;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: calendarView ? ClinicTheme.azure : ClinicTheme.snow,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          width: 46,
+          height: 46,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: calendarView ? ClinicTheme.azure : ClinicTheme.line,
+            ),
+          ),
+          child: Icon(
+            calendarView ? Icons.view_agenda_outlined : Icons.calendar_month_outlined,
+            size: 20,
+            color: calendarView ? Colors.white : ClinicTheme.slate,
+          ),
+        ),
       ),
     );
   }

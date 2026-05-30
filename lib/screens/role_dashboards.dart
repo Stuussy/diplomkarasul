@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_strings.dart';
 import '../models/appointment.dart';
@@ -12,8 +14,10 @@ import '../models/slot.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
 import '../theme/clinic_theme.dart';
+import '../widgets/appointment_calendar.dart';
 import '../widgets/dent_badge.dart';
 import '../widgets/dent_card.dart';
+import '../widgets/dent_shimmer.dart';
 import '../widgets/role_profile_overview.dart';
 import 'medical_records_screen.dart';
 import 'treatment_plan_screen.dart';
@@ -548,6 +552,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? _selectedClinicId;
   Future<List<Slot>>? _slotsFuture;
   String? _selectedDoctorId;
+  String? _apptFilterDoctorId; // фильтр вкладки «Записи» (null = все врачи)
   DateTime? _slotDate;
   TimeOfDay? _slotStart;
   TimeOfDay? _slotEnd;
@@ -835,7 +840,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget build(BuildContext context) {
     final s = context.s;
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         backgroundColor: ClinicTheme.mist,
         appBar: AppBar(
@@ -857,17 +862,128 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           ],
           bottom: TabBar(
+            isScrollable: true,
             labelColor: ClinicTheme.azure,
             unselectedLabelColor: ClinicTheme.slate,
             indicatorColor: ClinicTheme.azure,
             tabs: [
               Tab(icon: const Icon(LucideIcons.layoutDashboard, size: 20), text: 'Обзор'),
+              Tab(icon: const Icon(LucideIcons.calendarCheck, size: 20), text: 'Записи'),
               Tab(icon: const Icon(LucideIcons.building2, size: 20), text: 'Клиника'),
               Tab(icon: const Icon(LucideIcons.calendarClock, size: 20), text: 'Слоты'),
             ],
           ),
         ),
-        body: TabBarView(children: [_buildOverviewTab(), _buildClinicTab(), _buildScheduleTab()]),
+        body: TabBarView(children: [
+          _buildOverviewTab(),
+          _buildAppointmentsTab(),
+          _buildClinicTab(),
+          _buildScheduleTab(),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildAppointmentsTab() {
+    return FutureBuilder<List<AppUser>>(
+      future: _doctorsFuture,
+      builder: (context, docSnap) {
+        final doctors = docSnap.data ?? [];
+        return FutureBuilder<List<Appointment>>(
+          future: _appointmentsFuture,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return ListView(padding: const EdgeInsets.all(16), children: const [
+                DentShimmerCard(height: 320),
+              ]);
+            }
+            final all = snap.data ?? [];
+            // Только активные/будущие и подтверждённые — для обзвона клиентов
+            final relevant = all
+                .where((a) => a.status != 'cancelled')
+                .where((a) => _apptFilterDoctorId == null || a.doctor?.id == _apptFilterDoctorId)
+                .toList();
+
+            final header = Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0A4DD3), Color(0xFF2E8BFF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(ClinicTheme.radiusL),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: const [
+                          Icon(LucideIcons.calendarCheck, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text('Записи клиники', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+                        ]),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Выберите день в календаре, чтобы увидеть пациентов и позвонить для подтверждения.',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13, height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Фильтр по врачу
+                  SizedBox(
+                    height: 36,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        _doctorFilterChip(null, 'Все врачи'),
+                        ...doctors.map((d) => _doctorFilterChip(d.id, d.fullName)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+
+            return AppointmentCalendar(
+              appointments: relevant,
+              header: header,
+              emptyDayTitle: 'На этот день записей нет',
+              emptyDayIcon: LucideIcons.calendarX,
+              itemBuilder: (context, apt) => _AdminApptCard(appointment: apt),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _doctorFilterChip(String? doctorId, String label) {
+    final selected = _apptFilterDoctorId == doctorId;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => setState(() => _apptFilterDoctorId = doctorId),
+        backgroundColor: ClinicTheme.snow,
+        selectedColor: ClinicTheme.azure,
+        labelStyle: TextStyle(
+          color: selected ? Colors.white : ClinicTheme.slate,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: selected ? ClinicTheme.azure : ClinicTheme.line),
+        ),
       ),
     );
   }
@@ -2792,6 +2908,159 @@ Widget _buildUserSection(BuildContext context, String title, List<AppUser> users
       ],
     ),
   );
+}
+
+/// Карточка записи для админа клиники: данные пациента + быстрый звонок.
+class _AdminApptCard extends StatelessWidget {
+  const _AdminApptCard({required this.appointment});
+
+  final Appointment appointment;
+
+  (Color, String, DentBadgeVariant) _statusInfo() {
+    switch (appointment.status) {
+      case 'confirmed':
+        return (ClinicTheme.mint, 'Подтверждена', DentBadgeVariant.success);
+      case 'completed':
+        return (ClinicTheme.azure, 'Завершена', DentBadgeVariant.info);
+      case 'no_show':
+        return (ClinicTheme.coral, 'Не явился', DentBadgeVariant.error);
+      default:
+        return (ClinicTheme.amber, 'Запланирована', DentBadgeVariant.warning);
+    }
+  }
+
+  Future<void> _call(BuildContext context, String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone.replaceAll(' ', ''));
+    if (!await launchUrl(uri)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось открыть набор номера')),
+        );
+      }
+    }
+  }
+
+  String _time(DateTime d) =>
+      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final (statusColor, statusLabel, variant) = _statusInfo();
+    final patient = appointment.patient;
+    final phone = patient?.phone;
+    final hasPhone = phone != null && phone.trim().isNotEmpty;
+
+    return DentCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Время
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  _time(appointment.startTime),
+                  style: TextStyle(fontWeight: FontWeight.w800, color: statusColor, fontSize: 15),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      patient?.fullName ?? 'Пациент',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: ClinicTheme.midnight),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      appointment.service,
+                      style: const TextStyle(fontSize: 12, color: ClinicTheme.slate),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              DentBadge(label: statusLabel, variant: variant),
+            ],
+          ),
+          const Divider(height: 18),
+          // Врач
+          Row(children: [
+            const Icon(LucideIcons.stethoscope, size: 14, color: ClinicTheme.slate),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                appointment.doctor?.fullName ?? 'Врач не указан',
+                style: const TextStyle(fontSize: 13, color: ClinicTheme.midnight, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          // Телефон + действия
+          Row(children: [
+            const Icon(LucideIcons.phone, size: 14, color: ClinicTheme.slate),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                hasPhone ? phone : 'Телефон не указан',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: hasPhone ? ClinicTheme.midnight : ClinicTheme.slate,
+                  fontWeight: hasPhone ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+            if (hasPhone) ...[
+              IconButton(
+                tooltip: 'Скопировать',
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: phone));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Номер скопирован')),
+                  );
+                },
+                icon: const Icon(Icons.content_copy, size: 16, color: ClinicTheme.slate),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+              ),
+              const SizedBox(width: 4),
+              FilledButton.icon(
+                onPressed: () => _call(context, phone),
+                style: FilledButton.styleFrom(
+                  backgroundColor: ClinicTheme.mint,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(LucideIcons.phone, size: 15),
+                label: const Text('Позвонить', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+              ),
+            ],
+          ]),
+          if (patient?.email != null && patient!.email.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(children: [
+              const Icon(LucideIcons.mail, size: 14, color: ClinicTheme.slate),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(patient.email,
+                    style: const TextStyle(fontSize: 12, color: ClinicTheme.slate),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ]),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _RoleChip extends StatelessWidget {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
 import 'navigation_container.dart';
@@ -11,6 +12,8 @@ import 'theme/clinic_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Данные локали для форматирования дат (нужно для календаря записей)
+  await initializeDateFormatting('ru_RU', null);
   runApp(const DentalApp());
 }
 
