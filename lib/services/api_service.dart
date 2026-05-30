@@ -31,13 +31,19 @@ class ApiService {
   String? _token;
 
   static const _prodBaseUrl = 'https://diplomkarasul.onrender.com/api';
+  // Set SIMULATOR=true when running on Xcode Simulator:
+  // flutter run --dart-define=SIMULATOR=true
+  static const _isSimulator = bool.fromEnvironment('SIMULATOR', defaultValue: false);
 
   static String _defaultBaseUrl() {
     const env = String.fromEnvironment('API_BASE_URL');
     if (env.isNotEmpty) return env;
     if (kIsWeb) return 'http://localhost:8050/api';
     if (Platform.isAndroid) return 'http://10.0.2.2:8050/api';
-    if (Platform.isIOS) return _prodBaseUrl;
+    if (Platform.isIOS) {
+      // iOS Simulator uses localhost; real device uses prod
+      return _isSimulator ? 'http://localhost:8050/api' : _prodBaseUrl;
+    }
     return 'http://localhost:8050/api';
   }
 
@@ -228,22 +234,14 @@ class ApiService {
     return Appointment.fromJson(data);
   }
 
-  Future<String> cancelAppointment(String appointmentId) async {
+  /// Cancels an appointment. Returns `true` if a late-cancel fine was issued.
+  Future<bool> cancelAppointment(String appointmentId) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/appointments/$appointmentId/cancel'),
       headers: _headers(),
     );
-
-    if (response.statusCode == 403) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      throw ApiException(
-        data['message'] ?? 'Отмена недоступна',
-        statusCode: 403,
-      );
-    }
-
     final data = _decode(response);
-    return data['status'] ?? 'cancelled';
+    return data is Map<String, dynamic> && data['fineIssued'] == true;
   }
 
   Future<List<Clinic>> fetchClinics({
@@ -275,6 +273,23 @@ class ApiService {
     );
     final data = _decode(response) as List<dynamic>;
     return data.map((json) => Fine.fromJson(json)).toList();
+  }
+
+  Future<void> payFine(String fineId) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/fines/$fineId/pay'),
+      headers: _headers(),
+    );
+    _decode(response);
+  }
+
+  Future<Map<String, dynamic>> seedSlots({required String untilDate}) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/admin/seed-slots'),
+      headers: _headers(),
+      body: jsonEncode({'untilDate': untilDate}),
+    );
+    return _decode(response) as Map<String, dynamic>;
   }
 
   Future<SupportMessage> sendSupportMessage(

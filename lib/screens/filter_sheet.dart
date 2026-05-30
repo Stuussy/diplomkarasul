@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../l10n/app_strings.dart';
 import '../theme/clinic_theme.dart';
 
 class FilterSheet extends StatefulWidget {
@@ -18,6 +19,7 @@ class _FilterSheetState extends State<FilterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return DraggableScrollableSheet(
       initialChildSize: 0.65,
       maxChildSize: 0.85,
@@ -49,7 +51,7 @@ class _FilterSheetState extends State<FilterSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Фильтры', style: Theme.of(context).textTheme.titleLarge),
+                  Text(s.filterTitle, style: Theme.of(context).textTheme.titleLarge),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(LucideIcons.x, size: 22),
@@ -60,13 +62,13 @@ class _FilterSheetState extends State<FilterSheet> {
               const SizedBox(height: 24),
 
               // Sort
-              Text('Сортировка', style: Theme.of(context).textTheme.titleMedium),
+              Text(s.filter, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _buildChip('По рейтингу', 'rating'),
+                  _buildChip(s.filterRating, 'rating'),
                   _buildChip('По отзывам', 'reviews'),
                 ],
               ),
@@ -74,7 +76,7 @@ class _FilterSheetState extends State<FilterSheet> {
               const SizedBox(height: 24),
 
               // Rating
-              Text('Минимальный рейтинг', style: Theme.of(context).textTheme.titleMedium),
+              Text(s.filterRating, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 12),
               ...([4.5, 4.0, 3.5, 3.0] as List<double>).map((r) {
                 final selected = _minRating == r;
@@ -163,7 +165,7 @@ class _FilterSheetState extends State<FilterSheet> {
                           _instantBooking = false;
                         });
                       },
-                      child: const Text('Сбросить'),
+                      child: Text(s.filterReset),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -174,7 +176,7 @@ class _FilterSheetState extends State<FilterSheet> {
                         'rating': _minRating,
                         'instantBooking': _instantBooking,
                       }),
-                      child: const Text('Применить'),
+                      child: Text(s.filterApply),
                     ),
                   ),
                 ],

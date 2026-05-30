@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/support_message.dart';
 import '../providers/session_provider.dart';
 import '../theme/clinic_theme.dart';

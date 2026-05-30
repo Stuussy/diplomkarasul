@@ -32,35 +32,44 @@ app.use(
 );
 app.use(express.json()); // Позволяет парсить JSON в теле запроса
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
+// Extract real client IP from X-Forwarded-For (Render proxy)
+const getClientIp = (req) => {
+  const xff = req.headers['x-forwarded-for'];
+  return (xff ? xff.split(',')[0].trim() : null) || req.socket?.remoteAddress || 'unknown';
+};
+
+const rateLimitDefaults = {
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
+  keyGenerator: getClientIp,
+};
+
+const limiter = rateLimit({
+  ...rateLimitDefaults,
+  windowMs: 15 * 60 * 1000,
+  max: 200,
 });
 app.use('/api', limiter);
 
 const authLimiter = rateLimit({
+  ...rateLimitDefaults,
   windowMs: 15 * 60 * 1000,
   max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 app.use('/api/auth', authLimiter);
 
 const supportLimiter = rateLimit({
+  ...rateLimitDefaults,
   windowMs: 15 * 60 * 1000,
   max: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 app.use('/api/support', supportLimiter);
 
 const appointmentsLimiter = rateLimit({
+  ...rateLimitDefaults,
   windowMs: 15 * 60 * 1000,
   max: 80,
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 app.use('/api/appointments', appointmentsLimiter);
 
@@ -70,7 +79,22 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // --- Подключение к MongoDB ---
 const MONGO_URI = process.env.MONGO_URI;
 mongoose.connect(MONGO_URI)
-  .then(() => console.log('Успешное подключение к MongoDB'))
+  .then(async () => {
+    console.log('Успешное подключение к MongoDB');
+    // Cancel all past scheduled/confirmed appointments on startup
+    try {
+      const Appointment = require('./models/Appointment');
+      const result = await Appointment.updateMany(
+        { startTime: { $lt: new Date() }, status: { $in: ['scheduled', 'confirmed'] } },
+        { $set: { status: 'cancelled' } },
+      );
+      if (result.modifiedCount > 0) {
+        console.log(`Автоотмена: ${result.modifiedCount} просроченных записей отменено`);
+      }
+    } catch (err) {
+      console.error('Ошибка автоотмены просроченных записей:', err);
+    }
+  })
   .catch(err => console.error('Ошибка подключения к MongoDB:', err));
 
 // --- Маршруты ---

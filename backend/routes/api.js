@@ -14,6 +14,7 @@ router.use('/stats', require('./stats'));
 router.use('/profile', require('./profile'));
 router.use('/reviews', require('./reviews'));
 router.use('/ai', require('./ai'));
+router.use('/admin', require('./admin'));
 router.use('/', require('./integrations'));
 router.use('/', require('./health'));
 

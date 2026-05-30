@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/appointment.dart';
 import '../models/review.dart';
 import '../providers/session_provider.dart';
+import '../services/api_service.dart';
 import '../theme/clinic_theme.dart';
 import '../widgets/dent_card.dart';
 import '../widgets/dent_badge.dart';
@@ -23,7 +25,7 @@ class AppointmentsScreen extends StatefulWidget {
 class _AppointmentsScreenState extends State<AppointmentsScreen> {
   late Future<List<Appointment>> _futureAppointments;
   int _tabIndex = 0;
-  int _trackedBookingVersion = 0;
+  int _trackedBookingVersion = -1;
 
   @override
   void initState() {
@@ -34,11 +36,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final session = Provider.of<SessionProvider>(context);
-    final ver = session.bookingVersion;
+    final ver = Provider.of<SessionProvider>(context).bookingVersion;
     if (_trackedBookingVersion != ver) {
       _trackedBookingVersion = ver;
-      _futureAppointments = _loadAppointments();
+      setState(() {
+        _futureAppointments = _loadAppointments();
+      });
     }
   }
 
@@ -46,8 +49,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     final api = context.read<SessionProvider>().apiService;
     final now = DateTime.now();
     return api.fetchAppointments(
-      from: now.subtract(const Duration(days: 365)),
-      to: now.add(const Duration(days: 90)),
+      from: now.subtract(const Duration(days: 730)),
+      to: now.add(const Duration(days: 730)),
     );
   }
 
@@ -59,24 +62,28 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   Future<void> _confirmViaQr(Appointment appointment) async {
     final result = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+      MaterialPageRoute(
+        builder: (_) => const QrScannerScreen(),
+      ),
     );
     if (result == null || !mounted) return;
 
     final api = context.read<SessionProvider>().apiService;
     final messenger = ScaffoldMessenger.of(context);
+    final s = context.sRead;
     try {
       await api.confirmAppointmentByQr(result);
       HapticFeedback.mediumImpact();
+      await _refresh();
+      if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: const Text('Запись подтверждена! ✓'),
+          content: Text(s.appointmentsQrSuccess),
           backgroundColor: ClinicTheme.mint,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
-      _refresh();
     } catch (e) {
       HapticFeedback.heavyImpact();
       messenger.showSnackBar(SnackBar(content: Text(e.toString())));
@@ -84,17 +91,18 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 
   Future<void> _cancelAppointment(Appointment appointment) async {
+    final s = context.sRead;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Отменить запись?'),
+      builder: (ctx) => AlertDialog(
+        title: Text(s.appointmentsCancelTitle),
         content: Text('Вы хотите отменить запись на «${appointment.service}»?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Нет')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(s.no)),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: ClinicTheme.coral),
-            child: const Text('Отменить'),
+            child: Text(s.cancel),
           ),
         ],
       ),
@@ -102,13 +110,25 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     if (confirmed != true || !mounted) return;
 
     final api = context.read<SessionProvider>().apiService;
+    final messenger = ScaffoldMessenger.of(context);
     try {
-      await api.cancelAppointment(appointment.id);
-      _refresh();
+      final fineIssued = await api.cancelAppointment(appointment.id);
+      HapticFeedback.mediumImpact();
+      await _refresh();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+              fineIssued ? s.appointmentsCancelFine : s.appointmentsCancelDone),
+          backgroundColor: ClinicTheme.coral,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
+      HapticFeedback.heavyImpact();
+      final message = e is ApiException ? e.message : e.toString();
+      messenger.showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -119,7 +139,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('Оставить отзыв'),
+          title: Text(context.s.appointmentsReview),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -145,8 +165,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Отправить')),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.s.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.s.send)),
           ],
         ),
       ),
@@ -170,6 +190,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return DecoratedBox(
       decoration: const BoxDecoration(color: ClinicTheme.mist),
       child: Column(
@@ -178,7 +199,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: _SegmentedControl(
               index: _tabIndex,
-              labels: const ['Активные', 'Завершённые', 'Отменённые'],
+              labels: [s.appointmentsUpcoming, s.appointmentsCompleted, s.appointmentsCancelled],
               onChanged: (i) {
                 HapticFeedback.selectionClick();
                 setState(() => _tabIndex = i);
@@ -207,15 +228,16 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   return Center(child: Text('Ошибка: ${snapshot.error}'));
                 }
 
-                final now = DateTime.now();
                 final all = snapshot.data ?? [];
+                // Any scheduled/confirmed appointment is "upcoming" until the
+                // doctor marks it completed/no_show. We do not hide it based on
+                // client time, otherwise freshly booked slots on a past time
+                // would silently disappear from this tab.
                 final active = all.where((a) =>
-                    (a.status == 'scheduled' || a.status == 'confirmed') &&
-                    a.startTime.isAfter(now.subtract(const Duration(hours: 2)))).toList()
+                    a.status == 'scheduled' || a.status == 'confirmed').toList()
                   ..sort((a, b) => a.startTime.compareTo(b.startTime));
                 final completed = all.where((a) =>
                     a.status == 'completed' ||
-                    (a.status == 'confirmed' && a.startTime.isBefore(now.subtract(const Duration(hours: 2)))) ||
                     a.status == 'no_show').toList()
                   ..sort((a, b) => b.startTime.compareTo(a.startTime));
                 final cancelled = all.where((a) => a.status == 'cancelled').toList()
@@ -391,16 +413,17 @@ class _AppointmentCard extends StatelessWidget {
     }
   }
 
-  String _statusLabel() {
+  String _statusLabel(BuildContext context) {
+    final s = context.s;
     switch (appointment.status) {
       case 'scheduled':
-        return 'Запланирован';
+        return s.appointmentsScheduled;
       case 'confirmed':
-        return 'Подтверждён';
+        return s.appointmentsConfirmed;
       case 'completed':
-        return 'Завершён';
+        return s.appointmentsCompleted;
       case 'cancelled':
-        return 'Отменён';
+        return s.appointmentsCancelled;
       default:
         return appointment.status;
     }
@@ -443,7 +466,7 @@ class _AppointmentCard extends StatelessWidget {
                   ],
                 ),
               ),
-              DentBadge(label: _statusLabel(), variant: _badgeVariant()),
+              DentBadge(label: _statusLabel(context), variant: _badgeVariant()),
             ],
           ),
           if (appointment.doctor != null) ...[
@@ -478,7 +501,7 @@ class _AppointmentCard extends StatelessWidget {
                       foregroundColor: ClinicTheme.coral,
                       side: const BorderSide(color: ClinicTheme.coralSoft, width: 1.2),
                     ),
-                    child: const Text('Отменить'),
+                    child: Text(context.s.cancel),
                   ),
                 ),
               ],
@@ -492,7 +515,7 @@ class _AppointmentCard extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onReview,
                 icon: const Icon(LucideIcons.star, size: 16),
-                label: const Text('Оставить отзыв'),
+                label: Text(context.s.appointmentsReview),
                 style: FilledButton.styleFrom(
                   backgroundColor: ClinicTheme.violetSoft,
                   foregroundColor: ClinicTheme.violet,

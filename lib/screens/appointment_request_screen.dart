@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/slot.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
@@ -66,6 +67,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
     if (_selectedSlot == null || _selectedService.isEmpty) return;
 
     final slot = _selectedSlot!;
+    final s = context.sRead;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -74,7 +76,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
             '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}';
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Подтвердите запись'),
+          title: Text(s.bookConfirmTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -107,11 +109,11 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Отмена'),
+              child: Text(s.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Подтвердить'),
+              child: Text(s.confirm),
             ),
           ],
         );
@@ -134,7 +136,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
       context.read<SessionProvider>().notifyBooked();
       messenger.showSnackBar(
         SnackBar(
-          content: const Text('Вы успешно записаны! ✓'),
+          content: Text(s.bookSuccess),
           backgroundColor: ClinicTheme.mint,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -150,14 +152,15 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     final specialty = widget.doctor.specialties.isNotEmpty
         ? widget.doctor.specialties.join(', ')
-        : 'Специализация уточняется';
+        : s.homeSpecialties;
 
     return Scaffold(
       backgroundColor: ClinicTheme.mist,
       appBar: AppBar(
-        title: const Text('Запись к врачу'),
+        title: Text(s.bookTitle),
       ),
       body: Column(
         children: [
@@ -241,7 +244,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                   // Service selection
                   if (widget.doctor.specialties.isNotEmpty) ...[
                     const SizedBox(height: 24),
-                    Text('Услуга', style: Theme.of(context).textTheme.titleMedium),
+                    Text(s.bookService, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
@@ -277,7 +280,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
 
                   // Slots
                   const SizedBox(height: 24),
-                  Text('Доступные слоты', style: Theme.of(context).textTheme.titleMedium),
+                  Text(s.bookSlot, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 12),
 
                   FutureBuilder<List<Slot>>(
@@ -294,7 +297,9 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                       if (snapshot.hasError) {
                         return Center(child: Text('Ошибка: ${snapshot.error}'));
                       }
-                      final slots = snapshot.data ?? [];
+                      final allSlots = snapshot.data ?? [];
+                      final now = DateTime.now();
+                      final slots = allSlots.where((s) => !s.startTime.isBefore(now)).toList();
                       if (slots.isEmpty) {
                         return Container(
                           padding: const EdgeInsets.all(24),
@@ -302,7 +307,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                             children: [
                               Icon(LucideIcons.calendarX, size: 40, color: ClinicTheme.slate),
                               const SizedBox(height: 12),
-                              Text('Нет доступных слотов', style: Theme.of(context).textTheme.titleMedium),
+                              Text(s.bookNoSlots, style: Theme.of(context).textTheme.titleMedium),
                               const SizedBox(height: 4),
                               Text(
                                 'Попробуйте позже или выберите другого врача',
@@ -314,7 +319,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                         );
                       }
 
-                      // Group by date
+                      // Group by date (slots are already filtered to future-only above)
                       final grouped = <String, List<Slot>>{};
                       for (final slot in slots) {
                         final dayKey = '${slot.startTime.year}-${slot.startTime.month.toString().padLeft(2, '0')}-${slot.startTime.day.toString().padLeft(2, '0')}';
@@ -480,7 +485,7 @@ class _AppointmentRequestScreenState extends State<AppointmentRequestScreen> {
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                       )
-                    : const Text('Записаться'),
+                    : Text(s.bookSubmit),
               ),
             ),
           ),

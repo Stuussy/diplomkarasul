@@ -386,13 +386,17 @@ router.post('/qr-confirm', auth(['patient']), async (req, res) => {
   }
 
   const now = Date.now();
-  if (now - issuedAt > 1000 * 60 * 60 * 24) {
+  if (now - issuedAt > 1000 * 60 * 5) {
     return res.status(400).json({ message: 'QR-код устарел. Попросите новый.' });
   }
 
   const clinic = await Clinic.findById(clinicId);
   if (!clinic) {
     return res.status(404).json({ message: 'Клиника не найдена.' });
+  }
+
+  if (!clinic.qr || clinic.qr.payload !== payload) {
+    return res.status(400).json({ message: 'QR-код недействителен. Попросите новый.' });
   }
 
   const windowStart = dayjs().subtract(1, 'day').toDate();
@@ -450,7 +454,18 @@ router.post('/:id/cancel', auth(['patient', 'admin', 'superadmin']), async (req,
   }
 
   const now = new Date();
-  if (req.user.role === 'patient' && appointment.cancelBefore && now > appointment.cancelBefore) {
+  // Late-cancel fine applies only while the appointment is still upcoming:
+  // we are inside the [cancelBefore, startTime) window. A slot whose start
+  // time has already passed can be cancelled freely (no point fining a
+  // no-longer-upcoming appointment). In all cases the appointment is still
+  // cancelled — a late cancel just additionally issues a fine.
+  let fineIssued = false;
+  if (
+    req.user.role === 'patient' &&
+    appointment.cancelBefore &&
+    now > appointment.cancelBefore &&
+    now < appointment.startTime
+  ) {
     const claimed = await Appointment.findOneAndUpdate(
       { _id: appointment._id, fineIssued: { $ne: true } },
       { $set: { fineIssued: true } },
@@ -464,15 +479,14 @@ router.post('/:id/cancel', auth(['patient', 'admin', 'superadmin']), async (req,
         reason: 'Отмена позднее чем за 2 часа',
         issuedBy: req.user.id,
       });
+      fineIssued = true;
     }
-    return res
-      .status(403)
-      .json({ message: 'Отмена менее чем за 2 часа недоступна. Начислен штраф 3000 тг.' });
   }
 
   appointment.status = 'cancelled';
   appointment.cancelledAt = now;
   appointment.cancelledBy = req.user.id;
+  appointment.fineIssued = appointment.fineIssued || fineIssued;
   await appointment.save();
 
   await notifyMany([appointment.doctor, appointment.patient], {
@@ -533,7 +547,7 @@ router.post('/:id/cancel', auth(['patient', 'admin', 'superadmin']), async (req,
     await appointment.save();
   }
 
-  res.json(appointment);
+  res.json({ ...appointment.toObject(), fineIssued });
 });
 
 router.post('/:id/complete', auth(['doctor', 'admin', 'superadmin']), async (req, res) => {
@@ -806,6 +820,20 @@ router.delete('/slots/:id', auth(['admin', 'superadmin']), async (req, res) => {
   }
   await slot.deleteOne();
   res.json({ success: true });
+});
+
+// Superadmin: cancel all past scheduled/confirmed appointments
+router.post('/admin/cancel-past', auth(['superadmin']), async (req, res) => {
+  try {
+    const cutoff = req.body.before ? new Date(req.body.before) : new Date();
+    const result = await Appointment.updateMany(
+      { startTime: { $lt: cutoff }, status: { $in: ['scheduled', 'confirmed'] } },
+      { $set: { status: 'cancelled' } },
+    );
+    res.json({ cancelled: result.modifiedCount });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 module.exports = router;

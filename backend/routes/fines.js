@@ -57,4 +57,27 @@ router.get('/', auth(['patient', 'admin', 'superadmin']), async (req, res) => {
   }
 });
 
+router.post('/:id/pay', auth(['patient']), async (req, res) => {
+  try {
+    const fine = await Fine.findById(req.params.id);
+    if (!fine) {
+      return res.status(404).json({ message: 'Штраф не найден.' });
+    }
+    if (fine.patient.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Можно оплачивать только свои штрафы.' });
+    }
+    if (fine.isPaid) {
+      return res.status(400).json({ message: 'Штраф уже оплачен.' });
+    }
+
+    fine.isPaid = true;
+    fine.paidAt = new Date();
+    await fine.save();
+    res.json(fine);
+  } catch (error) {
+    console.error('Ошибка оплаты штрафа:', error);
+    res.status(500).json({ message: 'Не удалось оплатить штраф.' });
+  }
+});
+
 module.exports = router;

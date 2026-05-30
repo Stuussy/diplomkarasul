@@ -3,13 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_strings.dart';
+import '../models/fine.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
 import '../theme/clinic_theme.dart';
 import '../widgets/dent_card.dart';
 import '../widgets/dent_badge.dart';
-import '../widgets/dent_shimmer.dart';
-import '../widgets/patient_ui.dart';
+import 'fines_screen.dart';
 import 'medical_records_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -38,24 +39,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _finesFuture = _loadFines());
+    setState(() { _finesFuture = _loadFines(); });
   }
 
   Future<void> _logout() async {
+    final s = context.sRead;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Выйти из аккаунта?'),
-        content: const Text('Вы уверены, что хотите выйти?'),
+      builder: (ctx) => AlertDialog(
+        title: Text(s.logoutConfirmTitle),
+        content: Text(s.logoutConfirmContent),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(s.cancel),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: ClinicTheme.coral),
-            child: const Text('Выйти'),
+            child: Text(s.logoutButton),
           ),
         ],
       ),
@@ -80,11 +82,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final oldController = TextEditingController();
     final newController = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    final s = context.sRead;
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Сменить пароль'),
+      builder: (ctx) => AlertDialog(
+        title: Text(s.profileChangePassword),
         content: Form(
           key: formKey,
           child: Column(
@@ -93,32 +96,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
               TextFormField(
                 controller: oldController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Текущий пароль'),
-                validator: (v) => v == null || v.isEmpty ? 'Обязательное поле' : null,
+                decoration: InputDecoration(labelText: s.profileCurrentPassword),
+                validator: (v) => v == null || v.isEmpty ? s.required : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: newController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Новый пароль'),
+                decoration: InputDecoration(labelText: s.profileNewPassword),
                 validator: (v) =>
-                    v == null || v.length < 6 ? 'Минимум 6 символов' : null,
+                    v == null || v.length < 6 ? s.passwordMin : null,
               ),
             ],
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(s.cancel),
           ),
           FilledButton(
             onPressed: () {
               if (formKey.currentState!.validate()) {
-                Navigator.pop(context, true);
+                Navigator.pop(ctx, true);
               }
             },
-            child: const Text('Сохранить'),
+            child: Text(s.save),
           ),
         ],
       ),
@@ -153,6 +156,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     final user = context.watch<SessionProvider>().user;
     if (user == null) return const SizedBox.shrink();
 
@@ -271,7 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   if (user.role == 'patient')
                     _ActionRow(
                       icon: LucideIcons.folderHeart,
-                      label: 'Медицинская карта',
+                      label: s.profileMedicalRecords,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const MedicalRecordsScreen()),
                       ),
@@ -279,7 +283,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   if (user.role == 'patient') const Divider(height: 0, indent: 60),
                   _ActionRow(
                     icon: LucideIcons.lock,
-                    label: 'Сменить пароль',
+                    label: s.profileChangePassword,
                     onTap: _changePassword,
                   ),
                   const Divider(height: 0, indent: 60),
@@ -293,71 +297,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // Fines
+            // Fines — entry button to the dedicated screen
             const SizedBox(height: 24),
             FutureBuilder<List<dynamic>>(
               future: _finesFuture,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const DentShimmerCard(height: 80);
-                }
                 final fines = snapshot.data ?? [];
-                if (fines.isEmpty) return const SizedBox.shrink();
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Штрафы', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 12),
-                    ...fines.map((fine) {
-                      final isPaid = fine['status'] == 'paid';
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: DentCard(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: isPaid
-                                      ? ClinicTheme.mintSoft
-                                      : ClinicTheme.coralSoft,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  isPaid ? LucideIcons.checkCircle : LucideIcons.alertCircle,
-                                  color: isPaid ? ClinicTheme.mint : ClinicTheme.coral,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${fine['amount']} ₸',
-                                      style: Theme.of(context).textTheme.titleMedium,
-                                    ),
-                                    Text(
-                                      fine['reason'] ?? 'Штраф',
-                                      style: Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              DentBadge(
-                                label: isPaid ? 'Оплачен' : 'Не оплачен',
-                                variant: isPaid ? DentBadgeVariant.success : DentBadgeVariant.error,
-                              ),
-                            ],
+                final unpaid = fines.where((f) => !(f as Fine).isPaid).length;
+                return DentCard(
+                  padding: EdgeInsets.zero,
+                  child: ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    leading: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: unpaid > 0
+                            ? ClinicTheme.coralSoft
+                            : ClinicTheme.mintSoft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        unpaid > 0
+                            ? LucideIcons.alertCircle
+                            : LucideIcons.shieldCheck,
+                        color: unpaid > 0 ? ClinicTheme.coral : ClinicTheme.mint,
+                        size: 22,
+                      ),
+                    ),
+                    title: Text(s.profileFines,
+                        style: Theme.of(context).textTheme.titleMedium),
+                    subtitle: Text(
+                      unpaid > 0 ? '$unpaid · ${s.profileFineUnpaid}' : s.profileFinePaid,
+                      style: TextStyle(
+                        color: unpaid > 0 ? ClinicTheme.coral : ClinicTheme.slate,
+                      ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (unpaid > 0)
+                          DentBadge(
+                            label: '$unpaid',
+                            variant: DentBadgeVariant.error,
                           ),
-                        ),
+                        const SizedBox(width: 8),
+                        const Icon(LucideIcons.chevronRight,
+                            color: ClinicTheme.slate),
+                      ],
+                    ),
+                    onTap: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const FinesScreen()),
                       );
-                    }),
-                  ],
+                      if (mounted) _refresh();
+                    },
+                  ),
                 );
               },
             ),
@@ -449,6 +445,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     return Container(
       padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
@@ -482,7 +479,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Редактировать профиль',
+                s.profileEdit,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: ClinicTheme.midnight,
@@ -548,8 +545,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                         width: 20, height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                       )
-                    : const Text('Сохранить',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
+                    : Text(s.save,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
               ),
             ),
           ),

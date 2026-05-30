@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import 'l10n/app_strings.dart';
 import 'providers/session_provider.dart';
 import 'screens/ai_consultation_screen.dart';
 import 'screens/appointments_screen.dart';
@@ -15,6 +16,7 @@ import 'screens/role_dashboards.dart';
 import 'screens/support_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'theme/clinic_theme.dart';
+import 'widgets/language_toggle.dart';
 
 class MainNavigationScreen extends StatelessWidget {
   const MainNavigationScreen({super.key});
@@ -56,7 +58,6 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
   Timer? _unreadTimer;
 
   late final List<Widget> _options;
-  late final List<String> _titles;
 
   @override
   void initState() {
@@ -67,7 +68,6 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
       AppointmentsScreen(),
       ProfileScreen(),
     ];
-    _titles = const ['Главная', 'Карта', 'Записи', 'Профиль'];
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SessionProvider>().refreshUnreadNotifications();
     });
@@ -84,11 +84,17 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
 
   void _onItemTapped(int index) {
     HapticFeedback.selectionClick();
+    // Always refresh appointments when the tab is selected.
+    if (index == 2) {
+      context.read<SessionProvider>().notifyBooked();
+    }
     setState(() => _selectedIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
+    final titles = [s.navHome, s.navMap, s.navAppointments, s.navProfile];
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBody: true,
@@ -109,8 +115,8 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
                 title: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
                   child: Text(
-                    _titles[_selectedIndex],
-                    key: ValueKey(_titles[_selectedIndex]),
+                    titles[_selectedIndex],
+                    key: ValueKey(titles[_selectedIndex]),
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
@@ -118,23 +124,28 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
                   ),
                 ),
                 actions: [
+                  // ── Language toggle ────────────────────────────────────
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                    child: LanguageToggle(),
+                  ),
                   _NavAction(
                     icon: LucideIcons.bot,
-                    tooltip: 'ИИ-ассистент',
+                    tooltip: s.navAi,
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const AiConsultationScreen()),
                     ),
                   ),
                   _NavAction(
                     icon: LucideIcons.messageCircle,
-                    tooltip: 'Чат-поддержка',
+                    tooltip: s.navSupport,
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const SupportScreen()),
                     ),
                   ),
                   _NavAction(
                     icon: LucideIcons.bell,
-                    tooltip: 'Уведомления',
+                    tooltip: s.navNotifications,
                     badge: context.watch<SessionProvider>().unreadNotifications,
                     onPressed: () async {
                       await Navigator.of(context).push(
@@ -185,26 +196,26 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
                   backgroundColor: Colors.transparent,
                   indicatorColor: ClinicTheme.azure.withValues(alpha: 0.12),
                   animationDuration: const Duration(milliseconds: 400),
-                  destinations: const [
+                  destinations: [
                     NavigationDestination(
-                      icon: Icon(LucideIcons.home),
-                      selectedIcon: Icon(LucideIcons.home, color: ClinicTheme.azure),
-                      label: 'Главная',
+                      icon: const Icon(LucideIcons.home),
+                      selectedIcon: const Icon(LucideIcons.home, color: ClinicTheme.azure),
+                      label: context.s.navHome,
                     ),
                     NavigationDestination(
-                      icon: Icon(LucideIcons.mapPin),
-                      selectedIcon: Icon(LucideIcons.mapPin, color: ClinicTheme.azure),
-                      label: 'Карта',
+                      icon: const Icon(LucideIcons.mapPin),
+                      selectedIcon: const Icon(LucideIcons.mapPin, color: ClinicTheme.azure),
+                      label: context.s.navMap,
                     ),
                     NavigationDestination(
-                      icon: Icon(LucideIcons.calendarDays),
-                      selectedIcon: Icon(LucideIcons.calendarDays, color: ClinicTheme.azure),
-                      label: 'Записи',
+                      icon: const Icon(LucideIcons.calendarDays),
+                      selectedIcon: const Icon(LucideIcons.calendarDays, color: ClinicTheme.azure),
+                      label: context.s.navAppointments,
                     ),
                     NavigationDestination(
-                      icon: Icon(LucideIcons.userCircle),
-                      selectedIcon: Icon(LucideIcons.userCircle, color: ClinicTheme.azure),
-                      label: 'Профиль',
+                      icon: const Icon(LucideIcons.userCircle),
+                      selectedIcon: const Icon(LucideIcons.userCircle, color: ClinicTheme.azure),
+                      label: context.s.navProfile,
                     ),
                   ],
                 ),
@@ -216,6 +227,7 @@ class _PatientNavigationShellState extends State<_PatientNavigationShell> {
     );
   }
 }
+
 
 class _NavAction extends StatelessWidget {
   const _NavAction({

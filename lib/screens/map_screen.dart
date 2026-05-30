@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/user.dart';
 import '../providers/session_provider.dart';
 import '../theme/clinic_theme.dart';
@@ -102,6 +103,7 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     final role = context.watch<SessionProvider>().user?.role ?? 'patient';
     final isPatient = role == 'patient';
 
@@ -123,7 +125,7 @@ class _MapScreenState extends State<MapScreen> {
                       const Icon(LucideIcons.mapPin, color: Colors.white70, size: 16),
                       const SizedBox(width: 6),
                       Text(
-                        'Dental AI на карте',
+                        s.mapTitle,
                         style: Theme.of(context).textTheme.labelMedium?.copyWith(
                           color: Colors.white70,
                           letterSpacing: 0,
@@ -147,7 +149,7 @@ class _MapScreenState extends State<MapScreen> {
                         label: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
                           child: Text(
-                            _isOpeningMap ? 'Открываем…' : 'Открыть 2GIS',
+                            _isOpeningMap ? s.loading : s.mapOpenRoute,
                             key: ValueKey(_isOpeningMap),
                           ),
                         ),
@@ -159,7 +161,7 @@ class _MapScreenState extends State<MapScreen> {
                       OutlinedButton.icon(
                         onPressed: _isOpeningTaxi ? null : _callTaxi,
                         icon: const Icon(LucideIcons.car, size: 16),
-                        label: Text(_isOpeningTaxi ? 'Загрузка…' : 'Вызвать такси'),
+                        label: Text(_isOpeningTaxi ? s.loading : s.mapTaxi),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
                           side: const BorderSide(color: Colors.white38),
@@ -174,8 +176,8 @@ class _MapScreenState extends State<MapScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
             child: SectionHeader(
-              title: 'Команда клиники',
-              subtitle: 'Выберите врача и запишитесь онлайн',
+              title: s.mapDoctors,
+              subtitle: s.homeSectionSubtitle,
             ),
           ),
           Expanded(
@@ -195,6 +197,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _buildDoctorsList(AsyncSnapshot<List<AppUser>> snapshot, bool isPatient) {
+    final s = context.s;
     if (snapshot.connectionState == ConnectionState.waiting) {
       return ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -217,11 +220,11 @@ class _MapScreenState extends State<MapScreen> {
     final doctors = snapshot.data ?? [];
     if (doctors.isEmpty) {
       return ListView(
-        children: const [
-          SizedBox(height: 80),
+        children: [
+          const SizedBox(height: 80),
           PatientEmptyState(
-            title: 'Нет доступных врачей',
-            message: 'Скоро добавим новых специалистов.',
+            title: s.homeNoDoctors,
+            message: s.mapNoDoctorsMessage,
             icon: LucideIcons.stethoscope,
           ),
         ],
@@ -236,7 +239,7 @@ class _MapScreenState extends State<MapScreen> {
         final doctor = doctors[index];
         final specialty = doctor.specialties.isNotEmpty
             ? doctor.specialties.join(', ')
-            : 'Специализация уточняется';
+            : s.homeSpecialties;
         return DentCard(
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => DoctorDetailScreen(doctor: doctor)),
@@ -297,12 +300,12 @@ class _MapScreenState extends State<MapScreen> {
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => AppointmentRequestScreen(doctor: doctor)),
                       ),
-                      child: const Text('Записаться'),
+                      child: Text(s.mapBook),
                     ),
                     OutlinedButton.icon(
                       onPressed: _isOpeningMap ? null : _openClinicLocation,
                       icon: const Icon(LucideIcons.navigation, size: 16),
-                      label: const Text('Маршрут'),
+                      label: Text(s.mapOpenRoute),
                     ),
                   ],
                 ),

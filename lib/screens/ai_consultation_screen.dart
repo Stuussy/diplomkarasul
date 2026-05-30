@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_strings.dart';
 import '../providers/session_provider.dart';
 import '../theme/clinic_theme.dart';
 import '../widgets/dent_card.dart';
@@ -73,7 +74,7 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _messages.add(_ChatMessage(
-        text: 'Не удалось получить ответ. Проверьте соединение и попробуйте снова.',
+        text: context.sRead.aiError,
         isUser: false,
       )));
     } finally {
@@ -84,6 +85,7 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return Scaffold(
       backgroundColor: ClinicTheme.mist,
       appBar: AppBar(
@@ -99,7 +101,7 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
               child: const Icon(LucideIcons.bot, color: Colors.white, size: 16),
             ),
             const SizedBox(width: 10),
-            const Text('ИИ-ассистент'),
+            Text(s.aiTitle),
           ],
         ),
       ),
@@ -127,6 +129,7 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
   }
 
   Widget _buildWelcome() {
+    final s = context.s;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -150,12 +153,12 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
           ),
           const SizedBox(height: 20),
           Text(
-            'ИИ-консультант',
+            s.aiTitle,
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
           Text(
-            'Задайте вопрос о стоматологии — расскажу о симптомах, гигиене и профилактике.',
+            s.aiSubtitle,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: ClinicTheme.slate),
           ),
@@ -168,7 +171,7 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'ИИ не ставит диагнозы. При болях обратитесь к врачу.',
+                    s.aiDisclaimer,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: ClinicTheme.slate),
                   ),
                 ),
@@ -177,7 +180,7 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'Популярные вопросы',
+            s.aiEmpty,
             style: Theme.of(context).textTheme.titleSmall,
           ),
           const SizedBox(height: 12),
@@ -204,6 +207,7 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
   }
 
   Widget _buildInput() {
+    final s = context.s;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -233,7 +237,7 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
               onSubmitted: (_) => _send(),
               style: const TextStyle(color: ClinicTheme.midnight, fontSize: 15),
               decoration: InputDecoration(
-                hintText: 'Напишите вопрос…',
+                hintText: s.aiHint,
                 hintStyle: const TextStyle(color: ClinicTheme.slate),
                 filled: true,
                 fillColor: ClinicTheme.mist,
