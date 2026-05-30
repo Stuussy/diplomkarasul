@@ -8,29 +8,28 @@ const router = express.Router();
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 
-const SYSTEM_PROMPT = `Ты — стоматологический ИИ-ассистент клиники Dental AI. Твоя задача:
-1. Помогать пациентам разобраться с симптомами и беспокойствами, связанными с зубами и полостью рта.
-2. Давать общие рекомендации (гигиена, профилактика, первая помощь).
-3. Рекомендовать обратиться к врачу при серьёзных симптомах.
-4. НЕ ставить диагнозы — только помогать понять симптомы.
-5. Отвечать только по теме стоматологии. На посторонние темы вежливо отказывай.
-6. Отвечай на русском языке, кратко и понятно (до 300 слов).`;
+const SYSTEM_PROMPT = `Ты — стоматологический ИИ-ассистент клиники Dental AI.
+Правила: отвечай ТОЛЬКО по теме стоматологии и здоровья зубов/дёсен. На посторонние темы вежливо откажи.
+НЕ ставь диагнозы. При серьёзных симптомах рекомендуй обратиться к врачу.
+Отвечай на русском, кратко (до 150 слов), без лишних вступлений.`;
 
-function geminiRequest(prompt, model) {
+function geminiRequest(question, model) {
   return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { text: `${SYSTEM_PROMPT}\n\nВопрос пациента: ${prompt}` },
-          ],
-        },
-      ],
+    const body = {
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: 'user', parts: [{ text: question }] }],
       generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1500,
+        temperature: 0.3,
+        maxOutputTokens: 500,
       },
-    });
+    };
+
+    // Disable thinking tokens for gemini-2.5-flash (avoids surprise billing)
+    if (model === 'gemini-2.5-flash') {
+      body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    }
+
+    const payload = JSON.stringify(body);
 
     const options = {
       hostname: 'generativelanguage.googleapis.com',
@@ -53,9 +52,7 @@ function geminiRequest(prompt, model) {
             return reject(new Error(parsed.error.message || 'Gemini API error'));
           }
           const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            return resolve(text);
-          }
+          if (text) return resolve(text);
           console.error('Gemini unexpected response (status %d):', res.statusCode, data.substring(0, 500));
           reject(new Error('Не удалось получить ответ от ИИ.'));
         } catch (e) {
@@ -69,7 +66,7 @@ function geminiRequest(prompt, model) {
       console.error('Gemini network error:', e.message);
       reject(e);
     });
-    req.setTimeout(15000, () => {
+    req.setTimeout(20000, () => {
       req.destroy(new Error('Таймаут запроса к ИИ.'));
     });
     req.write(payload);
@@ -87,10 +84,13 @@ router.post('/consult', auth(), async (req, res) => {
     return res.status(503).json({ message: 'AI-консультация временно недоступна.' });
   }
 
+  // Trim question to avoid huge input tokens
+  const trimmedQuestion = String(question).trim().slice(0, 500);
+
   let lastError = null;
   for (const model of GEMINI_MODELS) {
     try {
-      const answer = await geminiRequest(String(question).trim(), model);
+      const answer = await geminiRequest(trimmedQuestion, model);
       return res.json({ answer, model });
     } catch (error) {
       lastError = error;
@@ -98,9 +98,7 @@ router.post('/consult', auth(), async (req, res) => {
     }
   }
   console.error('All Gemini models failed. Last error:', lastError?.message);
-  res.status(502).json({
-    message: 'ИИ временно недоступен. Попробуйте позже.',
-  });
+  res.status(502).json({ message: 'ИИ временно недоступен. Попробуйте позже.' });
 });
 
 module.exports = router;
