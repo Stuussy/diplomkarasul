@@ -6,7 +6,7 @@ const auth = require('../middleware/auth');
 const router = express.Router();
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
 
 const SYSTEM_PROMPT = `Ты — стоматологический ИИ-ассистент клиники Dental AI.
 Правила: отвечай ТОЛЬКО по теме стоматологии и здоровья зубов/дёсен. На посторонние темы вежливо откажи.
@@ -15,21 +15,14 @@ const SYSTEM_PROMPT = `Ты — стоматологический ИИ-асси
 
 function geminiRequest(question, model) {
   return new Promise((resolve, reject) => {
-    const body = {
+    const payload = JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ role: 'user', parts: [{ text: question }] }],
       generationConfig: {
         temperature: 0.3,
         maxOutputTokens: 500,
       },
-    };
-
-    // Disable thinking tokens for gemini-2.5-flash (avoids surprise billing)
-    if (model === 'gemini-2.5-flash') {
-      body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
-    }
-
-    const payload = JSON.stringify(body);
+    });
 
     const options = {
       hostname: 'generativelanguage.googleapis.com',
@@ -48,12 +41,12 @@ function geminiRequest(question, model) {
         try {
           const parsed = JSON.parse(data);
           if (parsed.error) {
-            console.error('Gemini API error response:', JSON.stringify(parsed.error));
+            console.error(`Gemini [${model}] API error (HTTP ${res.statusCode}):`, JSON.stringify(parsed.error));
             return reject(new Error(parsed.error.message || 'Gemini API error'));
           }
           const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) return resolve(text);
-          console.error('Gemini unexpected response (status %d):', res.statusCode, data.substring(0, 500));
+          console.error(`Gemini [${model}] unexpected response (HTTP ${res.statusCode}):`, data.substring(0, 800));
           reject(new Error('Не удалось получить ответ от ИИ.'));
         } catch (e) {
           console.error('Gemini parse error, raw body:', data.substring(0, 300));
