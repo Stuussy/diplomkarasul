@@ -26,7 +26,19 @@ const corsOrigins = (process.env.CORS_ORIGINS || '')
 const isDev = process.env.NODE_ENV === 'development';
 app.use(
   cors({
-    origin: isDev ? true : corsOrigins.length > 0 ? corsOrigins : false,
+    origin: (origin, callback) => {
+      // Allow non-browser requests (mobile apps, curl) — no Origin header
+      if (!origin) return callback(null, true);
+      // Always allow any localhost / 127.0.0.1 (Flutter web uses a random port)
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
+      // Dev mode: allow everything
+      if (isDev) return callback(null, true);
+      // Production: only configured origins
+      if (corsOrigins.includes(origin)) return callback(null, true);
+      return callback(null, false);
+    },
     credentials: true,
   }),
 );
