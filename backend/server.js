@@ -32,10 +32,17 @@ app.use(
 );
 app.use(express.json()); // Позволяет парсить JSON в теле запроса
 
+// Extract real client IP from X-Forwarded-For (Render proxy)
+const getClientIp = (req) => {
+  const xff = req.headers['x-forwarded-for'];
+  return (xff ? xff.split(',')[0].trim() : null) || req.socket?.remoteAddress || 'unknown';
+};
+
 const rateLimitDefaults = {
   standardHeaders: true,
   legacyHeaders: false,
-  validate: false,
+  validate: { xForwardedForHeader: false },
+  keyGenerator: getClientIp,
 };
 
 const limiter = rateLimit({
