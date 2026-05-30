@@ -7,6 +7,7 @@ router.use('/users', require('./users'));
 router.use('/clinics', require('./clinics'));
 router.use('/appointments', require('./appointments'));
 router.use('/records', require('./records'));
+router.use('/treatment-plans', require('./treatmentPlans'));
 router.use('/support', require('./support'));
 router.use('/fines', require('./fines'));
 router.use('/notifications', require('./notifications'));

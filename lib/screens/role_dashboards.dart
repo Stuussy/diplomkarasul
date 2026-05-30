@@ -16,6 +16,7 @@ import '../widgets/dent_badge.dart';
 import '../widgets/dent_card.dart';
 import '../widgets/role_profile_overview.dart';
 import 'medical_records_screen.dart';
+import 'treatment_plan_screen.dart';
 
 class DoctorDashboard extends StatefulWidget {
   const DoctorDashboard({super.key});
@@ -307,6 +308,13 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
         ],
+        IconButton(
+          tooltip: 'План лечения',
+          onPressed: a.patient == null ? null : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TreatmentPlanScreen(patientId: a.patient!.id, patientName: a.patient!.fullName, isStaff: true))),
+          icon: const Icon(LucideIcons.clipboardList, size: 20, color: ClinicTheme.azure),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        ),
         IconButton(
           tooltip: 'Медкарта',
           onPressed: a.patient == null ? null : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MedicalRecordsScreen(patientId: a.patient!.id, title: 'Карта: ${a.patient!.fullName}', allowCreate: true, allowEdit: true))),

@@ -12,6 +12,7 @@ import '../widgets/dent_card.dart';
 import '../widgets/dent_badge.dart';
 import 'fines_screen.dart';
 import 'medical_records_screen.dart';
+import 'treatment_plan_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -278,6 +279,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       label: s.profileMedicalRecords,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const MedicalRecordsScreen()),
+                      ),
+                    ),
+                  if (user.role == 'patient') const Divider(height: 0, indent: 60),
+                  if (user.role == 'patient')
+                    _ActionRow(
+                      icon: LucideIcons.clipboardList,
+                      label: 'Планы лечения',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const TreatmentPlanScreen()),
                       ),
                     ),
                   if (user.role == 'patient') const Divider(height: 0, indent: 60),

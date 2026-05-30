@@ -13,6 +13,7 @@ import '../models/medical_record.dart';
 import '../models/profile_summary.dart';
 import '../models/review.dart';
 import '../models/support_message.dart';
+import '../models/treatment_plan.dart';
 import '../models/user.dart';
 
 class ApiException implements Exception {
@@ -831,6 +832,112 @@ class ApiService {
         'rating': rating,
         'comment': comment,
       }),
+    );
+    _decode(response);
+  }
+
+  // ---- Планы лечения (Treatment Plans) ----
+
+  /// Генерирует черновик плана лечения через ИИ (не сохраняет).
+  Future<TreatmentPlan> generateTreatmentPlan({
+    required String complaint,
+    String? patientId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/treatment-plans/ai-generate'),
+      headers: _headers(),
+      body: jsonEncode({
+        'complaint': complaint,
+        if (patientId != null) 'patientId': patientId,
+      }),
+    );
+    final data = _decode(response) as Map<String, dynamic>;
+    return TreatmentPlan.fromJson(data);
+  }
+
+  Future<TreatmentPlan> createTreatmentPlan({
+    required String patientId,
+    required String title,
+    String? diagnosis,
+    String? summary,
+    required List<TreatmentStep> steps,
+    bool aiGenerated = false,
+    String status = 'active',
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/treatment-plans'),
+      headers: _headers(),
+      body: jsonEncode({
+        'patientId': patientId,
+        'title': title,
+        if (diagnosis != null) 'diagnosis': diagnosis,
+        if (summary != null) 'summary': summary,
+        'steps': steps.map((s) => s.toJson()).toList(),
+        'aiGenerated': aiGenerated,
+        'status': status,
+      }),
+    );
+    final data = _decode(response);
+    return TreatmentPlan.fromJson(data);
+  }
+
+  Future<List<TreatmentPlan>> fetchMyTreatmentPlans() async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/treatment-plans/mine'),
+      headers: _headers(),
+    );
+    final data = _decode(response) as List<dynamic>;
+    return data.map((json) => TreatmentPlan.fromJson(json)).toList();
+  }
+
+  Future<List<TreatmentPlan>> fetchTreatmentPlans(String patientId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/treatment-plans/patient/$patientId'),
+      headers: _headers(),
+    );
+    final data = _decode(response) as List<dynamic>;
+    return data.map((json) => TreatmentPlan.fromJson(json)).toList();
+  }
+
+  Future<TreatmentPlan> updateTreatmentStepStatus({
+    required String planId,
+    required String stepId,
+    required String status,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/treatment-plans/$planId/steps/$stepId'),
+      headers: _headers(),
+      body: jsonEncode({'status': status}),
+    );
+    final data = _decode(response);
+    return TreatmentPlan.fromJson(data);
+  }
+
+  Future<TreatmentPlan> updateTreatmentPlan({
+    required String planId,
+    String? title,
+    String? summary,
+    String? status,
+    List<TreatmentStep>? steps,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/treatment-plans/$planId'),
+      headers: _headers(),
+      body: jsonEncode({
+        if (title != null) 'title': title,
+        if (summary != null) 'summary': summary,
+        if (status != null) 'status': status,
+        if (steps != null) 'steps': steps.map((s) => s.toJson()).toList(),
+      }),
+    );
+    final data = _decode(response);
+    return TreatmentPlan.fromJson(data);
+  }
+
+  Future<void> deleteTreatmentPlan(String planId) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/treatment-plans/$planId'),
+      headers: _headers(),
     );
     _decode(response);
   }
