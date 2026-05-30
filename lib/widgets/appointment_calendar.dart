@@ -35,6 +35,7 @@ class _AppointmentCalendarState extends State<AppointmentCalendar> {
   late DateTime _focusedDay;
   late DateTime _selectedDay;
   CalendarFormat _format = CalendarFormat.month;
+  bool _expanded = true;
 
   static DateTime _dayKey(DateTime d) => DateTime.utc(d.year, d.month, d.day);
 
@@ -97,21 +98,85 @@ class _AppointmentCalendarState extends State<AppointmentCalendar> {
     return Column(
       children: [
         if (widget.header != null) widget.header!,
-        Container(
-          margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          decoration: BoxDecoration(
-            color: ClinicTheme.snow,
-            borderRadius: BorderRadius.circular(ClinicTheme.radiusL),
-            boxShadow: [
-              BoxShadow(
-                color: ClinicTheme.midnight.withValues(alpha: 0.05),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: _expanded
+              ? _calendarContainer(firstDay, lastDay)
+              : const SizedBox(width: double.infinity),
+        ),
+        // Заголовок выбранного дня (кликабельный — сворачивает календарь)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.event_note_outlined, size: 18, color: ClinicTheme.azure),
+                  const SizedBox(width: 8),
+                  Text(
+                    _formatHeaderDate(_selectedDay),
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: ClinicTheme.midnight),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    size: 20,
+                    color: ClinicTheme.slate,
+                  ),
+                  const Spacer(),
+                  if (dayEvents.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: ClinicTheme.azureSoft,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${dayEvents.length}',
+                        style: const TextStyle(
+                            color: ClinicTheme.azure, fontWeight: FontWeight.w700, fontSize: 12),
+                      ),
+                    ),
+                ],
               ),
-            ],
+            ),
           ),
-          padding: const EdgeInsets.all(8),
-          child: TableCalendar<Appointment>(
+        ),
+        Expanded(
+          child: dayEvents.isEmpty
+              ? _emptyDay()
+              : ListView.separated(
+                  padding: widget.listPadding,
+                  itemCount: dayEvents.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, i) => widget.itemBuilder(context, dayEvents[i]),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _calendarContainer(DateTime firstDay, DateTime lastDay) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      decoration: BoxDecoration(
+        color: ClinicTheme.snow,
+        borderRadius: BorderRadius.circular(ClinicTheme.radiusL),
+        boxShadow: [
+          BoxShadow(
+            color: ClinicTheme.midnight.withValues(alpha: 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(8),
+      child: TableCalendar<Appointment>(
             locale: 'ru_RU',
             firstDay: firstDay,
             lastDay: lastDay,
@@ -197,47 +262,7 @@ class _AppointmentCalendarState extends State<AppointmentCalendar> {
               },
             ),
           ),
-        ),
-        // Заголовок выбранного дня
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-          child: Row(
-            children: [
-              const Icon(Icons.event_note_outlined, size: 18, color: ClinicTheme.azure),
-              const SizedBox(width: 8),
-              Text(
-                _formatHeaderDate(_selectedDay),
-                style: const TextStyle(fontWeight: FontWeight.w700, color: ClinicTheme.midnight),
-              ),
-              const Spacer(),
-              if (dayEvents.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: ClinicTheme.azureSoft,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${dayEvents.length}',
-                    style: const TextStyle(
-                        color: ClinicTheme.azure, fontWeight: FontWeight.w700, fontSize: 12),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: dayEvents.isEmpty
-              ? _emptyDay()
-              : ListView.separated(
-                  padding: widget.listPadding,
-                  itemCount: dayEvents.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) => widget.itemBuilder(context, dayEvents[i]),
-                ),
-        ),
-      ],
-    );
+        );
   }
 
   Widget _emptyDay() => ListView(
