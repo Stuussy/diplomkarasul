@@ -41,7 +41,7 @@ const getClientIp = (req) => {
 const rateLimitDefaults = {
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
+  validate: false,
   keyGenerator: getClientIp,
 };
 
