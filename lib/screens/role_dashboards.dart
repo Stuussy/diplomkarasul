@@ -105,7 +105,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   Widget build(BuildContext context) {
     final s = context.s;
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         backgroundColor: ClinicTheme.mist,
         appBar: AppBar(
@@ -133,10 +133,15 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             tabs: [
               Tab(icon: const Icon(LucideIcons.layoutDashboard, size: 20), text: 'Обзор'),
               Tab(icon: const Icon(LucideIcons.calendarCheck, size: 20), text: s.navAppointments),
+              Tab(icon: const Icon(LucideIcons.clipboardList, size: 20), text: 'Планы'),
             ],
           ),
         ),
-        body: TabBarView(children: [_buildDoctorOverviewTab(), _buildDoctorAppointmentsTab()]),
+        body: TabBarView(children: [
+          _buildDoctorOverviewTab(),
+          _buildDoctorAppointmentsTab(),
+          _buildDoctorPlansTab(),
+        ]),
       ),
     );
   }
@@ -326,6 +331,159 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     );
   }
 
+  Widget _buildDoctorPlansTab() {
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: FutureBuilder<List<Appointment>>(
+        future: _appointmentsFuture,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _doctorShimmer(80),
+                const SizedBox(height: 12),
+                _doctorShimmer(72),
+                const SizedBox(height: 12),
+                _doctorShimmer(72),
+              ],
+            );
+          }
+
+          final appointments = snap.data ?? [];
+          // Deduplicate patients by id
+          final seen = <String>{};
+          final patients = <_PatientEntry>[];
+          for (final a in appointments) {
+            final p = a.patient;
+            if (p != null && seen.add(p.id)) {
+              patients.add(_PatientEntry(id: p.id, fullName: p.fullName));
+            }
+          }
+
+          return ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            children: [
+              // Header card
+              Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0A4DD3), Color(0xFF2E8BFF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(ClinicTheme.radiusL),
+                ),
+                padding: const EdgeInsets.all(18),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.clipboardList, color: Colors.white, size: 28),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Планы лечения пациентов',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Нажмите на пациента для управления планами',
+                            style: TextStyle(fontSize: 12, color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${patients.length}',
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              if (patients.isEmpty) ...[
+                const SizedBox(height: 40),
+                const Icon(LucideIcons.users, size: 48, color: ClinicTheme.slate),
+                const SizedBox(height: 12),
+                const Center(
+                  child: Text(
+                    'Нет пациентов с приёмами',
+                    style: TextStyle(fontSize: 16, color: ClinicTheme.slate),
+                  ),
+                ),
+              ] else
+                ...patients.map(
+                  (p) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: DentCard(
+                      padding: EdgeInsets.zero,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => TreatmentPlanScreen(
+                            patientId: p.id,
+                            patientName: p.fullName,
+                            isStaff: true,
+                          ),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: const BoxDecoration(
+                                color: ClinicTheme.azureSoft,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(LucideIcons.users, size: 18, color: ClinicTheme.azure),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    p.fullName,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 15,
+                                        color: ClinicTheme.midnight),
+                                  ),
+                                  const Text(
+                                    'Нажмите, чтобы открыть планы',
+                                    style: TextStyle(fontSize: 12, color: ClinicTheme.slate),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(LucideIcons.chevronRight, size: 18, color: ClinicTheme.slate),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _doctorStatCard(String label, String value, IconData icon, Color color, Color bg) {
     return Expanded(child: DentCard(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
@@ -347,6 +505,12 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     return '$day.$month.${date.year} · $time';
   }
+}
+
+class _PatientEntry {
+  const _PatientEntry({required this.id, required this.fullName});
+  final String id;
+  final String fullName;
 }
 
 class _WorkingHourEntry {
