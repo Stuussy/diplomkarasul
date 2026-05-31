@@ -76,4 +76,37 @@ router.get('/doctor/:doctorId', auth(), async (req, res) => {
   res.json(reviews);
 });
 
+// GET /reviews/clinic — последние отзывы по всем врачам клиники + сводка.
+// Используется на странице «Клиника» у пациента как отзывы о клинике в целом.
+router.get('/clinic', auth(), async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const [reviews, stats] = await Promise.all([
+      Review.find()
+        .populate('patient', 'firstName lastName')
+        .populate('doctor', 'firstName lastName')
+        .sort({ createdAt: -1 })
+        .limit(limit),
+      Review.aggregate([
+        {
+          $group: {
+            _id: null,
+            average: { $avg: '$rating' },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+    const summary = stats[0] || { average: 0, count: 0 };
+    res.json({
+      average: Number((summary.average || 0).toFixed(1)),
+      count: summary.count || 0,
+      reviews,
+    });
+  } catch (error) {
+    console.error('Ошибка отзывов клиники:', error);
+    res.status(500).json({ message: 'Не удалось загрузить отзывы.' });
+  }
+});
+
 module.exports = router;

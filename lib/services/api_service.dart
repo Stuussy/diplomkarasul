@@ -819,6 +819,16 @@ class ApiService {
     return data.map((json) => Review.fromJson(json)).toList();
   }
 
+  /// Отзывы о клинике в целом (агрегация по всем врачам) + сводка.
+  Future<ClinicReviews> fetchClinicReviews({int limit = 10}) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/reviews/clinic?limit=$limit'),
+      headers: _headers(),
+    );
+    final data = _decode(response) as Map<String, dynamic>;
+    return ClinicReviews.fromJson(data);
+  }
+
   Future<void> submitReview({
     required String appointmentId,
     required int rating,
