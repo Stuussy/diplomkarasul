@@ -43,6 +43,21 @@ class _SupportScreenState extends State<SupportScreen> {
     return context.read<SessionProvider>().apiService.fetchMySupportThreads();
   }
 
+  /// Перезагрузить переписку, чтобы увидеть новые ответы менеджера.
+  Future<void> _refreshThreads() async {
+    final future = _loadThreads();
+    setState(() => _threadsFuture = future);
+    try {
+      final threads = await future;
+      if (!mounted || _selectedThread == null) return;
+      // Обновляем выбранную ветку свежими данными (новыми сообщениями)
+      final fresh = threads.where((t) => t.id == _selectedThread!.id);
+      if (fresh.isNotEmpty) setState(() => _selectedThread = fresh.first);
+    } catch (_) {
+      // ошибку покажет FutureBuilder
+    }
+  }
+
   Future<void> _sendNewThread() async {
     if (_newThreadController.text.trim().isEmpty) return;
     setState(() => _isSending = true);
@@ -108,6 +123,12 @@ class _SupportScreenState extends State<SupportScreen> {
         title: const Text('Поддержка'),
         actions: [
           IconButton(
+            tooltip: 'Обновить',
+            onPressed: _refreshThreads,
+            icon: const Icon(LucideIcons.refreshCcw, size: 20),
+          ),
+          IconButton(
+            tooltip: 'Новое обращение',
             onPressed: () => setState(() => _creatingNewThread = true),
             icon: const Icon(LucideIcons.plusCircle, size: 22),
           ),

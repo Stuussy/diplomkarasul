@@ -951,4 +951,39 @@ class ApiService {
     final data = _decode(response) as Map<String, dynamic>;
     return data['answer']?.toString() ?? '';
   }
+
+  /// История диалога с ИИ. Возвращает список пар {role, content}.
+  Future<List<AiHistoryMessage>> fetchAiHistory() async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/ai/history'),
+      headers: _headers(),
+    );
+    final data = _decode(response) as List<dynamic>;
+    return data
+        .map((e) => AiHistoryMessage.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Очистить историю диалога с ИИ.
+  Future<void> clearAiHistory() async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/ai/history'),
+      headers: _headers(),
+    );
+    _decode(response);
+  }
+}
+
+/// Одно сообщение из истории ИИ-консультации.
+class AiHistoryMessage {
+  AiHistoryMessage({required this.role, required this.content});
+  final String role; // 'user' | 'assistant'
+  final String content;
+
+  bool get isUser => role == 'user';
+
+  factory AiHistoryMessage.fromJson(Map<String, dynamic> json) => AiHistoryMessage(
+        role: json['role']?.toString() ?? 'assistant',
+        content: json['content']?.toString() ?? '',
+      );
 }

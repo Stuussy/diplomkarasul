@@ -26,6 +26,7 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
   final _scrollController = ScrollController();
   final List<_ChatMessage> _messages = [];
   bool _isLoading = false;
+  bool _isHistoryLoading = true;
 
   static const _suggestions = [
     'Болит зуб при жевании, что делать?',
@@ -33,6 +34,65 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
     'Почему кровоточат дёсны?',
     'Как правильно чистить зубы?',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final api = context.read<SessionProvider>().apiService;
+      final history = await api.fetchAiHistory();
+      if (!mounted) return;
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(history.map(
+            (m) => _ChatMessage(text: m.content, isUser: m.isUser),
+          ));
+        _isHistoryLoading = false;
+      });
+      if (_messages.isNotEmpty) _scrollToBottom();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isHistoryLoading = false);
+    }
+  }
+
+  Future<void> _clearHistory() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Очистить историю?'),
+        content: const Text('Все сообщения с ИИ-ассистентом будут удалены.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: ClinicTheme.coral),
+            child: const Text('Очистить'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final api = context.read<SessionProvider>().apiService;
+      await api.clearAiHistory();
+      if (!mounted) return;
+      setState(() => _messages.clear());
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось очистить историю: $e')),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -104,11 +164,21 @@ class _AiConsultationScreenState extends State<AiConsultationScreen> {
             Text(s.aiTitle),
           ],
         ),
+        actions: [
+          if (_messages.isNotEmpty)
+            IconButton(
+              tooltip: 'Очистить историю',
+              onPressed: _clearHistory,
+              icon: const Icon(LucideIcons.trash2, size: 20, color: ClinicTheme.slate),
+            ),
+        ],
       ),
       body: Column(
         children: [
           Expanded(
-            child: _messages.isEmpty
+            child: _isHistoryLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _messages.isEmpty
                 ? _buildWelcome()
                 : ListView.builder(
                     controller: _scrollController,
