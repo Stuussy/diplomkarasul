@@ -721,7 +721,22 @@ class ApiService {
   }
 
   dynamic _decode(http.Response response) {
-    final body = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+    dynamic body;
+    if (response.body.isNotEmpty) {
+      try {
+        body = jsonDecode(response.body);
+      } catch (_) {
+        // Сервер вернул не-JSON (HTML-страницу ошибки, например 404/500/502).
+        // Не роняем приложение с FormatException, а даём понятное сообщение.
+        final code = response.statusCode;
+        final message = code == 404
+            ? 'Раздел временно недоступен. Обновите приложение или попробуйте позже.'
+            : code >= 500
+                ? 'Сервер временно недоступен. Попробуйте позже.'
+                : 'Сервер вернул некорректный ответ (код $code).';
+        throw ApiException(message, statusCode: code);
+      }
+    }
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
     }
