@@ -10,6 +10,7 @@ import '../providers/session_provider.dart';
 import '../theme/clinic_theme.dart';
 import '../widgets/dent_card.dart';
 import '../widgets/dent_badge.dart';
+import '../widgets/language_toggle.dart';
 import 'fines_screen.dart';
 import 'medical_records_screen.dart';
 import 'treatment_plan_screen.dart';
@@ -139,7 +140,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Пароль изменён ✓'),
+            content: Text(context.sRead.profilePasswordChanged),
             backgroundColor: ClinicTheme.mint,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -259,9 +260,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   _InfoRow(icon: LucideIcons.mail, label: 'Email', value: user.email),
                   const Divider(height: 0, indent: 60),
-                  _InfoRow(icon: LucideIcons.phone, label: 'Телефон', value: user.phone ?? 'Не указан'),
+                  _InfoRow(icon: LucideIcons.phone, label: s.phone, value: user.phone ?? '—'),
                   const Divider(height: 0, indent: 60),
-                  _InfoRow(icon: LucideIcons.badge, label: 'Роль', value: _roleLabel(user.role)),
+                  _InfoRow(icon: LucideIcons.badge, label: s.profileRole, value: _roleLabel(user.role)),
                 ],
               ),
             ),
@@ -298,8 +299,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const Divider(height: 0, indent: 60),
                   _ActionRow(
+                    icon: LucideIcons.globe,
+                    label: s.languageTitle,
+                    onTap: () => showLanguagePicker(context),
+                  ),
+                  const Divider(height: 0, indent: 60),
+                  _ActionRow(
                     icon: LucideIcons.logOut,
-                    label: 'Выйти из аккаунта',
+                    label: s.logoutButton,
                     color: ClinicTheme.coral,
                     onTap: _logout,
                   ),
@@ -380,13 +387,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _roleLabel(String role) {
+    final s = context.sRead;
     switch (role) {
       case 'patient':
-        return 'Пациент';
+        return s.rolePatient;
       case 'doctor':
-        return 'Врач';
+        return s.roleDoctor;
       case 'admin':
-        return 'Администратор';
+        return s.roleAdmin;
+      case 'superadmin':
+        return s.roleSuperadmin;
+      case 'support_manager':
+        return s.roleSupportManager;
       default:
         return role;
     }
@@ -445,7 +457,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     } else {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Профиль обновлён ✓'),
+        content: Text(context.sRead.profileUpdated),
         backgroundColor: ClinicTheme.mint,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

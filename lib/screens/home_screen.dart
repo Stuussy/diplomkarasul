@@ -124,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final s = context.s;
     final user = context.watch<SessionProvider>().user;
-    final greeting = _greeting();
+    final greeting = _greeting(s);
 
     return DecoratedBox(
       decoration: const BoxDecoration(color: ClinicTheme.mist),
@@ -391,7 +391,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Center(
                       child: Padding(
                         padding: const EdgeInsets.all(40),
-                        child: Text('Ошибка: ${snapshot.error}'),
+                        child: Text('${s.error}: ${snapshot.error}'),
                       ),
                     ),
                   );
@@ -404,8 +404,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: PatientEmptyState(
                         title: s.homeNoDoctors,
                         message: _searchQuery.isNotEmpty
-                            ? 'Попробуйте другой запрос'
-                            : 'Скоро добавим новых специалистов',
+                            ? s.homeTryAnother
+                            : s.mapNoDoctorsMessage,
                         icon: LucideIcons.stethoscope,
                       ),
                     ),
@@ -442,11 +442,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  String _greeting() {
+  String _greeting(AppStrings s) {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Доброе утро 👋';
-    if (hour < 17) return 'Добрый день 👋';
-    return 'Добрый вечер 👋';
+    if (hour < 12) return s.homeMorning;
+    if (hour < 17) return s.homeAfternoon;
+    return s.homeEvening;
   }
 
   String _initials(AppUser? user) {

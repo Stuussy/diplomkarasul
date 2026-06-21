@@ -9,12 +9,23 @@ import '../providers/locale_provider.dart';
 extension SContext on BuildContext {
   AppStrings get s {
     final locale = watch<LocaleProvider>().locale;
-    return locale.languageCode == 'kk' ? KkStrings() : RuStrings();
+    return _stringsFor(locale.languageCode);
   }
   // Read-only version (no listen)
   AppStrings get sRead {
     final locale = read<LocaleProvider>().locale;
-    return locale.languageCode == 'kk' ? KkStrings() : RuStrings();
+    return _stringsFor(locale.languageCode);
+  }
+}
+
+AppStrings _stringsFor(String code) {
+  switch (code) {
+    case 'kk':
+      return KkStrings();
+    case 'en':
+      return EnStrings();
+    default:
+      return RuStrings();
   }
 }
 
@@ -348,6 +359,36 @@ abstract class AppStrings {
   String get roleAdmin;
   String get roleSuperadmin;
   String get roleSupportManager;
+
+  // ── Language ──────────────────────────────────────────────────────────────────
+  String get languageTitle;
+  String get languageRussian;
+  String get languageKazakh;
+  String get languageEnglish;
+
+  // ── Home greetings / extra ────────────────────────────────────────────────────
+  String get homeMorning;
+  String get homeAfternoon;
+  String get homeEvening;
+  String get homeLoadError;
+  String get homeTryAnother;
+
+  // ── Support extra ─────────────────────────────────────────────────────────────
+  String get supportNewThread;
+  String get supportSent;
+  String get supportDescribe;
+  String get supportYourReply;
+  String get supportBackToChat;
+  String get supportThread;
+  String get supportCatRecord;
+  String get supportCatPayment;
+  String get supportCatDocuments;
+  String get supportCatComplaint;
+  String get supportCatOther;
+
+  // ── Profile extra ─────────────────────────────────────────────────────────────
+  String get profilePasswordChanged;
+  String get profileUpdated;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -683,6 +724,36 @@ class RuStrings extends AppStrings {
   @override String get roleAdmin => 'Администратор';
   @override String get roleSuperadmin => 'Суперадмин';
   @override String get roleSupportManager => 'Менеджер поддержки';
+
+  // ── Language ────────────────────────────────────────────────────────────────
+  @override String get languageTitle => 'Язык';
+  @override String get languageRussian => 'Русский';
+  @override String get languageKazakh => 'Қазақша';
+  @override String get languageEnglish => 'English';
+
+  // ── Home greetings / extra ────────────────────────────────────────────────────
+  @override String get homeMorning => 'Доброе утро 👋';
+  @override String get homeAfternoon => 'Добрый день 👋';
+  @override String get homeEvening => 'Добрый вечер 👋';
+  @override String get homeLoadError => 'Ошибка загрузки';
+  @override String get homeTryAnother => 'Попробуйте другой запрос';
+
+  // ── Support extra ─────────────────────────────────────────────────────────────
+  @override String get supportNewThread => 'Новое обращение';
+  @override String get supportSent => 'Сообщение отправлено ✓';
+  @override String get supportDescribe => 'Опишите вашу проблему — администратор свяжется с вами.';
+  @override String get supportYourReply => 'Ваш ответ…';
+  @override String get supportBackToChat => 'Вернуться к переписке';
+  @override String get supportThread => 'Обращение';
+  @override String get supportCatRecord => 'Запись';
+  @override String get supportCatPayment => 'Оплата';
+  @override String get supportCatDocuments => 'Документы';
+  @override String get supportCatComplaint => 'Жалоба';
+  @override String get supportCatOther => 'Другое';
+
+  // ── Profile extra ─────────────────────────────────────────────────────────────
+  @override String get profilePasswordChanged => 'Пароль изменён ✓';
+  @override String get profileUpdated => 'Профиль обновлён ✓';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1018,4 +1089,399 @@ class KkStrings extends AppStrings {
   @override String get roleAdmin => 'Әкімші';
   @override String get roleSuperadmin => 'Суперәкімші';
   @override String get roleSupportManager => 'Қолдау менеджері';
+
+  // ── Language ────────────────────────────────────────────────────────────────
+  @override String get languageTitle => 'Тіл';
+  @override String get languageRussian => 'Русский';
+  @override String get languageKazakh => 'Қазақша';
+  @override String get languageEnglish => 'English';
+
+  // ── Home greetings / extra ────────────────────────────────────────────────────
+  @override String get homeMorning => 'Қайырлы таң 👋';
+  @override String get homeAfternoon => 'Қайырлы күн 👋';
+  @override String get homeEvening => 'Қайырлы кеш 👋';
+  @override String get homeLoadError => 'Жүктеу қатесі';
+  @override String get homeTryAnother => 'Басқа сұраныс жасап көріңіз';
+
+  // ── Support extra ─────────────────────────────────────────────────────────────
+  @override String get supportNewThread => 'Жаңа өтініш';
+  @override String get supportSent => 'Хабарлама жіберілді ✓';
+  @override String get supportDescribe => 'Мәселеңізді сипаттаңыз — әкімші сізбен байланысады.';
+  @override String get supportYourReply => 'Сіздің жауабыңыз…';
+  @override String get supportBackToChat => 'Хат-хабарға оралу';
+  @override String get supportThread => 'Өтініш';
+  @override String get supportCatRecord => 'Жазылу';
+  @override String get supportCatPayment => 'Төлем';
+  @override String get supportCatDocuments => 'Құжаттар';
+  @override String get supportCatComplaint => 'Шағым';
+  @override String get supportCatOther => 'Басқа';
+
+  // ── Profile extra ─────────────────────────────────────────────────────────────
+  @override String get profilePasswordChanged => 'Құпия сөз өзгертілді ✓';
+  @override String get profileUpdated => 'Профиль жаңартылды ✓';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENGLISH
+// ═══════════════════════════════════════════════════════════════════════════════
+class EnStrings extends AppStrings {
+  // ── Navigation ───────────────────────────────────────────────────────────────
+  @override String get navHome => 'Home';
+  @override String get navMap => 'Clinic';
+  @override String get navAppointments => 'Appointments';
+  @override String get navProfile => 'Profile';
+  @override String get navAi => 'AI assistant';
+  @override String get navSupport => 'Support chat';
+  @override String get navNotifications => 'Notifications';
+
+  // ── Common ────────────────────────────────────────────────────────────────────
+  @override String get cancel => 'Cancel';
+  @override String get confirm => 'Confirm';
+  @override String get save => 'Save';
+  @override String get close => 'Close';
+  @override String get yes => 'Yes';
+  @override String get no => 'No';
+  @override String get ok => 'OK';
+  @override String get back => 'Back';
+  @override String get retry => 'Retry';
+  @override String get loading => 'Loading...';
+  @override String get error => 'Error';
+  @override String get success => 'Success';
+  @override String get send => 'Send';
+  @override String get delete => 'Delete';
+  @override String get edit => 'Edit';
+  @override String get search => 'Search';
+  @override String get filter => 'Filter';
+  @override String get refresh => 'Refresh';
+  @override String get apply => 'Apply';
+  @override String get reset => 'Reset';
+  @override String get next => 'Next';
+  @override String get done => 'Done';
+  @override String get notFound => 'Not found';
+  @override String get serverError => 'Server error';
+  @override String get noData => 'No data';
+  @override String get required => 'Required field';
+
+  // ── Auth ──────────────────────────────────────────────────────────────────────
+  @override String get login => 'Sign in';
+  @override String get logout => 'Sign out';
+  @override String get register => 'Sign up';
+  @override String get email => 'Email';
+  @override String get password => 'Password';
+  @override String get firstName => 'First name';
+  @override String get lastName => 'Last name';
+  @override String get phone => 'Phone';
+  @override String get forgotPassword => 'Forgot password?';
+  @override String get noAccount => 'No account?';
+  @override String get haveAccount => 'Already have an account?';
+  @override String get enterEmail => 'Enter email';
+  @override String get enterPassword => 'Enter password';
+  @override String get enterFirstName => 'Enter first name';
+  @override String get enterLastName => 'Enter last name';
+  @override String get enterPhone => 'Enter phone';
+  @override String get loginTitle => 'Welcome!';
+  @override String get registerTitle => 'Create account';
+  @override String get loginButton => 'Sign in';
+  @override String get registerButton => 'Sign up';
+  @override String get loginError => 'Invalid email or password';
+  @override String get passwordMin => 'At least 6 characters';
+  @override String get emailInvalid => 'Invalid email';
+  @override String get logoutConfirmTitle => 'Sign out?';
+  @override String get logoutConfirmContent => 'Are you sure you want to sign out?';
+  @override String get logoutButton => 'Sign out';
+
+  // ── Forgot password ───────────────────────────────────────────────────────────
+  @override String get forgotTitle => 'Reset password';
+  @override String get forgotSubtitle => 'Enter your email to receive a code';
+  @override String get forgotSend => 'Get code';
+  @override String get forgotCodeSent => 'Code sent to your email';
+  @override String get forgotEnterCode => 'Enter the code from the email';
+  @override String get forgotNewPassword => 'New password';
+  @override String get forgotConfirmPassword => 'Repeat password';
+  @override String get forgotSubmit => 'Change password';
+  @override String get forgotPasswordMismatch => 'Passwords do not match';
+  @override String get forgotCodeLabel => 'Code';
+  @override String get forgotSuccess => 'Password changed successfully';
+
+  // ── Home ──────────────────────────────────────────────────────────────────────
+  @override String get homeGreeting => 'Hello!';
+  @override String get homeSubtitle => 'Find a doctor or clinic';
+  @override String get homeDoctors => 'Doctors';
+  @override String get homeClinics => 'Clinics';
+  @override String get homeServices => 'Services';
+  @override String get homeSearchDoctors => 'Search doctors...';
+  @override String get homeNoDoctors => 'No doctors found';
+  @override String get homeNoClinics => 'No clinics found';
+  @override String get homeExperience => 'Experience';
+  @override String get homeYears => 'years';
+  @override String get homeBook => 'Book';
+  @override String get homeDetails => 'Details';
+  @override String get homeSpecialties => 'Specialty to be confirmed';
+  @override String get homeAllDoctors => 'All doctors';
+  @override String get homeAllClinics => 'All clinics';
+  @override String get homeSectionBestDoctors => 'Top doctors';
+  @override String get homeSectionSubtitle => 'Choose a specialist';
+  @override String get homeNextVisitLabel => 'Next visit';
+  @override String get homeNoAppointmentTitle => 'Book an appointment';
+  @override String get homeNoAppointmentSubtitle => 'Pick a doctor and a convenient time';
+
+  // ── Map ───────────────────────────────────────────────────────────────────────
+  @override String get mapTitle => 'Clinics map';
+  @override String get mapNoClinics => 'No clinics found';
+  @override String get mapOpenRoute => 'Route';
+  @override String get mapTaxi => 'Call a taxi';
+  @override String get mapWorkingHours => 'Working hours';
+  @override String get mapClosed => 'Closed';
+  @override String get mapOpen => 'Open';
+  @override String get mapContacts => 'Contacts';
+  @override String get mapDoctors => 'Doctors';
+  @override String get mapServices => 'Services';
+  @override String get mapBook => 'Book';
+  @override String get mapAddress => 'Address';
+  @override String get mapNoDoctorsMessage => 'New specialists coming soon.';
+
+  // ── Appointments ───────────────────────────────────────────────────────────────
+  @override String get appointmentsTitle => 'My appointments';
+  @override String get appointmentsEmpty => 'No active appointments';
+  @override String get appointmentsScheduled => 'Scheduled';
+  @override String get appointmentsConfirmed => 'Confirmed';
+  @override String get appointmentsCompleted => 'Completed';
+  @override String get appointmentsCancelled => 'Cancelled';
+  @override String get appointmentsCancel => 'Cancel appointment';
+  @override String get appointmentsCancelTitle => 'Cancel appointment?';
+  @override String get appointmentsCancelContent => 'Do you want to cancel the appointment?';
+  @override String get appointmentsCancelDone => 'Appointment cancelled';
+  @override String get appointmentsCancelFine => 'Appointment cancelled. A 3000 ₸ fine was charged';
+  @override String get appointmentsConfirmQr => 'Confirm via QR';
+  @override String get appointmentsReview => 'Leave a review';
+  @override String get appointmentsLeaveReview => 'Review';
+  @override String get appointmentsDoctor => 'Doctor';
+  @override String get appointmentsClinic => 'Clinic';
+  @override String get appointmentsDate => 'Date';
+  @override String get appointmentsTime => 'Time';
+  @override String get appointmentsService => 'Service';
+  @override String get appointmentsStatus => 'Status';
+  @override String get appointmentsQrSuccess => 'Appointment confirmed! ✓';
+  @override String get appointmentsNoSlots => 'No available slots';
+  @override String get appointmentsUpcoming => 'Upcoming';
+  @override String get appointmentsPast => 'Past';
+
+  // ── Booking ────────────────────────────────────────────────────────────────────
+  @override String get bookTitle => 'Book a doctor';
+  @override String get bookDoctor => 'Doctor';
+  @override String get bookService => 'Service';
+  @override String get bookDate => 'Date';
+  @override String get bookSlot => 'Time';
+  @override String get bookComment => 'Comment';
+  @override String get bookSubmit => 'Book';
+  @override String get bookSuccess => 'Appointment created!';
+  @override String get bookSelectService => 'Select a service';
+  @override String get bookSelectDate => 'Select a date';
+  @override String get bookSelectSlot => 'Select a time';
+  @override String get bookNoSlots => 'No available slots for the selected date';
+  @override String get bookCommentHint => 'Describe your symptoms (optional)';
+  @override String get bookConfirmTitle => 'Confirm appointment?';
+  @override String get bookConfirmContent => 'Book this appointment?';
+
+  // ── Profile ────────────────────────────────────────────────────────────────────
+  @override String get profileTitle => 'Profile';
+  @override String get profileEdit => 'Edit profile';
+  @override String get profileMedicalRecords => 'Medical records';
+  @override String get profileFines => 'Fines';
+  @override String get profileFineUnpaid => 'Unpaid';
+  @override String get profileFinePaid => 'Paid';
+  @override String get profileFinePayKaspi => 'Pay with Kaspi';
+  @override String get profileFineAmount => 'Amount';
+  @override String get profileFineReason => 'Reason';
+  @override String get finesEmpty => 'You have no fines';
+  @override String get fineForAppointment => 'For appointment';
+  @override String get fineIssuedOn => 'Issued';
+  @override String get finePaidOn => 'Paid';
+  @override String get finesUnpaidTotal => 'To pay';
+  @override String get finesPayAll => 'Pay all';
+  @override String get profileChangePassword => 'Change password';
+  @override String get profileCurrentPassword => 'Current password';
+  @override String get profileNewPassword => 'New password';
+  @override String get profileSaveChanges => 'Save changes';
+  @override String get profileRole => 'Role';
+  @override String get profileExperience => 'Work experience';
+  @override String get profileBio => 'About me';
+  @override String get profileSpecialties => 'Specialties';
+  @override String get profileServices => 'Services';
+  @override String get profileNoFines => 'No fines';
+
+  // ── Kaspi ──────────────────────────────────────────────────────────────────────
+  @override String get kaspiTitle => 'Pay with Kaspi';
+  @override String get kaspiContent => 'Kaspi will now open for payment. After a successful payment, return to the app and confirm.';
+  @override String get kaspiOpen => 'Open Kaspi';
+  @override String get kaspiConfirmTitle => 'Confirm payment';
+  @override String get kaspiConfirmContent => 'Did you successfully pay the fine with Kaspi?';
+  @override String get kaspiConfirmYes => 'Yes, I paid';
+  @override String get kaspiConfirmNo => 'Not yet';
+  @override String get kaspiPaidSuccess => 'Fine paid ✓';
+
+  // ── AI ─────────────────────────────────────────────────────────────────────────
+  @override String get aiTitle => 'AI consultation';
+  @override String get aiSubtitle => 'Dental assistant';
+  @override String get aiHint => 'Ask a question about dental health...';
+  @override String get aiSend => 'Send';
+  @override String get aiEmpty => 'Ask the dental AI assistant a question';
+  @override String get aiError => 'AI is temporarily unavailable. Try again later.';
+  @override String get aiWelcome => 'Hello! I am your dental AI assistant. Ask a question about your dental health.';
+  @override String get aiDisclaimer => 'AI does not diagnose. For serious symptoms, see a doctor.';
+  @override String get aiThinking => 'Thinking...';
+
+  // ── Support ────────────────────────────────────────────────────────────────────
+  @override String get supportTitle => 'Support';
+  @override String get supportHint => 'Write a message...';
+  @override String get supportSend => 'Send';
+  @override String get supportEmpty => 'No messages';
+  @override String get supportCategories => 'Category';
+  @override String get supportCategoryGeneral => 'General question';
+  @override String get supportCategoryAppointment => 'Appointment';
+  @override String get supportCategoryBilling => 'Payment';
+  @override String get supportCategoryOther => 'Other';
+  @override String get supportStatus => 'Status';
+  @override String get supportOpen => 'Open';
+  @override String get supportClosed => 'Closed';
+
+  // ── Notifications ───────────────────────────────────────────────────────────────
+  @override String get notificationsTitle => 'Notifications';
+  @override String get notificationsEmpty => 'No notifications';
+  @override String get notificationsMarkAll => 'Mark all as read';
+
+  // ── QR ─────────────────────────────────────────────────────────────────────────
+  @override String get qrTitle => 'QR scanner';
+  @override String get qrInstruction => 'Point the camera at the QR code';
+  @override String get qrFound => 'QR found';
+  @override String get qrConfirm => 'Confirm';
+  @override String get qrError => 'Scanning error';
+  @override String get qrPermission => 'Camera access required';
+  @override String get qrAllowCamera => 'Allow access';
+  @override String get qrOpenSettings => 'Open settings';
+  @override String get qrSuccess => 'Appointment confirmed!';
+  @override String get qrManualNote => 'Camera scanning is available on a real device. Enter the QR code manually.';
+  @override String get qrManualHint => 'QR code';
+
+  // ── Medical records ─────────────────────────────────────────────────────────────
+  @override String get medTitle => 'Medical records';
+  @override String get medEmpty => 'No medical records';
+  @override String get medAdd => 'Add record';
+  @override String get medDate => 'Date';
+  @override String get medDiagnosis => 'Diagnosis';
+  @override String get medTreatment => 'Treatment';
+  @override String get medNotes => 'Notes';
+  @override String get medDoctor => 'Doctor';
+  @override String get medClinic => 'Clinic';
+  @override String get medExport => 'Export PDF';
+  @override String get medDelete => 'Delete';
+  @override String get medDeleteConfirm => 'Delete record?';
+
+  // ── Filter ──────────────────────────────────────────────────────────────────────
+  @override String get filterTitle => 'Filters';
+  @override String get filterSpecialty => 'Specialty';
+  @override String get filterCity => 'City';
+  @override String get filterService => 'Service';
+  @override String get filterRating => 'Rating';
+  @override String get filterApply => 'Apply';
+  @override String get filterReset => 'Reset';
+  @override String get filterAll => 'All';
+
+  // ── Doctor detail ───────────────────────────────────────────────────────────────
+  @override String get doctorAbout => 'About the doctor';
+  @override String get doctorExperience => 'Experience';
+  @override String get doctorSpecialties => 'Specialties';
+  @override String get doctorServices => 'Services';
+  @override String get doctorReviews => 'Reviews';
+  @override String get doctorBook => 'Book';
+  @override String get doctorNoReviews => 'No reviews';
+  @override String get doctorRating => 'Rating';
+  @override String get doctorClinic => 'Clinic';
+  @override String get doctorYears => 'years of experience';
+
+  // ── Doctor dashboard ────────────────────────────────────────────────────────────
+  @override String get dashDoctorTitle => 'Doctor panel';
+  @override String get dashDoctorToday => 'Today';
+  @override String get dashDoctorPatients => 'Patients';
+  @override String get dashDoctorSchedule => 'Schedule';
+  @override String get dashDoctorNoAppointments => 'No appointments today';
+  @override String get dashDoctorComplete => 'Complete appointment';
+  @override String get dashDoctorCompleteConfirm => 'Mark the appointment as completed?';
+
+  // ── Admin dashboard ─────────────────────────────────────────────────────────────
+  @override String get dashAdminTitle => 'Admin panel';
+  @override String get dashAdminClinics => 'Clinics';
+  @override String get dashAdminDoctors => 'Doctors';
+  @override String get dashAdminPatients => 'Patients';
+  @override String get dashAdminAppointments => 'Appointments';
+  @override String get dashAdminAddDoctor => 'Add doctor';
+  @override String get dashAdminRemoveDoctor => 'Remove doctor';
+  @override String get dashAdminGenerateQr => 'Generate QR';
+  @override String get dashAdminQrExpiry => 'QR valid for 5 minutes';
+  @override String get dashAdminFines => 'Fines';
+  @override String get dashAdminIssueFine => 'Issue fine';
+  @override String get dashAdminStats => 'Statistics';
+
+  // ── Superadmin ──────────────────────────────────────────────────────────────────
+  @override String get dashSuperTitle => 'Superadmin';
+  @override String get dashSuperUsers => 'Users';
+  @override String get dashSuperClinics => 'Clinics';
+  @override String get dashSuperCreateClinic => 'Create clinic';
+  @override String get dashSuperCreateAdmin => 'Create admin';
+  @override String get dashSuperDeactivate => 'Deactivate';
+  @override String get dashSuperActivate => 'Activate';
+
+  // ── Support manager ─────────────────────────────────────────────────────────────
+  @override String get dashSupportTitle => 'Support manager';
+  @override String get dashSupportTickets => 'Tickets';
+  @override String get dashSupportClose => 'Close ticket';
+  @override String get dashSupportReply => 'Reply';
+  @override String get dashSupportOpen => 'Open';
+  @override String get dashSupportClosed => 'Closed';
+
+  // ── Review ──────────────────────────────────────────────────────────────────────
+  @override String get reviewTitle => 'Leave a review';
+  @override String get reviewRating => 'Rating';
+  @override String get reviewComment => 'Comment';
+  @override String get reviewSubmit => 'Submit review';
+  @override String get reviewSuccess => 'Review submitted!';
+  @override String get reviewCommentHint => 'Write about your experience...';
+  @override String get reviewAnonymous => 'Anonymous review';
+
+  // ── Roles ───────────────────────────────────────────────────────────────────────
+  @override String get rolePatient => 'Patient';
+  @override String get roleDoctor => 'Doctor';
+  @override String get roleAdmin => 'Administrator';
+  @override String get roleSuperadmin => 'Superadmin';
+  @override String get roleSupportManager => 'Support manager';
+
+  // ── Language ────────────────────────────────────────────────────────────────
+  @override String get languageTitle => 'Language';
+  @override String get languageRussian => 'Русский';
+  @override String get languageKazakh => 'Қазақша';
+  @override String get languageEnglish => 'English';
+
+  // ── Home greetings / extra ────────────────────────────────────────────────────
+  @override String get homeMorning => 'Good morning 👋';
+  @override String get homeAfternoon => 'Good afternoon 👋';
+  @override String get homeEvening => 'Good evening 👋';
+  @override String get homeLoadError => 'Loading error';
+  @override String get homeTryAnother => 'Try another query';
+
+  // ── Support extra ─────────────────────────────────────────────────────────────
+  @override String get supportNewThread => 'New request';
+  @override String get supportSent => 'Message sent ✓';
+  @override String get supportDescribe => 'Describe your problem — an administrator will contact you.';
+  @override String get supportYourReply => 'Your reply…';
+  @override String get supportBackToChat => 'Back to conversation';
+  @override String get supportThread => 'Request';
+  @override String get supportCatRecord => 'Appointment';
+  @override String get supportCatPayment => 'Payment';
+  @override String get supportCatDocuments => 'Documents';
+  @override String get supportCatComplaint => 'Complaint';
+  @override String get supportCatOther => 'Other';
+
+  // ── Profile extra ─────────────────────────────────────────────────────────────
+  @override String get profilePasswordChanged => 'Password changed ✓';
+  @override String get profileUpdated => 'Profile updated ✓';
 }

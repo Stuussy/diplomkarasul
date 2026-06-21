@@ -18,8 +18,9 @@ class SupportScreen extends StatefulWidget {
 class _SupportScreenState extends State<SupportScreen> {
   final _newThreadController = TextEditingController();
   final _replyController = TextEditingController();
-  final List<String> _categories = const ['Запись', 'Оплата', 'Документы', 'Жалоба', 'Другое'];
-  String _selectedCategory = 'Запись';
+  // Канонические значения для бэкенда (не меняются от языка).
+  static const List<String> _categoryValues = ['Запись', 'Оплата', 'Документы', 'Жалоба', 'Другое'];
+  int _selectedCategoryIndex = 0;
   bool _isSending = false;
   bool _isReplying = false;
   bool _creatingNewThread = false;
@@ -56,12 +57,12 @@ class _SupportScreenState extends State<SupportScreen> {
     try {
       await api.sendSupportMessage(
         _newThreadController.text.trim(),
-        category: _selectedCategory,
+        category: _categoryValues[_selectedCategoryIndex],
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Сообщение отправлено ✓'),
+          content: Text(context.sRead.supportSent),
           backgroundColor: ClinicTheme.mint,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -104,18 +105,19 @@ class _SupportScreenState extends State<SupportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return Scaffold(
       backgroundColor: ClinicTheme.mist,
       appBar: AppBar(
-        title: const Text('Поддержка'),
+        title: Text(s.supportTitle),
         actions: [
           IconButton(
-            tooltip: 'Обновить',
+            tooltip: s.refresh,
             onPressed: _refreshThreads,
             icon: const Icon(LucideIcons.refreshCcw, size: 20),
           ),
           IconButton(
-            tooltip: 'Новое обращение',
+            tooltip: s.supportNewThread,
             onPressed: () => setState(() => _creatingNewThread = true),
             icon: const Icon(LucideIcons.plusCircle, size: 22),
           ),
@@ -127,7 +129,7 @@ class _SupportScreenState extends State<SupportScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Ошибка: ${snapshot.error}'));
+            return Center(child: Text('${s.error}: ${snapshot.error}'));
           }
 
           final threads = snapshot.data ?? [];
@@ -173,7 +175,7 @@ class _SupportScreenState extends State<SupportScreen> {
                         .map((thread) => DropdownMenuItem<String>(
                               value: thread.id,
                               child: Text(
-                                'Обращение ${thread.id.substring(0, 6)} • ${thread.status}',
+                                '${s.supportThread} ${thread.id.substring(0, 6)} • ${thread.status}',
                                 style: Theme.of(context).textTheme.bodyMedium,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -217,7 +219,7 @@ class _SupportScreenState extends State<SupportScreen> {
                         minLines: 1,
                         maxLines: 3,
                         decoration: InputDecoration(
-                          hintText: 'Ваш ответ…',
+                          hintText: s.supportYourReply,
                           filled: true,
                           fillColor: ClinicTheme.mist,
                           border: OutlineInputBorder(
@@ -262,6 +264,14 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   Widget _buildNewThreadForm() {
+    final s = context.s;
+    final categoryLabels = <String>[
+      s.supportCatRecord,
+      s.supportCatPayment,
+      s.supportCatDocuments,
+      s.supportCatComplaint,
+      s.supportCatOther,
+    ];
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.opaque,
@@ -273,23 +283,23 @@ class _SupportScreenState extends State<SupportScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
           Text(
-            'Опишите вашу проблему — администратор свяжется с вами.',
+            s.supportDescribe,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 20),
 
           // Category chips
-          Text('Категория', style: Theme.of(context).textTheme.titleMedium),
+          Text(s.supportCategories, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _categories.map((cat) {
-              final selected = cat == _selectedCategory;
+            children: List.generate(categoryLabels.length, (i) {
+              final selected = i == _selectedCategoryIndex;
               return GestureDetector(
                 onTap: () {
                   HapticFeedback.selectionClick();
-                  setState(() => _selectedCategory = cat);
+                  setState(() => _selectedCategoryIndex = i);
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
@@ -300,7 +310,7 @@ class _SupportScreenState extends State<SupportScreen> {
                     border: selected ? null : Border.all(color: ClinicTheme.mist),
                   ),
                   child: Text(
-                    cat,
+                    categoryLabels[i],
                     style: TextStyle(
                       color: selected ? Colors.white : ClinicTheme.midnight,
                       fontWeight: FontWeight.w600,
@@ -309,7 +319,7 @@ class _SupportScreenState extends State<SupportScreen> {
                   ),
                 ),
               );
-            }).toList(),
+            }),
           ),
 
           const SizedBox(height: 20),
@@ -317,7 +327,7 @@ class _SupportScreenState extends State<SupportScreen> {
             controller: _newThreadController,
             maxLines: 6,
             decoration: InputDecoration(
-              hintText: 'Напишите сообщение…',
+              hintText: s.supportHint,
               filled: true,
               fillColor: ClinicTheme.snow,
               border: OutlineInputBorder(
@@ -338,7 +348,7 @@ class _SupportScreenState extends State<SupportScreen> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Отправить'),
+                  : Text(s.send),
             ),
           ),
           if (_creatingNewThread) ...[
@@ -350,7 +360,7 @@ class _SupportScreenState extends State<SupportScreen> {
                   setState(() => _creatingNewThread = false);
                   _threadsFuture = _loadThreads();
                 },
-                child: const Text('Вернуться к переписке'),
+                child: Text(s.supportBackToChat),
               ),
             ),
           ],
@@ -376,7 +386,7 @@ class _ChatHistory extends StatelessWidget {
           children: [
             Icon(LucideIcons.messageCircle, size: 40, color: ClinicTheme.slate),
             const SizedBox(height: 8),
-            Text('Нет сообщений', style: Theme.of(context).textTheme.bodySmall),
+            Text(context.s.supportEmpty, style: Theme.of(context).textTheme.bodySmall),
           ],
         ),
       );

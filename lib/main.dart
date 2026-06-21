@@ -40,6 +40,7 @@ class DentalApp extends StatelessWidget {
             supportedLocales: const [
               Locale('ru'),
               Locale('kk'),
+              Locale('en'),
             ],
             localizationsDelegates: const [
               GlobalMaterialLocalizations.delegate,
