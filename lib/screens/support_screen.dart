@@ -23,7 +23,7 @@ class _SupportScreenState extends State<SupportScreen> {
   bool _isSending = false;
   bool _isReplying = false;
   bool _creatingNewThread = false;
-  SupportMessage? _selectedThread;
+  String? _selectedThreadId; // храним только id, не объект
   late Future<List<SupportMessage>> _threadsFuture;
 
   @override
@@ -45,17 +45,7 @@ class _SupportScreenState extends State<SupportScreen> {
 
   /// Перезагрузить переписку, чтобы увидеть новые ответы менеджера.
   Future<void> _refreshThreads() async {
-    final future = _loadThreads();
-    setState(() => _threadsFuture = future);
-    try {
-      final threads = await future;
-      if (!mounted || _selectedThread == null) return;
-      // Обновляем выбранную ветку свежими данными (новыми сообщениями)
-      final fresh = threads.where((t) => t.id == _selectedThread!.id);
-      if (fresh.isNotEmpty) setState(() => _selectedThread = fresh.first);
-    } catch (_) {
-      // ошибку покажет FutureBuilder
-    }
+    setState(() => _threadsFuture = _loadThreads());
   }
 
   Future<void> _sendNewThread() async {
@@ -80,7 +70,7 @@ class _SupportScreenState extends State<SupportScreen> {
       _newThreadController.clear();
       setState(() {
         _creatingNewThread = false;
-        _selectedThread = null;
+        _selectedThreadId = null; // при перезагрузке выберем первый
         _threadsFuture = _loadThreads();
       });
     } catch (error) {
@@ -92,20 +82,18 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   Future<void> _sendReply() async {
-    if (_selectedThread == null || _replyController.text.trim().isEmpty) return;
+    if (_selectedThreadId == null || _replyController.text.trim().isEmpty) return;
     setState(() => _isReplying = true);
     HapticFeedback.lightImpact();
     final api = context.read<SessionProvider>().apiService;
     try {
       await api.replySupportMessage(
-        messageId: _selectedThread!.id,
+        messageId: _selectedThreadId!,
         content: _replyController.text.trim(),
       );
       if (!mounted) return;
       _replyController.clear();
-      setState(() {
-        _threadsFuture = _loadThreads();
-      });
+      setState(() => _threadsFuture = _loadThreads());
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
@@ -147,15 +135,14 @@ class _SupportScreenState extends State<SupportScreen> {
             return _buildNewThreadForm();
           }
 
-          _selectedThread ??= threads.first;
-          // Всегда синхронизируем _selectedThread с объектом из текущего
-          // списка по id — иначе после перезагрузки Dropdown падает,
-          // потому что value указывает на старый экземпляр которого нет в items.
-          final selectedId = _selectedThread!.id;
-          _selectedThread = threads.firstWhere(
-            (t) => t.id == selectedId,
-            orElse: () => threads.first,
-          );
+          // Синхронизируем выбранный id: если нет — берём первый поток.
+          // Используем String-id вместо объекта, чтобы избежать краша
+          // DropdownButton из-за reference equality после перезагрузки списка.
+          _selectedThreadId ??= threads.first.id;
+          if (!threads.any((t) => t.id == _selectedThreadId)) {
+            _selectedThreadId = threads.first.id;
+          }
+          final selectedThread = threads.firstWhere((t) => t.id == _selectedThreadId);
 
           return Column(
             children: [
@@ -169,13 +156,13 @@ class _SupportScreenState extends State<SupportScreen> {
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: ClinicTheme.shadowSm,
                   ),
-                  child: DropdownButton<SupportMessage>(
-                    value: _selectedThread,
+                  child: DropdownButton<String>(
+                    value: _selectedThreadId,
                     isExpanded: true,
                     underline: const SizedBox.shrink(),
                     items: threads
                         .map((thread) => DropdownMenuItem(
-                              value: thread,
+                              value: thread.id,
                               child: Text(
                                 'Обращение ${thread.id.substring(0, 6)} • ${thread.status}',
                                 style: Theme.of(context).textTheme.bodyMedium,
@@ -184,7 +171,7 @@ class _SupportScreenState extends State<SupportScreen> {
                         .toList(),
                     onChanged: (value) {
                       if (value == null) return;
-                      setState(() => _selectedThread = value);
+                      setState(() => _selectedThreadId = value);
                     },
                   ),
                 ),
@@ -194,9 +181,7 @@ class _SupportScreenState extends State<SupportScreen> {
 
               // Chat
               Expanded(
-                child: _selectedThread == null
-                    ? const SizedBox.shrink()
-                    : _ChatHistory(thread: _selectedThread!),
+                child: _ChatHistory(thread: selectedThread),
               ),
 
               // Input bar
