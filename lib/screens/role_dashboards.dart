@@ -557,7 +557,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   TimeOfDay? _slotStart;
   TimeOfDay? _slotEnd;
   bool _seedingSlots = false;
-  DateTime _seedUntil = DateTime(2026, 6, 10);
+  // По умолчанию — на 30 дней вперёд от сегодня (не хардкод прошлой даты).
+  DateTime _seedUntil = DateTime.now().add(const Duration(days: 30));
 
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -745,11 +746,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Future<void> _pickSeedUntil() async {
     final now = DateTime.now();
+    // initialDate обязан быть >= firstDate, иначе showDatePicker падает.
+    final initial = _seedUntil.isBefore(now)
+        ? now.add(const Duration(days: 30))
+        : _seedUntil;
     final result = await showDatePicker(
       context: context,
-      initialDate: _seedUntil,
+      initialDate: initial,
       firstDate: now,
-      lastDate: now.add(const Duration(days: 180)),
+      lastDate: now.add(const Duration(days: 365)),
     );
     if (result != null) setState(() => _seedUntil = result);
   }

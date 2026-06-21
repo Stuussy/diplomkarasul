@@ -45,7 +45,7 @@ class _SupportScreenState extends State<SupportScreen> {
 
   /// Перезагрузить переписку, чтобы увидеть новые ответы менеджера.
   Future<void> _refreshThreads() async {
-    setState(() => _threadsFuture = _loadThreads());
+    setState(() { _threadsFuture = _loadThreads(); });
   }
 
   Future<void> _sendNewThread() async {
@@ -93,7 +93,7 @@ class _SupportScreenState extends State<SupportScreen> {
       );
       if (!mounted) return;
       _replyController.clear();
-      setState(() => _threadsFuture = _loadThreads());
+      setState(() { _threadsFuture = _loadThreads(); });
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));

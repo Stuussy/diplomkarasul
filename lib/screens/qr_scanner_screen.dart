@@ -122,7 +122,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
               onRetry: () async {
                 final result = await _requestPermission();
                 if (!mounted) return;
-                setState(() => _permissionFuture = Future.value(result));
+                setState(() { _permissionFuture = Future.value(result); });
               },
               canOpenSettings: _permissionPermanentlyDenied,
             );
