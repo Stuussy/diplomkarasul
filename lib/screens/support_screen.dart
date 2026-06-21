@@ -135,14 +135,22 @@ class _SupportScreenState extends State<SupportScreen> {
             return _buildNewThreadForm();
           }
 
-          // Синхронизируем выбранный id: если нет — берём первый поток.
+          // Убираем возможные дубликаты по id (на случай повторов с сервера) —
+          // иначе DropdownButton падает, если два item с одинаковым value.
+          final uniqueThreads = <String, SupportMessage>{};
+          for (final t in threads) {
+            uniqueThreads.putIfAbsent(t.id, () => t);
+          }
+          final threadList = uniqueThreads.values.toList();
+
+          // Синхронизируем выбранный id: если нет в списке — берём первый.
           // Используем String-id вместо объекта, чтобы избежать краша
           // DropdownButton из-за reference equality после перезагрузки списка.
-          _selectedThreadId ??= threads.first.id;
-          if (!threads.any((t) => t.id == _selectedThreadId)) {
-            _selectedThreadId = threads.first.id;
+          if (_selectedThreadId == null ||
+              !uniqueThreads.containsKey(_selectedThreadId)) {
+            _selectedThreadId = threadList.first.id;
           }
-          final selectedThread = threads.firstWhere((t) => t.id == _selectedThreadId);
+          final selectedThread = uniqueThreads[_selectedThreadId]!;
 
           return Column(
             children: [
@@ -159,13 +167,15 @@ class _SupportScreenState extends State<SupportScreen> {
                   child: DropdownButton<String>(
                     value: _selectedThreadId,
                     isExpanded: true,
+                    isDense: true,
                     underline: const SizedBox.shrink(),
-                    items: threads
-                        .map((thread) => DropdownMenuItem(
+                    items: threadList
+                        .map((thread) => DropdownMenuItem<String>(
                               value: thread.id,
                               child: Text(
                                 'Обращение ${thread.id.substring(0, 6)} • ${thread.status}',
                                 style: Theme.of(context).textTheme.bodyMedium,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ))
                         .toList(),
