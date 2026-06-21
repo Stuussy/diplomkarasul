@@ -453,7 +453,7 @@ class _BrandHeader extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'RasulDent Clinic',
+          'AIDent Clinic',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: ClinicTheme.midnight,
                 fontWeight: FontWeight.w700,
