@@ -97,14 +97,13 @@ class _SupportScreenState extends State<SupportScreen> {
     HapticFeedback.lightImpact();
     final api = context.read<SessionProvider>().apiService;
     try {
-      final updated = await api.replySupportMessage(
+      await api.replySupportMessage(
         messageId: _selectedThread!.id,
         content: _replyController.text.trim(),
       );
       if (!mounted) return;
       _replyController.clear();
       setState(() {
-        _selectedThread = updated;
         _threadsFuture = _loadThreads();
       });
     } catch (error) {
@@ -149,6 +148,14 @@ class _SupportScreenState extends State<SupportScreen> {
           }
 
           _selectedThread ??= threads.first;
+          // Всегда синхронизируем _selectedThread с объектом из текущего
+          // списка по id — иначе после перезагрузки Dropdown падает,
+          // потому что value указывает на старый экземпляр которого нет в items.
+          final selectedId = _selectedThread!.id;
+          _selectedThread = threads.firstWhere(
+            (t) => t.id == selectedId,
+            orElse: () => threads.first,
+          );
 
           return Column(
             children: [
