@@ -262,11 +262,16 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   Widget _buildNewThreadForm() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Text(
             'Опишите вашу проблему — администратор свяжется с вами.',
             style: Theme.of(context).textTheme.bodyMedium,
@@ -349,9 +354,10 @@ class _SupportScreenState extends State<SupportScreen> {
               ),
             ),
           ],
-        ],
-      ),
-    );
+          ],
+          ),
+        ),
+      );
   }
 }
 
@@ -376,6 +382,7 @@ class _ChatHistory extends StatelessWidget {
       );
     }
     return ListView.builder(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       itemCount: history.length,
       itemBuilder: (context, index) {
